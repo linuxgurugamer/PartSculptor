@@ -43,18 +43,15 @@ namespace PartSculptor
                 loaded = true;
                 try
                 {
-                    string legacyPath = Path.Combine(KSPUtil.ApplicationRootPath,
-                        "GameData/StretchScale/PluginData/UserSettings.cfg");
-                    string path = File.Exists(UserSettingsPath) ? UserSettingsPath : legacyPath;
-                    if (File.Exists(path))
+                    if (File.Exists(UserSettingsPath))
                     {
-                        ConfigNode root = ConfigNode.Load(path);
+                        ConfigNode root = ConfigNode.Load(UserSettingsPath);
                         if (root != null)
                         {
                             ConfigNode n = root.name == NodeName ? root : root.GetNode(NodeName);
                             if (n == null)
-                                n = root.name == "STRETCHSCALE_USER_SETTINGS" ? root :
-                                    root.GetNode("STRETCHSCALE_USER_SETTINGS");
+                                n = root.name == "PARTSCULPTOR_USER_SETTINGS" ? root :
+                                    root.GetNode("PARTSCULPTOR_USER_SETTINGS");
                             if (n != null)
                             {
                                 bool parsed;
@@ -139,9 +136,9 @@ namespace PartSculptor
                 Settings.LockProportionsDefault = lockValue;
                 Settings.LockMorphXZDefault = morphLockValue;
                 // Immediately update the shared editor option as well. Every
-                // ModuleStretchScale PAW synchronizes from this flag in Update.
-                ModuleStretchScale.MatchNodeSizesGlobal = matchValue;
-                ModuleStretchScale.ScaleChildrenGlobal = childrenValue;
+                // ModulePartSculptor PAW synchronizes from this flag in Update.
+                ModulePartSculptor.MatchNodeSizesGlobal = matchValue;
+                ModulePartSculptor.ScaleChildrenGlobal = childrenValue;
                 return true;
             }
             catch (Exception e)

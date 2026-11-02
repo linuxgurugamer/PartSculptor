@@ -47,13 +47,11 @@ namespace PartSculptor
         // face again, while attach nodes (rebuilt from prefab) rotate only
         // once. Always recover the unmodified prefab mesh for a copied morph.
         private const string MorphMeshPrefix = "PartSculptor face morph ";
-        private const string LegacyMorphMeshPrefix = "StretchScale face morph ";
 
         private static bool IsMorphInstance(Mesh mesh)
         {
             return mesh != null && mesh.name != null &&
-                (mesh.name.StartsWith(MorphMeshPrefix, StringComparison.Ordinal) ||
-                 mesh.name.StartsWith(LegacyMorphMeshPrefix, StringComparison.Ordinal));
+                (mesh.name.StartsWith(MorphMeshPrefix, StringComparison.Ordinal) );
         }
 
         // Resolve the same transform in the prefab by name and occurrence
@@ -126,11 +124,7 @@ namespace PartSculptor
             return name.StartsWith(MorphMeshPrefix +
                     "PartSculptor box collision baseline", StringComparison.Ordinal) ||
                 name.StartsWith(MorphMeshPrefix +
-                    "PartSculptor round collision baseline", StringComparison.Ordinal) ||
-                name.StartsWith(LegacyMorphMeshPrefix +
-                    "StretchScale box collision baseline", StringComparison.Ordinal) ||
-                name.StartsWith(LegacyMorphMeshPrefix +
-                    "StretchScale round collision baseline", StringComparison.Ordinal);
+                    "PartSculptor round collision baseline", StringComparison.Ordinal);
         }
 
         private void RestoreCopiedPrimitiveColliders()

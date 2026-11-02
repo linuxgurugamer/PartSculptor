@@ -74,7 +74,7 @@ namespace PartSculptor
         bool selectionQueued;
         // Open/close the preset editor in Update, outside any IMGUI event, so
         // its PartModule host does not gain/lose controls between passes.
-        ModuleStretchScale queuedPresetEditorOwner;
+        ModulePartSculptor queuedPresetEditorOwner;
         bool presetEditorToggleQueued;
         bool settingsToggleQueued;
         readonly ScaleSettingsWindow settingsWindow = new ScaleSettingsWindow();
@@ -121,7 +121,7 @@ namespace PartSculptor
             // desynchronize this window and the separate PartModule.OnGUI host.
             if (presetEditorToggleQueued)
             {
-                ModuleStretchScale target = queuedPresetEditorOwner;
+                ModulePartSculptor target = queuedPresetEditorOwner;
                 presetEditorToggleQueued = false;
                 queuedPresetEditorOwner = null;
                 if (visible && HighLogic.LoadedSceneIsEditor &&
@@ -421,11 +421,11 @@ namespace PartSculptor
         // throws control-count exceptions if the part list or selected panel
         // changes on MouseUp/Repaint rather than at the next Layout event.
         // A part is scaled only if at least one stretch axis differs from its
-        // unscaled (1x) value. Merely having ModuleStretchScale is insufficient.
+        // unscaled (1x) value. Merely having ModulePartSculptor is insufficient.
         static bool HasChangedScale(Part part)
         {
             if (part == null) return false;
-            ModuleStretchScale scale = part.FindModuleImplementing<ModuleStretchScale>();
+            ModulePartSculptor scale = part.FindModuleImplementing<ModulePartSculptor>();
             if (scale == null) return false;
             const float epsilon = 0.0001f;
             return Mathf.Abs(scale.scaleX - 1f) > epsilon ||
@@ -475,7 +475,7 @@ namespace PartSculptor
                 Part preferred = null;
                 foreach (Part p in parts)
                 {
-                    if (p.FindModuleImplementing<ModuleStretchScale>() != null)
+                    if (p.FindModuleImplementing<ModulePartSculptor>() != null)
                     {
                         preferred = p;
                         break;
@@ -638,8 +638,8 @@ namespace PartSculptor
                 // currently selected in the inspector rather than a PAW event.
                 if (HighLogic.LoadedSceneIsEditor)
                 {
-                    ModuleStretchScale target = selectedPart != null
-                        ? selectedPart.FindModuleImplementing<ModuleStretchScale>()
+                    ModulePartSculptor target = selectedPart != null
+                        ? selectedPart.FindModuleImplementing<ModulePartSculptor>()
                         : null;
                     bool previousEnabled = GUI.enabled;
                     GUI.enabled = previousEnabled && target != null;
@@ -663,7 +663,7 @@ namespace PartSculptor
             using (new GUILayout.HorizontalScope(GUILayout.ExpandHeight(true)))
             {
 
-                // Left: every part (including ones without ModuleStretchScale).
+                // Left: every part (including ones without ModulePartSculptor).
                 using (new GUILayout.VerticalScope(GUI.skin.box, GUILayout.Width(leftWidth),
                     GUILayout.ExpandHeight(true)))
                 {
@@ -698,12 +698,12 @@ namespace PartSculptor
                             : "No craft or vessel loaded.");
                     foreach (Part part in parts)
                     {
-                        bool hasScale = part.FindModuleImplementing<ModuleStretchScale>() != null;
+                        bool hasScale = part.FindModuleImplementing<ModulePartSculptor>() != null;
                         string title = DisplayName(part);
                         string note = hasScale ? "" : " (no PartSculptor)";
                         GUIStyle buttonStyle = part == selectedPart ? GUI.skin.box : GUI.skin.button;
                         if (GUILayout.Button(new GUIContent(title + note,
-                                part.name + (hasScale ? "" : "\nThis part has no ModuleStretchScale")),
+                                part.name + (hasScale ? "" : "\nThis part has no ModulePartSculptor")),
                                 buttonStyle, GUILayout.ExpandWidth(true)))
                         {
                             // Defer the selection so the right pane has the same
@@ -729,11 +729,11 @@ namespace PartSculptor
                         GUILayout.Label("Select a part on the left.");
                     else
                     {
-                        ModuleStretchScale module = selectedPart.FindModuleImplementing<ModuleStretchScale>();
+                        ModulePartSculptor module = selectedPart.FindModuleImplementing<ModulePartSculptor>();
                         if (module == null)
                         {
                             GUILayout.Label(DisplayName(selectedPart));
-                            GUILayout.Label("This part does not contain ModuleStretchScale. " +
+                            GUILayout.Label("This part does not contain ModulePartSculptor. " +
                                 "No PartSculptor changes are available to inspect.");
                         }
                         else

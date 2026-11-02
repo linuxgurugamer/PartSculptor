@@ -51,28 +51,6 @@ namespace PartSculptor
                     }
                 }
                 else Debug.LogWarning("[PartSculptor] Default presets not found: " + BuiltInPath);
-                string legacyCustom = Path.Combine(KSPUtil.ApplicationRootPath,
-                    "GameData/StretchScale/PluginData/CustomPresets.cfg");
-                string customLoadPath = File.Exists(CustomPath) ? CustomPath : legacyCustom;
-                if (File.Exists(customLoadPath))
-                {
-                    ConfigNode root = ConfigNode.Load(customLoadPath);
-                    if (root != null)
-                    {
-                        // ConfigNode.Load may return a named root or a root
-                        // containing STRETCHSCALE_CUSTOM_PRESETS as its child.
-                        if (root.name == "PARTSCULPTOR_CUSTOM_PRESETS" ||
-                            root.name == "STRETCHSCALE_CUSTOM_PRESETS")
-                            ReadDefinitions(root, custom, false);
-                        else
-                        {
-                            foreach (ConfigNode n in root.GetNodes("PARTSCULPTOR_CUSTOM_PRESETS"))
-                                ReadDefinitions(n, custom, false);
-                            foreach (ConfigNode n in root.GetNodes("STRETCHSCALE_CUSTOM_PRESETS"))
-                                ReadDefinitions(n, custom, false);
-                        }
-                    }
-                }
             }
             catch (Exception e)
             {
@@ -241,7 +219,7 @@ namespace PartSculptor
                 custom.Clear(); custom.AddRange(backup);
                 return false;
             }
-            ModuleStretchScale.RefreshPresetOptionsAll();
+            ModulePartSculptor.RefreshPresetOptionsAll();
             return true;
         }
 
@@ -265,7 +243,7 @@ namespace PartSculptor
                 custom.Clear(); custom.AddRange(backup);
                 return false;
             }
-            ModuleStretchScale.RefreshPresetOptionsAll();
+            ModulePartSculptor.RefreshPresetOptionsAll();
             return true;
         }
 

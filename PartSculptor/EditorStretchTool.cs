@@ -1,5 +1,5 @@
 // Fifth and sixth VAB/SPH editor tools: Stretch (axis scaling) and Morph
-// (independent end-face deformation). Both use ModuleStretchScale's existing
+// (independent end-face deformation). Both use ModulePartSculptor's existing
 // commit/validation pipeline rather than manipulating craft parts directly.
 // Runtime UI discovery avoids relying on private KSP editor prefab fields.
 using System;
@@ -50,7 +50,7 @@ namespace PartSculptor
         private bool modeActive;
         private bool faceMode;
         private string faceStatus = "";
-        private ModuleStretchScale selectedModule;
+        private ModulePartSculptor selectedModule;
         private bool hasLock;
         private bool nativeModeKnown;
         private ConstructionMode nativeModeOnActivation;
@@ -130,7 +130,7 @@ namespace PartSculptor
                 return;
             Part clicked = PickPart(mouse);
             if (clicked == null) return;
-            ModuleStretchScale module = clicked.FindModuleImplementing<ModuleStretchScale>();
+            ModulePartSculptor module = clicked.FindModuleImplementing<ModulePartSculptor>();
             string partTitle = clicked.partInfo != null ? clicked.partInfo.title : clicked.name;
             if (module == null || !module.CanUseScaleGizmo)
             {

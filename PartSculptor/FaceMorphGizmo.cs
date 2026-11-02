@@ -22,7 +22,7 @@ namespace PartSculptor
             {4,6},{5,7},{4,5},{6,7}
         };
         private static FaceMorphGizmo active;
-        private readonly ModuleStretchScale module;
+        private readonly ModulePartSculptor module;
         private readonly GameObject root;
         private readonly Material[] materials = new Material[2];
         private readonly Transform[] corners = new Transform[8];
@@ -51,7 +51,7 @@ namespace PartSculptor
 
         internal static bool IsDragging { get { return active != null && active.dragging >= 0; } }
 
-        internal static void Show(ModuleStretchScale owner)
+        internal static void Show(ModulePartSculptor owner)
         {
             if (active != null && active.module == owner) return;
             Hide();
@@ -64,9 +64,9 @@ namespace PartSculptor
                 Debug.LogWarning("[PartSculptor] Face morph is not supported for " +
                     (owner.part != null ? owner.part.name : "unknown part"));
         }
-        internal static bool IsFor(ModuleStretchScale owner)
+        internal static bool IsFor(ModulePartSculptor owner)
         { return active != null && active.module == owner; }
-        internal static void HideFor(ModuleStretchScale owner)
+        internal static void HideFor(ModulePartSculptor owner)
         { if (IsFor(owner)) Hide(); }
         internal static void Hide()
         {
@@ -75,7 +75,7 @@ namespace PartSculptor
             active = null;
             old.Dispose();
         }
-        internal static void UpdateFor(ModuleStretchScale owner)
+        internal static void UpdateFor(ModulePartSculptor owner)
         { if (IsFor(owner)) active.Update(); }
         // Draw from the editor addon, which receives OnGUI even if KSP does
         // not forward IMGUI callbacks to a PartModule on the selected part.
@@ -109,7 +109,7 @@ namespace PartSculptor
             return false;
         }
 
-        private FaceMorphGizmo(ModuleStretchScale owner)
+        private FaceMorphGizmo(ModulePartSculptor owner)
         {
             module = owner;
             root = new GameObject("PartSculptor face morph handles");
@@ -550,9 +550,9 @@ namespace PartSculptor
                     return;
                 }
                 DrawHelpBox(helpRect,
-                    "Face morph: corners = X/Z taper, edge midpoints = one axis; " +
-                    "Alt = tilt; Shift = snap; " +
-                    "Shift+Alt = move face; Ctrl+Alt = radial resize; " +
+                    "Face morph: corners = X/Z taper, edge midpoints = one axis;\n" +
+                    "Alt = tilt; Shift = snap;\n" +
+                    "Shift+Alt = move face; Ctrl+Alt = radial resize;\n" +
                     "Ctrl+Alt+Shift = radial snap; Lock X/Z = " +
                     (module.lockMorphXZ ? "On" : "Off") + " (part PAW)");
                 return;

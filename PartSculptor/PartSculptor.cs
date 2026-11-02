@@ -192,7 +192,7 @@ namespace PartSculptor
         internal float maxVolume;
     }
 
-    public class ModuleStretchScale : PartModule, IPartMassModifier, IPartCostModifier
+    public class ModulePartSculptor : PartModule, IPartMassModifier, IPartCostModifier
     {
         const string GROUP = "PartSculptor";
         const string GROUP_TITLE = "PartSculptor";
@@ -403,10 +403,10 @@ namespace PartSculptor
         // Only one editor event subscription for the entire mod, regardless
         // of craft part count. A second (usually small) set contains tanks
         // whose module can rewrite resource capacities.
-        static readonly HashSet<ModuleStretchScale> editorModules =
-            new HashSet<ModuleStretchScale>();
-        static readonly HashSet<ModuleStretchScale> dynamicEditorModules =
-            new HashSet<ModuleStretchScale>();
+        static readonly HashSet<ModulePartSculptor> editorModules =
+            new HashSet<ModulePartSculptor>();
+        static readonly HashSet<ModulePartSculptor> dynamicEditorModules =
+            new HashSet<ModulePartSculptor>();
 
         // KSP's EventData.Add does not accept static method delegates:
         // its internal EvtDelegate constructor dereferences delegate.Target.
@@ -428,13 +428,13 @@ namespace PartSculptor
         // Legacy saves store the total multiplier, not just nonuniform stretch.
         // Saved explicitly in OnSave/OnLoad; double is not a reliable KSPField.
         public double lastAppliedResourceVolume = 1d;
-        const string RESOURCE_NODE = "STRETCHSCALE_RESOURCE";
-        const string B9_RESOURCE_NODE = "STRETCHSCALE_B9_RESOURCE";
-        const string B9_VOLUME_NODE = "STRETCHSCALE_B9_BASE_VOLUME";
+        const string RESOURCE_NODE = "PARTSCULPTOR_RESOURCE";
+        const string B9_RESOURCE_NODE = "PARTSCULPTOR_B9_RESOURCE";
+        const string B9_VOLUME_NODE = "PARTSCULPTOR_B9_BASE_VOLUME";
         // Baseline per B9 switcher, independent of selected subtype.
         readonly Dictionary<string, double> b9BaseVolumes =
             new Dictionary<string, double>(StringComparer.Ordinal);
-        const string B9_NODE_BASELINE = "STRETCHSCALE_B9_NODE";
+        const string B9_NODE_BASELINE = "PARTSCULPTOR_B9_NODE";
         sealed class B9NodeData
         {
             public Vector3 position;
@@ -484,7 +484,7 @@ namespace PartSculptor
         // Non-B9 tank switchers own their native contents. Persist separate
         // native capacities for every selected tank configuration so repeated
         // A -> B -> A switches and craft reloads cannot compound stretching.
-        const string FUEL_SWITCH_RESOURCE_NODE = "STRETCHSCALE_FUEL_SWITCH_RESOURCE";
+        const string FUEL_SWITCH_RESOURCE_NODE = "PARTSCULPTOR_FUEL_SWITCH_RESOURCE";
         readonly Dictionary<string, double> fuelSwitchResourceBases =
             new Dictionary<string, double>(StringComparer.Ordinal);
         FuelSwitchSupport fuelSwitchSupport;
@@ -499,7 +499,7 @@ namespace PartSculptor
             return (b9Signature ?? "") + "@" + (fuelSwitchSignature ?? "");
         }
 
-        const string EXPONENT_BASE_NODE = "STRETCHSCALE_EXPONENT_BASE";
+        const string EXPONENT_BASE_NODE = "PARTSCULPTOR_EXPONENT_BASE";
         // Per-binding native values are saved separately from stretched live
         // values so every edit is based on the original field, not the result
         // of the previous edit (also after editor reload or craft copy).
@@ -785,7 +785,7 @@ namespace PartSculptor
             // Known resource switchers only. Stock tanks get a direct
             // OnPartResourceChanged callback; optionally include all tanks
             // using checkAllResourcesPeriodically in Settings.cfg.
-            foreach (ModuleStretchScale module in dynamicEditorModules)
+            foreach (ModulePartSculptor module in dynamicEditorModules)
                 if (module != null && module.initialized)
                     module.resourceCheckPending = true;
         }
@@ -1186,16 +1186,16 @@ namespace PartSculptor
             // that float-edit widget instead of leaving its input text stale.
             PushToSymmetry(string.IsNullOrEmpty(limitWarning) ? skipLocal : null);
 
-            var roots = new List<ModuleStretchScale> { this };
+            var roots = new List<ModulePartSculptor> { this };
             foreach (Part p in part.symmetryCounterparts)
             {
-                ModuleStretchScale m = p != null ? p.FindModuleImplementing<ModuleStretchScale>() : null;
+                ModulePartSculptor m = p != null ? p.FindModuleImplementing<ModulePartSculptor>() : null;
                 if (m != null && m.initialized && m.model != null) roots.Add(m);
             }
-            foreach (ModuleStretchScale m in roots) m.Apply(true, true, false);
+            foreach (ModulePartSculptor m in roots) m.Apply(true, true, false);
 
             if (scaleChildren && (ratio - Vector3.one).sqrMagnitude >= 1e-12f)
-                foreach (ModuleStretchScale m in roots)
+                foreach (ModulePartSculptor m in roots)
                     ScaleDescendants(m.part, m.part.transform, ratio);
 
             // One notification per user action, even when dozens of descendants
@@ -1212,7 +1212,7 @@ namespace PartSculptor
             foreach (Part child in p.children)
             {
                 if (child == null) continue;
-                ModuleStretchScale m = child.FindModuleImplementing<ModuleStretchScale>();
+                ModulePartSculptor m = child.FindModuleImplementing<ModulePartSculptor>();
                 if (m == null || !m.initialized || m.model == null ||
                     !string.IsNullOrEmpty(m.restrictedReason)) continue; // stop at unscalable parts
                 // If a safety limit clipped the child's requested scale,
@@ -1256,7 +1256,7 @@ namespace PartSculptor
             foreach (Part p in part.symmetryCounterparts)
             {
                 if (p == null) continue;
-                ModuleStretchScale m = p.FindModuleImplementing<ModuleStretchScale>();
+                ModulePartSculptor m = p.FindModuleImplementing<ModulePartSculptor>();
                 if (m == null) continue;
                 m.scaleX = scaleX; m.scaleY = scaleY; m.scaleZ = scaleZ;
                 m.lastX = scaleX; m.lastY = scaleY; m.lastZ = scaleZ;
@@ -1297,7 +1297,7 @@ namespace PartSculptor
         // Relative presets are available only in the full Presets window.
         internal static void RefreshPresetOptionsAll()
         {
-            foreach (ModuleStretchScale module in editorModules)
+            foreach (ModulePartSculptor module in editorModules)
                 if (module != null) module.RefreshPresetOptions();
         }
 
@@ -1311,8 +1311,8 @@ namespace PartSculptor
                 part.PartActionWindow.displayDirty = true;
             foreach (Part counterpart in part.symmetryCounterparts)
             {
-                ModuleStretchScale other = counterpart != null ?
-                    counterpart.FindModuleImplementing<ModuleStretchScale>() : null;
+                ModulePartSculptor other = counterpart != null ?
+                    counterpart.FindModuleImplementing<ModulePartSculptor>() : null;
                 if (other == null) continue;
                 other.scalePreset = name;
                 if (counterpart.PartActionWindow != null)
@@ -1448,15 +1448,15 @@ namespace PartSculptor
                 }
             }
             if (!EnsureFaceMorph()) return;
-            var targets = new List<ModuleStretchScale> { this };
+            var targets = new List<ModulePartSculptor> { this };
             foreach (Part counterpart in part.symmetryCounterparts)
             {
-                ModuleStretchScale m = counterpart != null ?
-                    counterpart.FindModuleImplementing<ModuleStretchScale>() : null;
+                ModulePartSculptor m = counterpart != null ?
+                    counterpart.FindModuleImplementing<ModulePartSculptor>() : null;
                 if (m == null || !m.EnsureFaceMorph()) return; // all-or-nothing
                 targets.Add(m);
             }
-            foreach (ModuleStretchScale m in targets)
+            foreach (ModulePartSculptor m in targets)
             {
                 m.morphBottomX = bottom.Width;
                 m.morphBottomZ = bottom.Depth;
@@ -1678,8 +1678,8 @@ namespace PartSculptor
             {
                 foreach (Part counterpart in part.symmetryCounterparts)
                 {
-                    ModuleStretchScale module = counterpart != null ?
-                        counterpart.FindModuleImplementing<ModuleStretchScale>() : null;
+                    ModulePartSculptor module = counterpart != null ?
+                        counterpart.FindModuleImplementing<ModulePartSculptor>() : null;
                     if (module == null) continue;
                     module.scalePreset = "1x uniform";
                     module.lastAppliedPreset = "1x uniform";
@@ -2006,7 +2006,7 @@ namespace PartSculptor
         double EffectiveNodeDiameter(Part owner, AttachNode node)
         {
             if (owner == null || node == null) return 0d;
-            ModuleStretchScale scaler = owner.FindModuleImplementing<ModuleStretchScale>();
+            ModulePartSculptor scaler = owner.FindModuleImplementing<ModulePartSculptor>();
             if (scaler == null || !scaler.initialized) return ScaleMath.NominalNodeDiameter(node.size);
             int originalTier;
             Vector3 normal;
@@ -3280,11 +3280,4 @@ namespace PartSculptor
             if (fireModified || crewCapacityChanged) FireEditorShipModified();
         }
     }
-    // Canonical PartSculptor module for newly patched parts. Inheriting the
-    // original implementation preserves all existing KSPFields and PAW events.
-    // ModuleStretchScale remains loadable for pre-rename craft and save files.
-    public class ModulePartSculptor : ModuleStretchScale
-    {
-    }
-
 }

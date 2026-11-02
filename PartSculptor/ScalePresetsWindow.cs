@@ -13,7 +13,7 @@ namespace PartSculptor
         const int WindowId = 0x514341;
         static Rect window = new Rect(170f, 125f, 410f, 554f);
         static Vector2 scroll;
-        static ModuleStretchScale owner;
+        static ModulePartSculptor owner;
         static List<ScalePresetDefinition> all = new List<ScalePresetDefinition>();
         static List<ScalePresetDefinition> visiblePresets = new List<ScalePresetDefinition>();
         static bool showAbsolute = false;   // Default to relative-only view.
@@ -26,7 +26,7 @@ namespace PartSculptor
         static bool closeQueued;
         static string status = "";
 
-        internal static void Toggle(ModuleStretchScale module)
+        internal static void Toggle(ModulePartSculptor module)
         {
             if (module == null || !HighLogic.LoadedSceneIsEditor) return;
             if (owner == module) { CloseFor(module); return; }
@@ -45,7 +45,7 @@ namespace PartSculptor
             InspectorWindowPosition.KeepPartiallyVisible(ref window);
         }
 
-        internal static void CloseFor(ModuleStretchScale module)
+        internal static void CloseFor(ModulePartSculptor module)
         {
             if (owner != module) return;
             owner = null;
@@ -74,7 +74,7 @@ namespace PartSculptor
 
         // Apply button actions in PartModule.Update, never while building an
         // IMGUI layout: CommitChange can fire editor events and rebuild PAWs.
-        internal static void ProcessPendingFor(ModuleStretchScale module)
+        internal static void ProcessPendingFor(ModulePartSculptor module)
         {
             if (owner == null || owner != module) return;
             if (closeQueued) { CloseFor(module); return; }
@@ -97,7 +97,7 @@ namespace PartSculptor
             }
         }
 
-        internal static void DrawFor(ModuleStretchScale module)
+        internal static void DrawFor(ModulePartSculptor module)
         {
             if (owner == null || owner != module || !HighLogic.LoadedSceneIsEditor)
                 return;

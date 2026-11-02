@@ -12,7 +12,7 @@ namespace PartSculptor
     {
         const int WindowId = 0x514339;
         const float LeftWidth = 230f;
-        static ModuleStretchScale owner;
+        static ModulePartSculptor owner;
         static Rect window = new Rect(160f, 130f, 755f, 465f);
         static Vector2 listScroll;
         static List<ScalePresetDefinition> snapshot = new List<ScalePresetDefinition>();
@@ -25,7 +25,7 @@ namespace PartSculptor
         static string status = "";
         static string pendingAction;
 
-        internal static void Toggle(ModuleStretchScale module)
+        internal static void Toggle(ModulePartSculptor module)
         {
             if (owner == module) { CloseFor(module); return; }
             if (module == null || !HighLogic.LoadedSceneIsEditor) return;
@@ -47,7 +47,7 @@ namespace PartSculptor
             InspectorWindowPosition.KeepPartiallyVisible(ref window);
         }
 
-        internal static void CloseFor(ModuleStretchScale module)
+        internal static void CloseFor(ModulePartSculptor module)
         {
             if (owner != module) return;
             owner = null;
@@ -111,7 +111,7 @@ namespace PartSculptor
             else if (action == "Reload")
             {
                 ScalePresetRegistry.Reload();
-                ModuleStretchScale.RefreshPresetOptionsAll();
+                ModulePartSculptor.RefreshPresetOptionsAll();
                 if (ScalePresetRegistry.FindByKey(selectedKey) == null) selectedKey = null;
                 LoadSelection();
                 status = "Presets reloaded from GameData and PluginData.";
@@ -167,7 +167,7 @@ namespace PartSculptor
             }
         }
 
-        internal static void DrawFor(ModuleStretchScale module)
+        internal static void DrawFor(ModulePartSculptor module)
         {
             if (owner == null || owner != module || !HighLogic.LoadedSceneIsEditor) return;
             if (Event.current.type == EventType.Layout)

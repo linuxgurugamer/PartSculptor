@@ -112,7 +112,7 @@ namespace PartSculptor
     }
 
     // Resolved per-part scaling configuration. Parent behaviors are processed
-    // first; later selected behaviors and the local ModuleStretchScale win.
+    // first; later selected behaviors and the local ModulePartSculptor win.
     internal sealed class ResolvedScaleBehavior
     {
         internal readonly List<ConfigNode> TypeExponents = new List<ConfigNode>();
@@ -204,9 +204,9 @@ namespace PartSculptor
             return result;
         }
 
-        // Identify the specific ModuleStretchScale definition, rather than
+        // Identify the specific ModulePartSculptor definition, rather than
         // confusing it with a sibling TweakScale module or another instance.
-        internal static ConfigNode OwnModuleConfig(Part part, ModuleStretchScale owner)
+        internal static ConfigNode OwnModuleConfig(Part part, ModulePartSculptor owner)
         {
             ConfigNode partConfig = part != null && part.partInfo != null ?
                 part.partInfo.partConfig : null;
@@ -214,7 +214,7 @@ namespace PartSculptor
             int ordinal = 0;
             foreach (PartModule instance in part.Modules)
             {
-                if (instance is ModuleStretchScale)
+                if (instance is ModulePartSculptor)
                 {
                     if (object.ReferenceEquals(instance, owner)) break;
                     ++ordinal;
@@ -223,7 +223,7 @@ namespace PartSculptor
             foreach (ConfigNode node in partConfig.GetNodes("MODULE"))
             {
                 string moduleName = node.GetValue("name");
-                if (!string.Equals(moduleName, "ModuleStretchScale",
+                if (!string.Equals(moduleName, "ModulePartSculptor",
                         StringComparison.OrdinalIgnoreCase) &&
                     !string.Equals(moduleName, "ModulePartSculptor",
                         StringComparison.OrdinalIgnoreCase)) continue;
@@ -275,7 +275,6 @@ namespace PartSculptor
             {
                 string moduleName = module.GetValue("name");
                 if (!string.Equals(moduleName, "TweakScale", StringComparison.OrdinalIgnoreCase) &&
-                    !string.Equals(moduleName, "ModuleStretchScale", StringComparison.OrdinalIgnoreCase) &&
                     !string.Equals(moduleName, "ModulePartSculptor", StringComparison.OrdinalIgnoreCase))
                     continue;
                 foreach (string parent in Names(module.GetValue("inherits") ?? module.GetValue("inherit")))
@@ -311,7 +310,7 @@ namespace PartSculptor
         }
 
         internal static ResolvedScaleBehavior Resolve(Part part,
-            ModuleStretchScale owner, string chosenBehavior, string inheritedBehavior)
+            ModulePartSculptor owner, string chosenBehavior, string inheritedBehavior)
         {
             Load();
             var resolved = new ResolvedScaleBehavior();
@@ -701,7 +700,7 @@ namespace PartSculptor
         internal readonly string ActiveBehaviors;
         internal float LastAppliedLinear = 1f;
 
-        internal PartExponentScaler(Part part, ModuleStretchScale owner,
+        internal PartExponentScaler(Part part, ModulePartSculptor owner,
             float initialStretchLinear, float tweakFactor)
         {
             this.part = part;
@@ -721,7 +720,7 @@ namespace PartSculptor
 
             // Type defaults (such as stock stack_square's mass = 2), then
             // inherited behaviors, then per-part overrides, then our own
-            // ModuleStretchScale overrides. Sibling TweakScale inline rules
+            // ModulePartSculptor overrides. Sibling TweakScale inline rules
             // are read only as a compatibility fallback when no behavior is set.
             foreach (ConfigNode inline in selected.TypeExponents)
                 MergeScaleTypeInline(inline, partRule, tweakRule, custom);
@@ -771,7 +770,7 @@ namespace PartSculptor
                 // PartSculptor's resource and modifier bridge would scale a
                 // fuel tank twice. Bind affected stock modules normally, but
                 // never scale ModuleB9PartSwitch's internal bookkeeping.
-                if (module == null || module is ModuleStretchScale ||
+                if (module == null || module is ModulePartSculptor ||
                     ExponentRule.IsNamedType(module.GetType(), "TweakScale") ||
                     string.Equals(module.moduleName, "ModuleB9PartSwitch",
                         StringComparison.Ordinal) ||
@@ -791,8 +790,8 @@ namespace PartSculptor
                             n++ == ordinal) { prefabModule = other; break; }
                 }
                 // Global defaults ALWAYS apply to matching PartModules,
-                // regardless of whether ModuleStretchScale.behavior is set.
-                // Apply explicit part/behavior/ModuleStretchScale overrides
+                // regardless of whether ModulePartSculptor.behavior is set.
+                // Apply explicit part/behavior/ModulePartSculptor overrides
                 // afterwards, in base-to-derived order. In 0.0.4.5 the
                 // reverse walk allowed a base-class override to clobber a
                 // more-specific override on some derived modules.

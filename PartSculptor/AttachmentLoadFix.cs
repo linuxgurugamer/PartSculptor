@@ -10,7 +10,7 @@ namespace PartSculptor
 {
     internal sealed class AttachmentLoadFix
     {
-        const string SaveNode = "STRETCHSCALE_STACK_GAP";
+        const string SaveNode = "PARTSCULPTOR_STACK_GAP";
         const float PositionEpsilon = 0.002f;
         const int StartupDelayFrames = 10;
         static int scheduledFrame = -1;
@@ -142,7 +142,7 @@ namespace PartSculptor
             if (Time.frameCount - stableSinceFrame < 2) return;
             foreach (Part p in ship.parts)
             {
-                ModuleStretchScale m = p != null ? p.FindModuleImplementing<ModuleStretchScale>() : null;
+                ModulePartSculptor m = p != null ? p.FindModuleImplementing<ModulePartSculptor>() : null;
                 if (m != null && !m.AttachmentReady && Time.frameCount - latestScheduleFrame < 90)
                     return;
             }
@@ -202,8 +202,8 @@ namespace PartSculptor
 
         static void RestoreConnection(Part child, Part parent)
         {
-            ModuleStretchScale childModule = child.FindModuleImplementing<ModuleStretchScale>();
-            ModuleStretchScale parentModule = parent.FindModuleImplementing<ModuleStretchScale>();
+            ModulePartSculptor childModule = child.FindModuleImplementing<ModulePartSculptor>();
+            ModulePartSculptor parentModule = parent.FindModuleImplementing<ModulePartSculptor>();
             bool relevant = (childModule != null && childModule.HasStretchedGeometry) ||
                 (parentModule != null && parentModule.HasStretchedGeometry);
             if (!relevant) return;

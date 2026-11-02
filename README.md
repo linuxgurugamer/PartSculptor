@@ -20,7 +20,7 @@ PartSculptor is more than a visual resize: it also updates supported attachment 
 ## Requirements
 
 - KSP **1.12.x**
-- **ModuleManager**: a single patch adds `ModulePartSculptor` to all parts (including crewed parts) unless that or the legacy `ModuleStretchScale` module is already present.
+- **ModuleManager**: a single patch adds `ModulePartSculptor` to all parts (including crewed parts) unless that or the legacy `ModulePartSculptor` module is already present.
 - **ClickThroughBlocker** and **ToolbarController**: used by the inspector and other windows.
 
 **Optional integrations:** TweakScale, B9 Part Switch, supported fuel-switching mods, and Waterfall. None of these are needed for basic stretching or morphing.
@@ -33,13 +33,11 @@ PartSculptor is more than a visual resize: it also updates supported attachment 
 
 Restart KSP whenever you install, update, or change ModuleManager patches.
 
-**Upgrading from StretchScale:** Back up your saves and craft files. Before removing the old `GameData/StretchScale` directory, copy `PluginData/UserSettings.cfg` and `PluginData/CustomPresets.cfg` (if present) into the matching new `GameData/PartSculptor/PluginData` location. Then remove the old StretchScale directory and install PartSculptor; do not leave both DLLs or patches installed. PartSculptor retains the `ModuleStretchScale` compatibility class and recognizes legacy custom-settings/preset config roots, but verify existing craft and persistent saves in-game before relying on them.
-
 ### Crewed parts
 
-The single ModuleManager patch adds `ModulePartSculptor` to **all parts**, including command pods and cockpits, without requiring PatchManager or an opt-in step. It skips parts that already have either `ModulePartSculptor` or the older `ModuleStretchScale`. Crew-capacity scaling remains limited by available IVA seats.
+The single ModuleManager patch adds `ModulePartSculptor` to **all parts**, including command pods and cockpits, without requiring PatchManager or an opt-in step. It skips parts that already have either `ModulePartSculptor` or the older `ModulePartSculptor`. Crew-capacity scaling remains limited by available IVA seats.
 
-Test crewed parts carefully, especially IVAs, hatches, EVA, and crew assignment. If upgrading an existing installation, remove any leftover `GameData/StretchScale/PatchManager` folder. Keep the bundled `GameData/PartSculptor/Patches/ScaleExponents.cfg` file.
+Test crewed parts carefully, especially IVAs, hatches, EVA, and crew assignment. 
 
 ## Quick start: stretching a part
 

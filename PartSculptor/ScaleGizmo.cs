@@ -20,7 +20,7 @@ namespace PartSculptor
             { Vector3.right, Vector3.up, Vector3.forward };
 
         private static ScaleGizmo active;
-        private readonly ModuleStretchScale module;
+        private readonly ModulePartSculptor module;
         private readonly GameObject root;
         private readonly LineRenderer[] lines = new LineRenderer[3];
         private readonly Transform[] handles = new Transform[3];
@@ -64,7 +64,7 @@ namespace PartSculptor
             return false;
         }
 
-        internal static void Show(ModuleStretchScale module)
+        internal static void Show(ModulePartSculptor module)
         {
             if (IsFor(module)) return;
             Hide();
@@ -75,12 +75,12 @@ namespace PartSculptor
             }
         }
 
-        internal static bool IsFor(ModuleStretchScale module)
+        internal static bool IsFor(ModulePartSculptor module)
         {
             return active != null && active.module == module && !active.disposed;
         }
 
-        internal static void Toggle(ModuleStretchScale module)
+        internal static void Toggle(ModulePartSculptor module)
         {
             if (IsFor(module)) { Hide(); return; }
             Hide();
@@ -91,7 +91,7 @@ namespace PartSculptor
             }
         }
 
-        internal static void HideFor(ModuleStretchScale module)
+        internal static void HideFor(ModulePartSculptor module)
         {
             if (IsFor(module)) Hide();
         }
@@ -105,7 +105,7 @@ namespace PartSculptor
             if (old.module != null) old.module.UpdateGizmoPAWLabel();
         }
 
-        internal static void UpdateFor(ModuleStretchScale module)
+        internal static void UpdateFor(ModulePartSculptor module)
         {
             if (IsFor(module)) active.Update();
         }
@@ -117,7 +117,7 @@ namespace PartSculptor
             if (active != null && !active.disposed) active.DrawLabels();
         }
 
-        private ScaleGizmo(ModuleStretchScale selected)
+        private ScaleGizmo(ModulePartSculptor selected)
         {
             module = selected;
             root = new GameObject("PartSculptor Editor Gizmo");

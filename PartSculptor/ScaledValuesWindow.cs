@@ -87,7 +87,7 @@ namespace PartSculptor
         }
     }
 
-    // Owned by one ModuleStretchScale; other parts can have separate windows.
+    // Owned by one ModulePartSculptot; other parts can have separate windows.
     internal sealed class ScaledValuesWindow
     {
         readonly List<ScaledValue> rows = new List<ScaledValue>();
@@ -105,7 +105,7 @@ namespace PartSculptor
         // Dragging is registered for the whole window after all controls.
         const float TitleSpacingHeight = 24f;
         const string CellTooltipPrefix = "PartSculptorValueCell:";
-        ModuleStretchScale owner;
+        ModulePartSculptor owner;
         // Track the tooltip across IMGUI passes. Large curves may need scrolling.
         string activeTooltip = string.Empty;
         Rect tooltipRect;
@@ -140,7 +140,7 @@ namespace PartSculptor
             tooltipScroll = Vector2.zero;
         }
 
-        internal void Draw(ModuleStretchScale module)
+        internal void Draw(ModulePartSculptor module)
         {
             if (!visible || module == null || module.part == null) return;
             owner = module;
@@ -163,7 +163,7 @@ namespace PartSculptor
         // The vessel-wide inspector uses the SAME report renderer as this
         // PAW window. Each host holds its own ScaledValuesWindow instance,
         // keeping scroll, checkbox and Layout/Repaint caches independent.
-        internal void DrawEmbedded(ModuleStretchScale module, float availableWidth,
+        internal void DrawEmbedded(ModulePartSculptor module, float availableWidth,
             float hostWidth, float hostHeight)
         {
             if (module == null || module.part == null) return;
