@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <!-- Compile the ACTUAL production math code, without Unity or KSP stubs. -->
+  <ItemGroup>
+    <Compile Include="../../PartSculptor/FaceMorphCore.cs" Link="Production/FaceMorphCore.cs" />
+    <Compile Include="../../PartSculptor/ScaleMath.cs" Link="Production/ScaleMath.cs" />
+    <Compile Include="../../PartSculptor/CrewCapacityMath.cs" Link="Production/CrewCapacityMath.cs" />
+    <Compile Include="../../PartSculptor/FuelSwitchMath.cs" Link="Production/FuelSwitchMath.cs" />
+    <Compile Include="../../PartSculptor/ScalePresetMath.cs" Link="Production/ScalePresetMath.cs" />
+  </ItemGroup>
+</Project>

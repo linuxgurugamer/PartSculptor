@@ -1,0 +1,399 @@
+// StretchScale - per-axis (non-uniform) part scaling for KSP 1.12.x
+// Only the physical model (meshes + colliders) and attach nodes are scaled.
+// Part stats (mass, cost, fuel, thrust, ...) are intentionally left untouched.
+
+using System.Collections.Generic;
+using System.Reflection;
+using UnityEngine;
+
+namespace StretchScale
+{
+    public class ModuleStretchScale : PartModule
+    {
+        const string GROUP = "StretchScale";
+        const string GROUP_TITLE = "Stretch Scale";
+        const float MIN = 0.05f;
+        const float MAX = 20f;
+
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Scale X (width)", guiFormat = "F3",
+            groupName = GROUP, groupDisplayName = GROUP_TITLE, groupStartCollapsed = false)]
+        [UI_FloatEdit(scene = UI_Scene.Editor, minValue = MIN, maxValue = MAX,
+            incrementLarge = 0.25f, incrementSmall = 0.05f, incrementSlide = 0.001f,
+            sigFigs = 3, affectSymCounterparts = UI_Scene.Editor)]
+        public float scaleX = 1f;
+
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Scale Y (height)", guiFormat = "F3",
+            groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        [UI_FloatEdit(scene = UI_Scene.Editor, minValue = MIN, maxValue = MAX,
+            incrementLarge = 0.25f, incrementSmall = 0.05f, incrementSlide = 0.001f,
+            sigFigs = 3, affectSymCounterparts = UI_Scene.Editor)]
+        public float scaleY = 1f;
+
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Scale Z (depth)", guiFormat = "F3",
+            groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        [UI_FloatEdit(scene = UI_Scene.Editor, minValue = MIN, maxValue = MAX,
+            incrementLarge = 0.25f, incrementSmall = 0.05f, incrementSlide = 0.001f,
+            sigFigs = 3, affectSymCounterparts = UI_Scene.Editor)]
+        public float scaleZ = 1f;
+
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Lock proportions",
+            groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        [UI_Toggle(scene = UI_Scene.Editor, enabledText = "On", disabledText = "Off",
+            affectSymCounterparts = UI_Scene.Editor)]
+        public bool lockAxes = false;
+
+        // Last values seen by the field callbacks (used for proportional lock).
+        float lastX = 1f, lastY = 1f, lastZ = 1f;
+
+        Transform model;
+        Vector3 prefabModelScale = Vector3.one;
+        readonly Dictionary<string, Vector3> prefabNodePos = new Dictionary<string, Vector3>();
+        readonly Dictionary<string, Vector3> prefabNodeOrigPos = new Dictionary<string, Vector3>();
+        Vector3 prefabSrfPos;
+        bool hasSrfNode;
+        bool initialized;
+
+        // TweakScale (optional, soft dependency via reflection)
+        PartModule tsModule;
+        FieldInfo tsFactorField;
+        float lastBase = 1f;
+
+        Vector3 Target { get { return new Vector3(scaleX, scaleY, scaleZ); } }
+
+        // Uniform TweakScale factor that the stretch is applied on top of.
+        float BaseFactor
+        {
+            get
+            {
+                if (tsModule == null || tsFactorField == null) return 1f;
+                float f = (float)tsFactorField.GetValue(tsModule);
+                return (f > 0f && !float.IsNaN(f)) ? f : 1f;
+            }
+        }
+
+        void FindTweakScale()
+        {
+            foreach (PartModule m in part.Modules)
+            {
+                for (System.Type t = m.GetType(); t != null && t != typeof(PartModule); t = t.BaseType)
+                {
+                    if (t.Name != "TweakScale") continue;
+                    FieldInfo f = t.GetField("currentScaleFactor", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                    if (f == null || f.FieldType != typeof(float)) continue;
+                    tsModule = m;
+                    tsFactorField = f;
+
+                    // Seed TweakScale's baseline model scale with the prefab's, so it never
+                    // captures an already-stretched model as its "unscaled" size.
+                    FieldInfo d = t.GetField("defaultTransformScale", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                    if (d != null && d.FieldType == typeof(Vector3))
+                    {
+                        Vector3 v = (Vector3)d.GetValue(m);
+                        if (v.x == 0f) d.SetValue(m, prefabModelScale);
+                    }
+                    return;
+                }
+            }
+        }
+
+        // Sent by TweakScale after it has rescaled the part (it has already reset the
+        // model scale and node positions to its own uniform values by then).
+        [KSPEvent(guiActive = false, guiActiveEditor = false, active = true)]
+        public void OnPartScaleChanged(BaseEventDetails data)
+        {
+            if (!initialized) return;
+            AfterTweakScale();
+        }
+
+        void AfterTweakScale()
+        {
+            lastBase = BaseFactor;
+            // TweakScale already scaled children's attach points uniformly about this
+            // part, which keeps them on our stretched surfaces; only fix ourselves.
+            Apply(true, false);
+        }
+
+        // ------------------------------------------------------------------ setup
+
+        public override void OnStart(StartState state)
+        {
+            base.OnStart(state);
+
+            model = part.transform.Find("model");
+            Part prefab = part.partInfo != null ? part.partInfo.partPrefab : null;
+            if (model == null || prefab == null)
+            {
+                Debug.LogWarning("[StretchScale] No 'model' transform or prefab on " + part.name + "; disabling.");
+                HideFields();
+                return;
+            }
+
+            Transform prefabModel = prefab.transform.Find("model");
+            prefabModelScale = prefabModel != null ? prefabModel.localScale : Vector3.one;
+
+            prefabNodePos.Clear();
+            prefabNodeOrigPos.Clear();
+            foreach (AttachNode n in prefab.attachNodes)
+            {
+                if (n == null || string.IsNullOrEmpty(n.id) || prefabNodePos.ContainsKey(n.id)) continue;
+                prefabNodePos[n.id] = n.position;
+                prefabNodeOrigPos[n.id] = n.originalPosition;
+            }
+            hasSrfNode = prefab.srfAttachNode != null && part.srfAttachNode != null;
+            if (hasSrfNode) prefabSrfPos = prefab.srfAttachNode.originalPosition;
+
+            scaleX = Clamp(scaleX); scaleY = Clamp(scaleY); scaleZ = Clamp(scaleZ);
+            lastX = scaleX; lastY = scaleY; lastZ = scaleZ;
+
+            FindTweakScale();
+
+            if (HighLogic.LoadedSceneIsEditor)
+            {
+                Fields["scaleX"].uiControlEditor.onFieldChanged = OnAxisChanged;
+                Fields["scaleY"].uiControlEditor.onFieldChanged = OnAxisChanged;
+                Fields["scaleZ"].uiControlEditor.onFieldChanged = OnAxisChanged;
+                Fields["scaleX"].uiControlEditor.onSymmetryFieldChanged = OnSymAxisChanged;
+                Fields["scaleY"].uiControlEditor.onSymmetryFieldChanged = OnSymAxisChanged;
+                Fields["scaleZ"].uiControlEditor.onSymmetryFieldChanged = OnSymAxisChanged;
+            }
+
+        }
+
+        // Runs after every module's OnStart (incl. TweakScale), so our scale wins.
+        public override void OnStartFinished(StartState state)
+        {
+            base.OnStartFinished(state);
+            if (model == null || prefabNodePos == null) return;
+            lastBase = BaseFactor;
+            // Initial application never moves neighbours: the craft file / save /
+            // clone already holds the correct part positions.
+            Apply(false, false);
+            initialized = true;
+        }
+
+        void HideFields()
+        {
+            foreach (BaseField f in Fields) f.guiActiveEditor = false;
+            foreach (BaseEvent e in Events) e.guiActiveEditor = false;
+        }
+
+        static float Clamp(float v)
+        {
+            if (float.IsNaN(v) || v <= 0f) return 1f;
+            return Mathf.Clamp(v, MIN, MAX);
+        }
+
+        // ------------------------------------------------------------------ UI
+
+        void OnAxisChanged(BaseField field, object oldValue)
+        {
+            float uiValue = (float)field.GetValue(this);
+            if (lockAxes)
+            {
+                float oldV, newV;
+                switch (field.name)
+                {
+                    case "scaleX": oldV = lastX; newV = scaleX; break;
+                    case "scaleY": oldV = lastY; newV = scaleY; break;
+                    default: oldV = lastZ; newV = scaleZ; break;
+                }
+                if (oldV > 0f && !Mathf.Approximately(oldV, newV))
+                {
+                    float k = newV / oldV;
+                    // Don't let the other axes leave the allowed range.
+                    float maxOther = Mathf.Max(field.name == "scaleX" ? 0f : lastX,
+                                               field.name == "scaleY" ? 0f : lastY,
+                                               field.name == "scaleZ" ? 0f : lastZ);
+                    float minOther = Mathf.Min(field.name == "scaleX" ? MAX : lastX,
+                                               field.name == "scaleY" ? MAX : lastY,
+                                               field.name == "scaleZ" ? MAX : lastZ);
+                    k = Mathf.Clamp(k, MIN / minOther, MAX / maxOther);
+                    scaleX = Clamp(lastX * k);
+                    scaleY = Clamp(lastY * k);
+                    scaleZ = Clamp(lastZ * k);
+                }
+            }
+            lastX = scaleX; lastY = scaleY; lastZ = scaleZ;
+            bool altered = !Mathf.Approximately((float)field.GetValue(this), uiValue);
+            PushToSymmetry(altered ? null : field.name);
+            Apply(true, true);
+        }
+
+        void OnSymAxisChanged(BaseField field, object oldValue)
+        {
+            // Values are pushed explicitly by the originating part; geometry is
+            // applied in Update().
+            lastX = scaleX; lastY = scaleY; lastZ = scaleZ;
+        }
+
+        // KSP's float-edit PAW widget never re-reads its field, so after changing values
+        // from code we have to redraw it ourselves (UpdateDisplay is private).
+        static MethodInfo updateDisplay;
+        static bool updateDisplayLooked;
+
+        void RefreshDisplays(string skip = null)
+        {
+            if (!HighLogic.LoadedSceneIsEditor) return;
+            if (!updateDisplayLooked)
+            {
+                updateDisplayLooked = true;
+                updateDisplay = typeof(UIPartActionFloatEdit).GetMethod("UpdateDisplay",
+                    BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            }
+            bool ok = updateDisplay != null;
+            if (ok)
+            {
+                try
+                {
+                    if (skip != "scaleX") RefreshField("scaleX", scaleX);
+                    if (skip != "scaleY") RefreshField("scaleY", scaleY);
+                    if (skip != "scaleZ") RefreshField("scaleZ", scaleZ);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning("[StretchScale] PAW refresh failed, rebuilding window: " + e.Message);
+                    ok = false;
+                }
+            }
+            if (!ok && part.PartActionWindow != null)
+                MonoUtilities.RefreshPartContextWindow(part);
+        }
+
+        void RefreshField(string name, float value)
+        {
+            UI_Control c = Fields[name].uiControlEditor;
+            UIPartActionFloatEdit item = c != null ? c.partActionItem as UIPartActionFloatEdit : null;
+            if (item != null && item.gameObject.activeInHierarchy)
+                updateDisplay.Invoke(item, new object[] { value, null });
+        }
+
+        void PushToSymmetry(string skipLocal = null)
+        {
+            foreach (Part p in part.symmetryCounterparts)
+            {
+                if (p == null) continue;
+                ModuleStretchScale m = p.FindModuleImplementing<ModuleStretchScale>();
+                if (m == null) continue;
+                m.scaleX = scaleX; m.scaleY = scaleY; m.scaleZ = scaleZ;
+                m.lastX = scaleX; m.lastY = scaleY; m.lastZ = scaleZ;
+                m.RefreshDisplays();
+            }
+            RefreshDisplays(skipLocal);
+        }
+
+        [KSPEvent(guiActiveEditor = true, guiName = "Reset scale", groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        public void ResetScale()
+        {
+            scaleX = scaleY = scaleZ = 1f;
+            lastX = lastY = lastZ = 1f;
+            PushToSymmetry();
+            Apply(true, true);
+        }
+
+        [KSPEvent(guiActiveEditor = true, guiName = "Swap X / Z", groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        public void SwapXZ()
+        {
+            float t = scaleX; scaleX = scaleZ; scaleZ = t;
+            lastX = scaleX; lastZ = scaleZ;
+            PushToSymmetry();
+            Apply(true, true);
+        }
+
+        // Catches every other way the values can change (symmetry counterparts,
+        // other mods, undo) and applies the geometry once.
+        public void Update()
+        {
+            if (!initialized || !HighLogic.LoadedSceneIsEditor || model == null) return;
+            if (!Mathf.Approximately(BaseFactor, lastBase))
+                AfterTweakScale();          // TweakScale changed without notifying us
+            else if ((CurrentScale() - Target).sqrMagnitude > 1e-10f)
+                Apply(true, true);
+        }
+
+        // ------------------------------------------------------------------ geometry
+
+        Vector3 CurrentScale()
+        {
+            Vector3 s = model.localScale / BaseFactor;
+            return new Vector3(Div(s.x, prefabModelScale.x), Div(s.y, prefabModelScale.y), Div(s.z, prefabModelScale.z));
+        }
+
+        static float Div(float a, float b) { return Mathf.Abs(b) < 1e-9f ? 1f : a / b; }
+
+        void Apply(bool moveNeighbours, bool moveChildren)
+        {
+            if (model == null) return;
+
+            float f = BaseFactor;
+            Vector3 oldScale = CurrentScale();
+            Vector3 newScale = Target;
+            Vector3 total = newScale * f;   // stretch on top of TweakScale
+            Vector3 ratio = new Vector3(Div(newScale.x, oldScale.x), Div(newScale.y, oldScale.y), Div(newScale.z, oldScale.z));
+
+            bool editor = HighLogic.LoadedSceneIsEditor && moveNeighbours;
+
+            // Work out every move in this part's local space first.
+            Vector3 selfMove = Vector3.zero;
+            var childMoves = new List<KeyValuePair<Part, Vector3>>();
+
+            // Stack nodes
+            foreach (AttachNode node in part.attachNodes)
+            {
+                Vector3 basePos, baseOrig;
+                if (node == null || node.id == null || !prefabNodePos.TryGetValue(node.id, out basePos)) continue;
+                baseOrig = prefabNodeOrigPos[node.id];
+
+                Vector3 newPos = Vector3.Scale(basePos, total);
+                Vector3 delta = newPos - node.position;
+                node.position = newPos;
+                node.originalPosition = Vector3.Scale(baseOrig, total);
+
+                if (!editor || node.attachedPart == null || delta.sqrMagnitude < 1e-12f) continue;
+                if (node.attachedPart == part.parent)
+                    selfMove -= delta;
+                else if (moveChildren && node.attachedPart.parent == part)
+                    childMoves.Add(new KeyValuePair<Part, Vector3>(node.attachedPart, delta));
+            }
+
+            // Our own surface-attach node
+            if (hasSrfNode)
+            {
+                Vector3 newPos = Vector3.Scale(prefabSrfPos, total);
+                Vector3 delta = newPos - part.srfAttachNode.position;
+                part.srfAttachNode.position = newPos;
+                part.srfAttachNode.originalPosition = newPos;
+                if (editor && part.parent != null && part.srfAttachNode.attachedPart == part.parent)
+                    selfMove -= delta;
+            }
+
+            // Children surface-attached to us: scale their attach point with our surface.
+            if (editor && moveChildren)
+            {
+                foreach (Part child in part.children)
+                {
+                    if (child == null || child.srfAttachNode == null || child.srfAttachNode.attachedPart != part) continue;
+                    Vector3 attachWorld = child.transform.TransformPoint(child.srfAttachNode.position);
+                    Vector3 local = part.transform.InverseTransformPoint(attachWorld);
+                    Vector3 delta = Vector3.Scale(local, ratio) - local;
+                    if (delta.sqrMagnitude > 1e-12f)
+                        childMoves.Add(new KeyValuePair<Part, Vector3>(child, delta));
+                }
+            }
+
+            // Scale the model (meshes + colliders).
+            model.localScale = Vector3.Scale(prefabModelScale, total);
+
+            if (!editor) return;
+
+            // Children are transform-children of this part in the editor, so a
+            // self move carries them along; child deltas are applied on top.
+            if (selfMove.sqrMagnitude > 0f)
+                part.transform.position += part.transform.TransformVector(selfMove);
+            foreach (var kv in childMoves)
+                kv.Key.transform.position += part.transform.TransformVector(kv.Value);
+
+            if (EditorLogic.fetch != null && EditorLogic.fetch.ship != null)
+                GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
+        }
+    }
+}

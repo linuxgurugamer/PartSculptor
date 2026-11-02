@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="buildRelease.bat" />
+    <File Path="deploy.bat" />
+    <File Path="GameData/PartSculptor/Patches/ScaleExponents.cfg" />
+    <File Path="GameData/PartSculptor/Patches/PartSculptor.cfg" />
+    <File Path="jenkins.txt" />
+    <File Path="License.md" />
+    <File Path="README.md" />
+    <File Path="PartSculptor.version" />
+  </Folder>
+  <Project Path="PartSculptor/PartSculptor.csproj" Id="39c7384a-b532-4277-bd28-27ff6a1be9af" />
+</Solution>
