@@ -1,4 +1,4 @@
-# StretchScale 0.0.4.43 – PAW preset selector / compact browser
+# PartSculptor 0.0.4.43 – PAW preset selector / compact browser
 
 1. In the VAB, open a part PAW. Confirm **Scale preset** is a slider/choose option
    and offers only absolute presets (all eight shipped ones). Select Double Y

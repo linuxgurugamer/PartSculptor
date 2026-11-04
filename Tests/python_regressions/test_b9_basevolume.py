@@ -10,7 +10,7 @@ RUNNER = (ROOT / 'Tests/RegressionRunner/Program.cs').read_text()
 
 class B9BaseVolumeIntegration(unittest.TestCase):
     def test_native_volume_saved_and_restored(self):
-        self.assertIn('STRETCHSCALE_B9_BASE_VOLUME', SCALER)
+        self.assertIn('PARTSCULPTOR_B9_BASE_VOLUME', SCALER)
         self.assertIn('b9BaseVolumes.Clear();', SCALER)
         self.assertIn('nativeBaseVolume', SCALER)
         self.assertIn('b9BaseVolumes,', SCALER)

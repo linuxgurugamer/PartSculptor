@@ -1,4 +1,4 @@
-# StretchScale 0.0.4.11: Scaled Values window test plan
+# PartSculptor 0.0.4.11: Scaled Values window test plan
 
 ## Build/static
 

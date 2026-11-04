@@ -1,4 +1,4 @@
-# StretchScale 0.0.4.42 validation checklist
+# PartSculptor 0.0.4.42 validation checklist
 
 1. In VAB, open Vessel Inspector > Settings. Verify Match node sizes,
    Stretch children, and Lock proportions all default OFF when no user file exists.
@@ -7,7 +7,7 @@
 3. With Lock proportions default ON, add a new part; verify it is locked.
    Save a craft after manually unlocking a part; reload the craft and verify
    the saved per-part choice is retained even with the global default ON.
-4. Open a StretchScale PAW. Verify the old preset slider has been replaced by
+4. Open a PartSculptor PAW. Verify the old preset slider has been replaced by
    a Presets button. Click it to open the dedicated presets window.
 5. Verify its quick slider lists only absolute presets. Define a custom
    relative preset in the Vessel Inspector's Edit presets window; verify the

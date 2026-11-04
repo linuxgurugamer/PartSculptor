@@ -32,5 +32,5 @@ class StageDeltaV468(unittest.TestCase):
         guide = (ROOT/'README.md').read_text()
         self.assertTrue(guide.startswith('# PartSculptor'))
         self.assertIn('## Face morphing', guide)
-        self.assertIn('## Building from source', guide)
-        self.assertIn('## Changelog and license', guide)
+        self.assertIn('## Fuel/Part Switchers', guide)
+        self.assertIn('## License', guide)

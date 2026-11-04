@@ -18,9 +18,9 @@ class EditorWidgetPadding457(unittest.TestCase):
         self.assertNotIn('new Vector2(-4f, -4f)', TOOL)
 
     def test_no_extra_tool_gaps(self):
-        self.assertIn('private const float IconGap = 0f;', TOOL)
+        self.assertIn('private const float IconGap = 3f;', TOOL)
         self.assertIn('float gapWorld = width * (IconGap / referenceWidth);', TOOL)
-        self.assertIn('(buttonWorldWidth * 0.5f + gapWorld)', TOOL)
+        self.assertIn('(buttonWorldWidth * 0.5f)', TOOL)
         self.assertIn('(buttonWorldWidth + gapWorld)', TOOL)
 
     def test_grey_and_selection_states_preserved(self):

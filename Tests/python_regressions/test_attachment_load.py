@@ -28,7 +28,7 @@ class TestAttachmentLoad(unittest.TestCase):
         self.assertIn('ScaleMath.AttachmentCorrection(expected.x, actual.x)', FIX)
         self.assertIn('internal static double AttachmentCorrection(', MATH)
     def test_preserves_user_offset_in_save_and_load(self):
-        self.assertIn('STRETCHSCALE_STACK_GAP', FIX)
+        self.assertIn('PARTSCULPTOR_STACK_GAP', FIX)
         self.assertIn('owner.transform.InverseTransformVector(worldGap)', FIX)
         self.assertIn('owner.transform.TransformVector(local)', FIX)
         self.assertIn('attachmentFix.Load(node);', CODE)

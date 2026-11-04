@@ -6,7 +6,7 @@
    Verify visible corners remain drawn and draggable. Orbit and repeat.
 3. Select a part whose renderer uses a different layer, if available; verify
    editor-camera projection and 2D markers still work.
-4. Select a part without `ModuleStretchScale`: verify explicit missing-module
+4. Select a part without `ModulePartSculptor`: verify explicit missing-module
    message in the gizmo help, upper screen message, and KSP.log.
 5. Try a part with an animated or switchable mesh, a non-readable mesh, and
    a non-supported collider: verify a specific, part-named rejection reason.

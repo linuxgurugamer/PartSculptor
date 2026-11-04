@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
 
+using static PartSculptor.RegisterToolbar;
+
 namespace PartSculptor
 {
     internal sealed class AttachmentLoadFix
@@ -156,7 +158,7 @@ namespace PartSculptor
             }
             catch (Exception e)
             {
-                Debug.LogError("[PartSculptor] Post-load attachment alignment failed: " + e);
+                Log.Error("[PartSculptor] Post-load attachment alignment failed: " + e);
             }
         }
 

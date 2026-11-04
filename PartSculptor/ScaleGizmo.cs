@@ -41,6 +41,7 @@ namespace PartSculptor
         private readonly float[] pixelsPerUnitScale = new float[3];
         private Vector3 dragStartScale;
         private float lastAppliedScale;
+        private bool undoCheckpointTaken;
         private bool disposed;
 
         // The editor Stretch tool must not interpret a handle drag as a new
@@ -112,9 +113,9 @@ namespace PartSculptor
 
         // Draw from EditorStretchTool.OnGUI rather than the PartModule, so
         // the markers render consistently above attached parts in the editor.
-        internal static void DrawActive()
+        internal static void DrawActive(Rect helpRect)
         {
-            if (active != null && !active.disposed) active.DrawLabels();
+            if (active != null && !active.disposed) active.DrawLabels(helpRect);
         }
 
         private ScaleGizmo(ModulePartSculptor selected)
@@ -336,6 +337,12 @@ namespace PartSculptor
                 double projectedError = Vector2.Dot(handleError,
                     screenDirections[draggingAxis]);
                 bool snap = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+                // Alt enables proportional scaling only while held. The PAW's
+                // persistent Lock proportions setting is left untouched.
+                bool temporaryLockProportions = Input.GetKey(KeyCode.LeftAlt) ||
+                    Input.GetKey(KeyCode.RightAlt);
+                bool temporaryLockXZ = !temporaryLockProportions &&
+                    (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl));
                 double baseline = draggingAxis == 0 ? dragStartScale.x :
                     draggingAxis == 1 ? dragStartScale.y : dragStartScale.z;
                 Vector3 currentAxes = module.GizmoScale;
@@ -345,8 +352,18 @@ namespace PartSculptor
                     current, projectedError, pixelsPerUnitScale[draggingAxis],
                     Settings.MinScale, Settings.MaxScale, snap ? 0.05d : 0d);
                 if (Mathf.Abs(desired - lastAppliedScale) < 0.0025f) return;
+                // SetBackup must see the PRE-EDIT craft. Capture exactly
+                // once per drag, never once per mouse movement frame.
+                if (!undoCheckpointTaken)
+                {
+                    // Record at most one checkpoint even if the KSP undo API
+                    // fails, avoiding a log warning on every drag frame.
+                    undoCheckpointTaken = true;
+                    EditorUndoSupport.RecordBeforeChange();
+                }
                 lastAppliedScale = desired;
-                module.SetGizmoAxis(draggingAxis, desired);
+                module.SetGizmoAxis(draggingAxis, desired,
+                    temporaryLockProportions, temporaryLockXZ);
                 // Update rendered endpoints immediately after resizing rather
                 // than drawing them at the previous frame's part dimensions.
                 UpdateGeometry();
@@ -374,6 +391,7 @@ namespace PartSculptor
             if (hoveredAxis >= 0 && Input.GetMouseButtonDown(0) && inputLocked)
             {
                 draggingAxis = hoveredAxis;
+                undoCheckpointTaken = false;
                 dragStartScale = module.GizmoScale;
                 dragClickOffset = mouse - screenHandles[draggingAxis];
                 lastAppliedScale = draggingAxis == 0 ? dragStartScale.x :
@@ -398,10 +416,15 @@ namespace PartSculptor
             GUI.color = previousColor;
         }
 
-        private void DrawLabels()
+        private void DrawLabels(Rect helpRect)
         {
-            if (disposed || !HighLogic.LoadedSceneIsEditor || editorCamera == null)
+            if (disposed || !HighLogic.LoadedSceneIsEditor) return;
+            if (editorCamera == null)
+            {
+                FaceMorphGizmo.DrawHelpBox(helpRect,
+                    "Stretch gizmo: no editor camera can see the selected part");
                 return;
+            }
             // World-space cubes and lines are depth-tested, so an adjacent
             // attached part can hide the axis handles. Render an additional
             // non-interactive IMGUI copy using the EXACT positions used for
@@ -440,12 +463,33 @@ namespace PartSculptor
                 GUI.Label(new Rect(screen.x + 12f, y - 16f, 100f, 24f),
                     "XYZ"[i] + ": " + value.ToString("0.###"), GUI.skin.box);
             }
-            if (draggingAxis >= 0)
+            if (draggingAxis < 0)
+            {
+                // Use the Morph help renderer for identical placement, styling
+                // and solid-background opacity under the six editor buttons.
+                FaceMorphGizmo.DrawHelpBox(helpRect,
+                    "Stretch gizmo:\n" +
+                    "  Red = X, Green = Y, Blue = Z\n" +
+                    "  Shift = snap (0.05)\n" +
+                    "  Alt = lock proportions (X/Y/Z)\n" +
+                    "  Shift+Alt = proportions + snap\n" +
+                    "  Ctrl = lock X/Z (Y independent)\n" +
+                    "  Shift+Ctrl = X/Z + snap\n" +
+                    "  Esc / right-click = cancel\n" +
+                    "  Lock proportions = " + (module.lockAxes ? "On" : "Off") + " (part PAW)");
+            }
+            else
             {
                 Vector3 mouse = Input.mousePosition;
-                GUI.Label(new Rect(mouse.x + 18f, Screen.height - mouse.y + 18f,
-                    230f, 26f), "Drag to scale; Shift = 0.05 steps; Esc = cancel",
-                    GUI.skin.box);
+                GUIContent tip = new GUIContent(
+                    "Shift = snap; Alt = lock proportions; Ctrl = lock X/Z; Esc = cancel");
+                float tipWidth = Mathf.Min(Screen.width,
+                    Mathf.Max(230f, GUI.skin.box.CalcSize(tip).x + 16f));
+                float tipX = Mathf.Clamp(mouse.x + 18f, 0f,
+                    Mathf.Max(0f, Screen.width - tipWidth));
+                float tipY = Mathf.Clamp(Screen.height - mouse.y + 18f, 0f,
+                    Mathf.Max(0f, Screen.height - 26f));
+                GUI.Label(new Rect(tipX, tipY, tipWidth, 26f), tip, GUI.skin.box);
             }
         }
 

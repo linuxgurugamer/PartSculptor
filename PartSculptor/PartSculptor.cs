@@ -10,175 +10,10 @@ using System.IO;
 using System.Reflection;
 using UnityEngine;
 
+using static PartSculptor.RegisterToolbar;
+
 namespace PartSculptor
 {
-    // Read once directly from PluginData/Settings.cfg (GameDatabase excludes PluginData).
-    public static class Settings
-    {
-        public static float MinScale = 0.05f;
-        public static float MaxScale = 100f;
-        public static float IncrementLarge = 0.25f;
-        public static float IncrementSmall = 0.05f;
-        public static float IncrementSlide = 0.001f;
-        public static bool ScaleChildrenDefault = false;
-        public static bool LockProportionsDefault = false;
-        // A new face-morph part defaults to X/Z-coupled resizing.
-        public static bool LockMorphXZDefault = true;
-        public static bool MatchNodeSizesDefault = false;
-
-        // These limits apply to the non-uniform mass factor and the final
-        // geometric volume (including an optional TweakScale multiplier).
-        public static float MaxMassMultiplier = 10000f;
-        public static float MaxVolumeMultiplier = 10000f;
-        public static float WarnMassMultiplier = 100f;
-        public static float WarnVolumeMultiplier = 100f;
-
-        // Career progression uses the level of the building used for editing:
-        // VAB in the VAB, Spaceplane Hangar in the SPH. These tier limits
-        // apply only to new edits, not saved craft dimensions.
-        public static bool EnableCareerLimits = true;
-        public static float CareerLevel1MinScale = 0.75f;
-        public static float CareerLevel1MaxScale = 1.5f;
-        public static float CareerLevel1MaxVolume = 3f;
-        public static float CareerLevel2MinScale = 0.5f;
-        public static float CareerLevel2MaxScale = 3f;
-        public static float CareerLevel2MaxVolume = 27f;
-        public static float CareerLevel3MinScale = 0.25f;
-        public static float CareerLevel3MaxScale = 10f;
-        public static float CareerLevel3MaxVolume = 1000f;
-
-        // Optional restrictions, off by default to preserve existing crafts.
-        public static bool RestrictWheels = false;
-        public static bool RestrictDockingPorts = false;
-
-        // Docking capture envelopes follow the actual stretched face diameter.
-        // Auto compatibility changes ONLY stock, single-type undocked ports.
-        public static bool ScaleDockingCaptureDistances = true;
-        public static bool MatchDockingPortTypes = true;
-        public static float DockingStockSizeTolerance = 0.05f;
-        public static bool RestrictAnimatedParts = false;
-
-        // Unannounced fuel-switcher updates: only suspect parts are checked
-        // periodically, rather than rescanning every part every few frames.
-        public static float ResourceFallbackSeconds = 10f;
-        public static bool CheckAllResourcesPeriodically = false;
-
-        // Visual FX are sized from the same absolute X/Y/Z stretch axes.
-        // Waterfall is optional; effects already under `model` inherit scale.
-        public static bool ScaleEngineEffects = true;
-        public static bool ScaleWaterfallEffects = true;
-        public static float EffectRefreshSeconds = 2f;
-
-        // Log every actual scaling change to KSP.log. Enabled by default in
-        // Debug builds; optional in Release builds via debugLogChanges = true.
-#if DEBUG
-        public static bool DebugLogChanges = true;
-#else
-        public static bool DebugLogChanges = false;
-#endif
-
-        static bool loaded;
-
-        public static void Load()
-        {
-            if (loaded) return;
-            loaded = true;
-            // KSP's GameDatabase deliberately ignores PluginData. Read the
-            // distributed settings directly, just like Presets.cfg.
-            string path = Path.Combine(KSPUtil.ApplicationRootPath,
-                "GameData/PartSculptor/PluginData/Settings.cfg");
-            try
-            {
-                if (File.Exists(path))
-                {
-                    ConfigNode root = ConfigNode.Load(path);
-                    if (root != null)
-                    {
-                        var settingsNodes = new List<ConfigNode>();
-                        if (root.name == "PARTSCULPTOR_SETTINGS") settingsNodes.Add(root);
-                        else settingsNodes.AddRange(root.GetNodes("PARTSCULPTOR_SETTINGS"));
-                        foreach (ConfigNode n in settingsNodes)
-                        {
-                            n.TryGetValue("minScale", ref MinScale);
-                            n.TryGetValue("maxScale", ref MaxScale);
-                            n.TryGetValue("incrementLarge", ref IncrementLarge);
-                            n.TryGetValue("incrementSmall", ref IncrementSmall);
-                            n.TryGetValue("incrementSlide", ref IncrementSlide);
-                            n.TryGetValue("scaleChildrenDefault", ref ScaleChildrenDefault);
-                            n.TryGetValue("lockProportionsDefault", ref LockProportionsDefault);
-                            n.TryGetValue("lockMorphXZDefault", ref LockMorphXZDefault);
-                            n.TryGetValue("matchNodeSizesDefault", ref MatchNodeSizesDefault);
-                            n.TryGetValue("maxMassMultiplier", ref MaxMassMultiplier);
-                            n.TryGetValue("maxVolumeMultiplier", ref MaxVolumeMultiplier);
-                            n.TryGetValue("warnMassMultiplier", ref WarnMassMultiplier);
-                            n.TryGetValue("warnVolumeMultiplier", ref WarnVolumeMultiplier);
-                            n.TryGetValue("enableCareerLimits", ref EnableCareerLimits);
-                            n.TryGetValue("careerLevel1MinScale", ref CareerLevel1MinScale);
-                            n.TryGetValue("careerLevel1MaxScale", ref CareerLevel1MaxScale);
-                            n.TryGetValue("careerLevel1MaxVolume", ref CareerLevel1MaxVolume);
-                            n.TryGetValue("careerLevel2MinScale", ref CareerLevel2MinScale);
-                            n.TryGetValue("careerLevel2MaxScale", ref CareerLevel2MaxScale);
-                            n.TryGetValue("careerLevel2MaxVolume", ref CareerLevel2MaxVolume);
-                            n.TryGetValue("careerLevel3MinScale", ref CareerLevel3MinScale);
-                            n.TryGetValue("careerLevel3MaxScale", ref CareerLevel3MaxScale);
-                            n.TryGetValue("careerLevel3MaxVolume", ref CareerLevel3MaxVolume);
-                            n.TryGetValue("restrictWheels", ref RestrictWheels);
-                            n.TryGetValue("restrictDockingPorts", ref RestrictDockingPorts);
-                            n.TryGetValue("scaleDockingCaptureDistances", ref ScaleDockingCaptureDistances);
-                            n.TryGetValue("matchDockingPortTypes", ref MatchDockingPortTypes);
-                            n.TryGetValue("dockingStockSizeTolerance", ref DockingStockSizeTolerance);
-                            n.TryGetValue("restrictAnimatedParts", ref RestrictAnimatedParts);
-                            n.TryGetValue("resourceFallbackSeconds", ref ResourceFallbackSeconds);
-                            n.TryGetValue("checkAllResourcesPeriodically", ref CheckAllResourcesPeriodically);
-                            n.TryGetValue("scaleEngineEffects", ref ScaleEngineEffects);
-                            n.TryGetValue("scaleWaterfallEffects", ref ScaleWaterfallEffects);
-                            n.TryGetValue("effectRefreshSeconds", ref EffectRefreshSeconds);
-                            n.TryGetValue("debugLogChanges", ref DebugLogChanges);
-                        }
-                    }
-                }
-                else Debug.LogWarning("[PartSculptor] Settings file not found: " + path);
-            }
-            catch (Exception e)
-            {
-                Debug.LogError("[PartSculptor] Unable to load settings from " + path + ": " + e);
-            }
-            if (!(MinScale > 0f)) MinScale = 0.001f;
-            if (!(MaxScale > MinScale)) MaxScale = MinScale * 10f;
-            if (!(IncrementLarge > 0f)) IncrementLarge = 0.25f;
-            if (!(IncrementSmall > 0f)) IncrementSmall = 0.05f;
-            if (!(IncrementSlide > 0f)) IncrementSlide = 0.001f;
-            if (!(MaxMassMultiplier > 0f) || float.IsInfinity(MaxMassMultiplier)) MaxMassMultiplier = 10000f;
-            if (!(MaxVolumeMultiplier > 0f) || float.IsInfinity(MaxVolumeMultiplier)) MaxVolumeMultiplier = 10000f;
-            if (!(WarnMassMultiplier > 1f) || float.IsInfinity(WarnMassMultiplier)) WarnMassMultiplier = 100f;
-            if (!(WarnVolumeMultiplier > 1f) || float.IsInfinity(WarnVolumeMultiplier)) WarnVolumeMultiplier = 100f;
-            if (!(ResourceFallbackSeconds >= 1f) || float.IsInfinity(ResourceFallbackSeconds)) ResourceFallbackSeconds = 10f;
-            if (!(DockingStockSizeTolerance >= 0f) || DockingStockSizeTolerance > 0.25f ||
-                float.IsNaN(DockingStockSizeTolerance)) DockingStockSizeTolerance = 0.05f;
-            if (!(EffectRefreshSeconds >= 0.25f) || float.IsInfinity(EffectRefreshSeconds))
-                EffectRefreshSeconds = 2f;
-            // A user-set default takes precedence over the shipped Settings.cfg.
-            // The PAW toggle itself remains a session-level control.
-            ScaleUserSettings.Load(ref MatchNodeSizesDefault, ref ScaleChildrenDefault,
-                ref LockProportionsDefault, ref LockMorphXZDefault);
-            NormalizeCareerTier(ref CareerLevel1MinScale, ref CareerLevel1MaxScale, ref CareerLevel1MaxVolume,
-                0.75f, 1.5f, 3f);
-            NormalizeCareerTier(ref CareerLevel2MinScale, ref CareerLevel2MaxScale, ref CareerLevel2MaxVolume,
-                0.5f, 3f, 27f);
-            NormalizeCareerTier(ref CareerLevel3MinScale, ref CareerLevel3MaxScale, ref CareerLevel3MaxVolume,
-                0.25f, 10f, 1000f);
-            Debug.Log(string.Format("[PartSculptor] Axes {0} .. {1}; mass factor <= {2}; total volume factor <= {3}",
-                MinScale, MaxScale, MaxMassMultiplier, MaxVolumeMultiplier));
-        }
-
-        static void NormalizeCareerTier(ref float min, ref float max, ref float volume,
-            float defaultMin, float defaultMax, float defaultVolume)
-        {
-            if (!(min > 0f) || float.IsInfinity(min)) min = defaultMin;
-            if (!(max >= min) || float.IsInfinity(max)) max = Math.Max(min, defaultMax);
-            if (!(volume > 0f) || float.IsInfinity(volume)) volume = defaultVolume;
-        }
-    }
 
     // Three stock facility progression tiers. KSP exposes the normalized
     // facility level and the facility's upgrade count; use both to translate
@@ -478,6 +313,7 @@ namespace PartSculptor
         B9PartSwitchSupport b9Support;
         string b9Signature;
         bool b9SubtypeChangePending;
+        float nextB9CapacityRecheck;
         bool b9ResourceRebasePending;
         int b9SubtypeChangedFrame;
 
@@ -488,6 +324,13 @@ namespace PartSculptor
         readonly Dictionary<string, double> fuelSwitchResourceBases =
             new Dictionary<string, double>(StringComparer.Ordinal);
         FuelSwitchSupport fuelSwitchSupport;
+        // MFT owns the *allocated tank volume*, not just PartResource.maxAmount.
+        // Preserve its original volume independently of resource allocations.
+        const string MFT_VOLUME_NODE = "PARTSCULPTOR_MFT_VOLUME";
+        readonly Dictionary<string, double> mftNativeVolumes =
+            new Dictionary<string, double>(StringComparer.Ordinal);
+        MFTVolumeSupport mftVolumeSupport;
+        float nextMFTVolumeCheck;
         string fuelSwitchSignature;
         bool fuelSwitchChangePending;
         bool fuelSwitchResourceRebasePending;
@@ -567,7 +410,7 @@ namespace PartSculptor
             }
             catch (System.Exception e)
             {
-                Debug.LogError("[PartSculptor] Error handling TweakScale change on " + part.name + ": " + e);
+                Log.Error("[PartSculptor] Error handling TweakScale change on " + part.name + ": " + e);
             }
         }
 
@@ -678,6 +521,17 @@ namespace PartSculptor
                         NumberStyles.Float, CultureInfo.InvariantCulture, out native) && Valid(native))
                     b9ResourceBaselines[B9PartSwitchSupport.ResourceKey(signature, name)] = native;
             }
+            mftNativeVolumes.Clear();
+            foreach (ConfigNode entry in node.GetNodes(MFT_VOLUME_NODE))
+            {
+                string id = entry.GetValue("id");
+                double native;
+                if (!string.IsNullOrEmpty(id) &&
+                    double.TryParse(entry.GetValue("nativeVolume"), NumberStyles.Float,
+                        CultureInfo.InvariantCulture, out native) &&
+                    ScaleMath.PositiveFinite(native))
+                    mftNativeVolumes[id] = native;
+            }
             fuelSwitchResourceBases.Clear();
             foreach (ConfigNode entry in node.GetNodes(FUEL_SWITCH_RESOURCE_NODE))
             {
@@ -758,6 +612,14 @@ namespace PartSculptor
                 record.AddValue("name", name);
                 record.AddValue("nativeCapacity", entry.Value.ToString("R", CultureInfo.InvariantCulture));
             }
+            node.RemoveNodes(MFT_VOLUME_NODE);
+            foreach (KeyValuePair<string, double> entry in mftNativeVolumes)
+            {
+                ConfigNode record = node.AddNode(MFT_VOLUME_NODE);
+                record.AddValue("id", entry.Key);
+                record.AddValue("nativeVolume",
+                    entry.Value.ToString("R", CultureInfo.InvariantCulture));
+            }
             node.RemoveNodes(FUEL_SWITCH_RESOURCE_NODE);
             foreach (KeyValuePair<string, double> entry in fuelSwitchResourceBases)
             {
@@ -834,7 +696,7 @@ namespace PartSculptor
             Part prefab = part.partInfo != null ? part.partInfo.partPrefab : null;
             if (model == null || prefab == null)
             {
-                Debug.LogWarning("[PartSculptor] No 'model' transform or prefab on " + part.name + "; disabling.");
+                Log.Warning("[PartSculptor] No 'model' transform or prefab on " + part.name + "; disabling.");
                 HideFields();
                 return;
             }
@@ -944,6 +806,9 @@ namespace PartSculptor
             restrictedReason = FindRestriction();
 
             FindTweakScale();
+            mftVolumeSupport = MFTVolumeSupport.Create(part, mftNativeVolumes,
+                StretchVolumeFactor * Math.Pow(BaseFactor, 3d));
+            nextMFTVolumeCheck = Time.realtimeSinceStartup + 1f;
 
             if (HighLogic.LoadedSceneIsEditor)
             {
@@ -1007,12 +872,27 @@ namespace PartSculptor
                 if (EnsureFaceMorph())
                     faceMorph.Apply(GetMorphFace(0), GetMorphFace(1), false);
                 else
-                    Debug.LogWarning("[PartSculptor] Cannot restore saved face morph on " +
+                    Log.Warning("[PartSculptor] Cannot restore saved face morph on " +
                         part.name + ": " + morphFailure);
             }
             lastAcceptedScale = Target;
             initialized = true;
             UpdateCalculatedValues();
+            // A craft launched from the editor can already contain the correct
+            // expanded PartResource.maxAmount, so ApplyResourceScaling sees no
+            // change. The flight PAW may nevertheless cache the prefab upper
+            // limit. Queue one refresh for every stretched resource-bearing
+            // part even when no capacity write was needed during startup.
+            if (HighLogic.LoadedSceneIsFlight && part.Resources != null &&
+                Math.Abs(StretchVolumeFactor - 1d) > 1e-6d)
+            {
+                foreach (PartResource resource in part.Resources)
+                {
+                    if (resource == null) continue;
+                    resourceDisplayDirty = true;
+                    break;
+                }
+            }
             // KSP may reconstruct craft stack joins from prefab node positions
             // before this module restores scaled attachment nodes. Once the
             // complete editor craft is initialized, align each stack join once.
@@ -1062,7 +942,7 @@ namespace PartSculptor
                 BaseEvent action = Events[name];
                 if (action != null) action.guiActiveEditor = false;
             }
-            Debug.LogWarning("[PartSculptor] Editing disabled on " + part.name + ": " + restrictedReason);
+            Log.Warning("[PartSculptor] Editing disabled on " + part.name + ": " + restrictedReason);
         }
 
         static float Clamp(float v)
@@ -1145,7 +1025,7 @@ namespace PartSculptor
                 }
                 catch (System.Exception e)
                 {
-                    Debug.LogWarning("[PartSculptor] PAW refresh failed, rebuilding window: " + e.Message);
+                    Log.Warning("[PartSculptor] PAW refresh failed, rebuilding window: " + e.Message);
                     ok = false;
                 }
             }
@@ -1492,9 +1372,9 @@ namespace PartSculptor
                 if (EnsureFaceMorph()) FaceMorphGizmo.Show(this);
                 else
                 {
-                    Debug.LogWarning("[PartSculptor] Face morph unavailable: " + morphFailure);
+                    Log.Warning("[PartSculptor] Face morph unavailable: " + morphFailure);
                     ScreenMessages.PostScreenMessage("Face morph unavailable: " + morphFailure,
-                        5f, ScreenMessageStyle.UPPER_CENTER);
+                        Settings.screenMessageTime, ScreenMessageStyle.UPPER_CENTER);
                 }
             }
         }
@@ -1535,10 +1415,32 @@ namespace PartSculptor
 
         internal void SetGizmoAxis(int axis, float value)
         {
+            SetGizmoAxis(axis, value, false, false);
+        }
+
+        internal void SetGizmoAxis(int axis, float value, bool temporaryLockProportions)
+        {
+            SetGizmoAxis(axis, value, temporaryLockProportions, false);
+        }
+
+        // Modifier locks affect ONLY this gizmo edit; the saved PAW lockAxes
+        // value is never altered. Alt takes precedence over Ctrl. Ctrl locks
+        // just X/Z, overriding the PAW's all-axis lock while it is held.
+        internal void SetGizmoAxis(int axis, float value,
+            bool temporaryLockProportions, bool temporaryLockXZ)
+        {
             if (!CanUseScaleGizmo || axis < 0 || axis > 2) return;
             Vector3 before = Target;
-            ScaleMath.Axes target = ScaleMath.GizmoAxes(before.x, before.y,
-                before.z, axis, value, lockAxes, Settings.MinScale, Settings.MaxScale);
+            ScaleMath.Axes target;
+            if (temporaryLockProportions)
+                target = ScaleMath.GizmoAxes(before.x, before.y, before.z,
+                    axis, value, true, Settings.MinScale, Settings.MaxScale);
+            else if (temporaryLockXZ)
+                target = ScaleMath.GizmoXZAxes(before.x, before.y, before.z,
+                    axis, value, Settings.MinScale, Settings.MaxScale);
+            else
+                target = ScaleMath.GizmoAxes(before.x, before.y, before.z,
+                    axis, value, lockAxes, Settings.MinScale, Settings.MaxScale);
             SetGizmoScale(new Vector3((float)target.X, (float)target.Y, (float)target.Z));
         }
 
@@ -1725,6 +1627,10 @@ namespace PartSculptor
             fuelSwitchChangePending = false;
             fuelSwitchResourceRebasePending = true;
             resourceCheckPending = true;
+            // Reconcile the owning tank's physical volume before resources.
+            if (mftVolumeSupport != null)
+                mftVolumeSupport.Apply(part, StretchVolumeFactor,
+                    Math.Pow(BaseFactor, 3d), HighLogic.LoadedSceneIsEditor);
             ApplyResourceScaling(false);
             if (HighLogic.LoadedSceneIsEditor) FireEditorShipModified();
         }
@@ -1860,7 +1766,47 @@ namespace PartSculptor
                 if (fuelSwitchChangePending && Time.frameCount > fuelSwitchChangedFrame)
                     OnFuelSwitchChanged();
             }
+            // B9 may recreate the selected subtype's PartResource during its
+            // own Start or on a later subtype update, after we scaled the tank.
+            // Recheck only B9-managed resources, at a low frequency; do not
+            // invoke B9.UpdateVolume in flight (it zeroes fuel amounts).
+            if (b9Support != null && !b9SubtypeChangePending &&
+                Time.realtimeSinceStartup >= nextB9CapacityRecheck)
+            {
+                nextB9CapacityRecheck = Time.realtimeSinceStartup + 0.75f +
+                    (part.GetInstanceID() & 7) * 0.04f;
+                if (b9Support.ReconcileManagedCapacities(part))
+                {
+                    resourceDisplayDirty = true;
+                    if (HighLogic.LoadedSceneIsEditor && part.PartActionWindow != null)
+                        part.PartActionWindow.displayDirty = true;
+                }
+            }
+            // A late MFT OnStart or tank-type change can restore its native
+            // volume. Recheck the physical volume without touching a correct
+            // tank or rerunning its allocation logic every frame.
+            if (mftVolumeSupport != null && !fuelSwitchChangePending &&
+                Time.realtimeSinceStartup >= nextMFTVolumeCheck)
+            {
+                nextMFTVolumeCheck = Time.realtimeSinceStartup + 1.25f +
+                    (part.GetInstanceID() & 7) * 0.04f;
+                if (mftVolumeSupport.Apply(part, StretchVolumeFactor,
+                    Math.Pow(BaseFactor, 3d), HighLogic.LoadedSceneIsEditor))
+                {
+                    resourceDisplayDirty = true;
+                    resourceCheckPending = true;
+                }
+            }
             if (visualEffects != null) visualEffects.Update();
+            // In flight the stock resource controls can retain their initial
+            // prefab maxAmount even though the PartResource holds the correct
+            // stretched capacity. Rebuild the resource UI once, after the
+            // flight PAW exists, instead of leaving it with a stale upper limit.
+            if (HighLogic.LoadedSceneIsFlight)
+            {
+                RefreshFlightResourceDisplay();
+                return;
+            }
             if (!HighLogic.LoadedSceneIsEditor) return;
             AttachmentLoadFix.Poll();
             if (lockAxes != lastLoggedLockAxes)
@@ -1923,6 +1869,26 @@ namespace PartSculptor
                 nextResourceCheckTime = Time.realtimeSinceStartup +
                     Settings.ResourceFallbackSeconds + (part.GetInstanceID() & 31) * 0.05f;
                 ApplyResourceScaling(false);
+            }
+        }
+
+        private void RefreshFlightResourceDisplay()
+        {
+            if (!resourceDisplayDirty || part == null || part.PartActionWindow == null ||
+                !part.PartActionWindow.gameObject.activeInHierarchy)
+                return;
+            resourceDisplayDirty = false;
+            try
+            {
+                part.PartActionWindow.displayDirty = true;
+                // Unlike ordinary field edits, resized PartResource controls
+                // can cache the original slider/capacity bounds in flight.
+                // Refresh only on a capacity change, never on fuel consumption.
+                MonoUtilities.RefreshPartContextWindow(part);
+            }
+            catch (Exception e)
+            {
+                Log.Warning("[PartSculptor] Failed to refresh flight resource display: " + e.Message);
             }
         }
 
@@ -2067,7 +2033,7 @@ namespace PartSculptor
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[PartSculptor] TweakScale mass modifier failed on " +
+                Log.Warning("[PartSculptor] TweakScale mass modifier failed on " +
                     part.name + ": " + ex.Message);
                 return 0f;
             }
@@ -2119,7 +2085,7 @@ namespace PartSculptor
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[PartSculptor] TweakScale cost modifier failed on " +
+                Log.Warning("[PartSculptor] TweakScale cost modifier failed on " +
                     part.name + ": " + ex.Message);
                 return 0f;
             }
@@ -2152,7 +2118,7 @@ namespace PartSculptor
                         }
                         catch (Exception ex)
                         {
-                            Debug.LogWarning("[PartSculptor] Mass modifier failed on " +
+                            Log.Warning("[PartSculptor] Mass modifier failed on " +
                                 module.moduleName + ": " + ex.Message);
                         }
                     }
@@ -2186,7 +2152,7 @@ namespace PartSculptor
                         }
                         catch (Exception ex)
                         {
-                            Debug.LogWarning("[PartSculptor] Cost modifier failed on " +
+                            Log.Warning("[PartSculptor] Cost modifier failed on " +
                                 module.moduleName + ": " + ex.Message);
                         }
                     }
@@ -2304,6 +2270,16 @@ namespace PartSculptor
                 exponentScaler.CapacityExponent : 3d);
             double totalVolume = tweakVolume * stretch;
             if (!Valid(totalVolume) || !Valid(stretch)) return;
+            if (mftVolumeSupport != null)
+            {
+                // ModuleFuelTanks manages allocated fuel and utilization. Its
+                // ChangeVolume callback updates these capacities; applying
+                // stock resource multipliers as well would double-scale them.
+                lastAppliedResourceVolume = totalVolume;
+                resourcesInitialized = true;
+                UpdateCalculatedValues();
+                return;
+            }
 
             double oldTotalVolume = Valid(lastAppliedResourceVolume) ?
                 lastAppliedResourceVolume : 1d;
@@ -2559,7 +2535,12 @@ namespace PartSculptor
             lastAppliedResourceVolume = totalVolume;
             resourcesInitialized = true;
             UpdateCalculatedValues();
-            if ((!changed && !structureChanged) || !HighLogic.LoadedSceneIsEditor) return;
+            if (!changed && !structureChanged) return;
+            // Flight PAWs may have been constructed before a saved stretched
+            // capacity was restored. The deferred UI refresh is independent
+            // of editor ship-modified notifications.
+            resourceDisplayDirty = true;
+            if (!HighLogic.LoadedSceneIsEditor) return;
 
             // Notify other modules only when a real capacity change occurred.
             if (changed)
@@ -2637,6 +2618,9 @@ namespace PartSculptor
                     costFactor > 0d ? finalCost / costFactor : b9Cost,
                     finalCost, "funds; includes B9 baseVolume change"));
             }
+
+            if (mftVolumeSupport != null)
+                mftVolumeSupport.CollectVolumeValues(values);
 
             if (fuelSwitchSupport != null)
             {
@@ -2848,7 +2832,7 @@ namespace PartSculptor
             {
                 // Fail conservatively at level 1 rather than silently
                 // allowing an unlimited resize when the API is unavailable.
-                Debug.LogWarning("[PartSculptor] Could not read Career building level: " + e.Message);
+                Log.Warning("[PartSculptor] Could not read Career building level: " + e.Message);
             }
             limits.level = Math.Max(1, Math.Min(3, level));
             switch (limits.level)
@@ -3028,7 +3012,7 @@ namespace PartSculptor
             if (warning == lastLoggedWarning) return;
             lastLoggedWarning = warning;
             if (!string.IsNullOrEmpty(warning))
-                Debug.LogWarning("[PartSculptor] " + part.name + ": " + warning);
+                Log.Warning("[PartSculptor] " + part.name + ": " + warning);
         }
 
         void UpdateSafetyStatus()
@@ -3193,7 +3177,17 @@ namespace PartSculptor
                     HighLogic.LoadedSceneIsEditor);
             // Called for initial load, direct edits, symmetry counterparts,
             // child stretching and changes originating from TweakScale.
+            if (mftVolumeSupport != null &&
+                mftVolumeSupport.Apply(part, StretchVolumeFactor,
+                    Math.Pow(BaseFactor, 3d), HighLogic.LoadedSceneIsEditor))
+                resourceDisplayDirty = true;
             ApplyResourceScaling(false);
+            if (b9Support != null && b9Support.ReconcileManagedCapacities(part))
+            {
+                resourceDisplayDirty = true;
+                if (HighLogic.LoadedSceneIsEditor && part.PartActionWindow != null)
+                    part.PartActionWindow.displayDirty = true;
+            }
             if (ScaleDebug.Enabled && ((newScale - oldScale).sqrMagnitude > 1e-10f ||
                 !Mathf.Approximately(f, lastBase)))
             {

@@ -13,7 +13,7 @@ In the VAB, place two stock FL-T400 tanks vertically, attached end-to-end.
    the red, green and blue axis drag squares and their stems remain visible in
    front of either tank wherever the gizmo would otherwise be occluded.
 5. Drag an axis marker previously obscured by the adjacent tank. Confirm only
-   its corresponding StretchScale axis changes; Shift snapping and Esc cancel
+   its corresponding PartSculptor axis changes; Shift snapping and Esc cancel
    still work.
 6. Switch tools repeatedly, deselect the part, and leave the editor. Confirm
    gizmo markers and temporary input locks disappear.

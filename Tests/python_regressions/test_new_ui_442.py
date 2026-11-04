@@ -45,7 +45,7 @@ class TestNewUI(unittest.TestCase):
         self.assertIn('ApplyNamedPresetFromEditor(choice.Name, choice.Relative)', screen)
         self.assertIn('ScalePresetsWindow.DrawFor(this);', mod)
         self.assertIn('ScalePresetsWindow.ProcessPendingFor(this);', mod)
-        self.assertIn('internal static void ProcessPendingFor(ModuleStretchScale module)', screen)
+        self.assertIn('internal static void ProcessPendingFor(ModulePartSculptor module)', screen)
         self.assertIn('ScalePresetsWindow.CloseFor(this);', mod)
         self.assertIn('GUI.DragWindow()', screen)
 

@@ -62,6 +62,44 @@ namespace PartSculptor
             return native * stretchVolume;
         }
 
+        // Modular Fuel Tanks' allocated volume follows the physical geometry.
+        // Compute from a saved/prefab native volume, not its already-resized
+        // live value. TweakScale owns the base uniform multiplier.
+        internal static double MFTManagedVolume(double native, double stretchVolume,
+            double tweakVolume)
+        {
+            if (!PositiveFinite(native) || !PositiveFinite(stretchVolume) ||
+                !PositiveFinite(tweakVolume)) return double.NaN;
+            return native * stretchVolume * tweakVolume;
+        }
+
+        // RealFuels 15.16.1 ChangeTotalVolume takes pre-utilization volume,
+        // whereas ModuleFuelTanks.volume is the post-utilization usable amount.
+        // Prefer the module's live ratio to preserve utilization precisely;
+        // the utilization field is a fallback before the totals initialize.
+        internal static double MFTTotalVolumeTarget(double wantedUsable,
+            double currentUsable, double currentTotal, double utilization)
+        {
+            if (!PositiveFinite(wantedUsable)) return double.NaN;
+            if (PositiveFinite(currentUsable) && PositiveFinite(currentTotal))
+                return wantedUsable * (currentTotal / currentUsable);
+            if (PositiveFinite(utilization))
+                return wantedUsable * 100d / utilization;
+            return double.NaN;
+        }
+
+        // Match B9's ResourceModifier: its current tank's actual total volume
+        // multiplied by the selected tank resource's unitsPerVolume. This is an
+        // absolute capacity, not a multiplier to apply to the live resource.
+        internal static double B9ManagedCapacity(double totalVolume,
+            double unitsPerVolume)
+        {
+            if (!PositiveFinite(totalVolume) || unitsPerVolume < 0d ||
+                double.IsNaN(unitsPerVolume) || double.IsInfinity(unitsPerVolume))
+                return double.NaN;
+            return totalVolume * unitsPerVolume;
+        }
+
         // B9's live modifier includes already-stretched volume-derived values,
         // plus fixed subtype addedMass/addedCost. Produce ONLY PartSculptor's
         // remaining delta to reach the desired original-value exponent target.
@@ -146,6 +184,28 @@ namespace PartSculptor
             if (PositiveFinite(min)) requested = Math.Max(requested, min);
             return new Axes(axis == 0 ? requested : x,
                 axis == 1 ? requested : y, axis == 2 ? requested : z);
+        }
+
+        // Ctrl on the Stretch gizmo locks the X/Z aspect ratio without changing
+        // height (Y). When Y is dragged, it remains a normal single-axis edit.
+        // Clamp the shared X/Z multiplier BEFORE multiplying either axis so
+        // reaching an axis limit cannot distort the original X:Z ratio.
+        internal static Axes GizmoXZAxes(double x, double y, double z,
+            int axis, double requested, double min, double max)
+        {
+            if (axis == 1)
+                return GizmoAxes(x, y, z, axis, requested, false, min, max);
+            if ((axis != 0 && axis != 2) || !PositiveFinite(x) ||
+                !PositiveFinite(z) || !PositiveFinite(requested))
+                return new Axes(x, y, z);
+
+            double oldValue = axis == 0 ? x : z;
+            double factor = requested / oldValue;
+            if (PositiveFinite(max))
+                factor = Math.Min(factor, Math.Min(max / x, max / z));
+            if (PositiveFinite(min))
+                factor = Math.Max(factor, Math.Max(min / x, min / z));
+            return new Axes(x * factor, y, z * factor);
         }
 
         // Absolute post-load correction for a pair of connected stack nodes.

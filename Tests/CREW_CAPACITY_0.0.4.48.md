@@ -1,4 +1,4 @@
-> **Historical test plan (superseded as of v0.0.4.69).** PatchManager support was removed; StretchScale is now applied to all parts by the single ModuleManager patch. Do not follow PatchManager installation steps below.
+> **Historical test plan (superseded as of v0.0.4.69).** PatchManager support was removed; PartSculptor is now applied to all parts by the single ModuleManager patch. Do not follow PatchManager installation steps below.
 
 # Crewed-parts test plan for 0.0.4.48
 

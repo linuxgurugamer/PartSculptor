@@ -11,16 +11,17 @@ class TestSettingsAndFixedPresets(unittest.TestCase):
     def test_default_off_and_saved_user_override(self):
         cfg = (GAME / 'PluginData/Settings.cfg').read_text()
         mod = (CODE / 'PartSculptor.cs').read_text()
+        settings = (CODE / 'Settings.cs').read_text()
         helper = (CODE / 'ScaleSettingsWindow.cs').read_text()
         self.assertIn('matchNodeSizesDefault = false', cfg)
-        self.assertIn('public static bool MatchNodeSizesDefault = false;', mod)
+        self.assertIn('public static bool MatchNodeSizesDefault = false;', settings)
         self.assertIn('public bool matchNodeSizes = false;', mod)
-        self.assertIn('ScaleUserSettings.Load(ref MatchNodeSizesDefault, ref ScaleChildrenDefault,', mod)
+        self.assertIn('ScaleUserSettings.Load(ref MatchNodeSizesDefault, ref ScaleChildrenDefault,', settings)
         self.assertIn('GameData/PartSculptor/PluginData/UserSettings.cfg', helper)
-        self.assertIn('ConfigNode.Load(path)', helper)
+        self.assertIn('ConfigNode.Load(UserSettingsPath)', helper)
         self.assertIn('root.AddNode(NodeName)', helper)
         self.assertIn('File.Replace(temporary, path, null)', helper)
-        self.assertIn('ModuleStretchScale.MatchNodeSizesGlobal = matchValue;', helper)
+        self.assertIn('ModulePartSculptor.MatchNodeSizesGlobal = matchValue;', helper)
         self.assertIn('Settings.MatchNodeSizesDefault = matchValue;', helper)
 
     def test_settings_inspector_button_and_safe_lifecycle(self):
@@ -35,7 +36,7 @@ class TestSettingsAndFixedPresets(unittest.TestCase):
         self.assertIn('settingsWindow.Close();', code)
         self.assertIn('ClickThruBlocker.GUIWindow', settings)
         self.assertIn('"Match node sizes by default"', settings)
-        self.assertIn('GUI.DragWindow();', settings)
+        self.assertIn('GUI.DragWindow(new Rect(0f, 0f, windowRect.width, 23f));', settings)
 
     def test_fixed_double_and_half_y_noncompounding(self):
         config = (GAME / 'PluginData/Presets.cfg').read_text()

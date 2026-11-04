@@ -1,4 +1,4 @@
-# StretchScale 0.0.4.24 Vessel Inspector regression checklist
+# PartSculptor 0.0.4.24 Vessel Inspector regression checklist
 
 1. In VAB/SPH and flight, open Vessel Inspector: **Scaled parts only** begins checked.
 2. With all parts at scale 1.0, the list says no parts have been scaled.

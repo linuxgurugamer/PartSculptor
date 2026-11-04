@@ -8,7 +8,7 @@
    its node. Resize with Ctrl+Alt: normal follows any tilt without drift.
 5. Reset morph: both nodes return to native orientation. Repeat 50 edits.
 6. Stretch the tank along X/Z/Y with an active tilt: node normals must
-   stay correct after StretchScale recalculates the geometry.
+   stay correct after PartSculptor recalculates the geometry.
 7. Save/reload the craft and verify restored tilt/node orientation.
 8. Try an ordinary surface-attachment node on a part with supported mesh.
 9. Regression tests: `python Tests/run_regressions.py`. C# runner tests

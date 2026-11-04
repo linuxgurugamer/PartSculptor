@@ -16,5 +16,5 @@
 - Supports **Y-axis end faces** of static, readable visual meshes and ordinary MeshColliders or primitive Box/Sphere/Capsule collision shapes. Primitive shapes are approximated by convex mesh proxies during a morph. Not for procedural/animated or variant-changing geometry.
 - Tilted attachment nodes get new positions/normals, but existing attachments may require manual adjustment of orientation; rotation of the entire attached subassembly is not automated.
 - Volume is estimated from linearly interpolated end-face areas; large combined tilt+taper may have slightly different true mesh volume, and aerodynamic voxelization needs separate in-game validation.
-- Shared mesh instances are never modified. Morph data are KSPField floats in the ModuleStretchScale craft node, not a separate file.
+- Shared mesh instances are never modified. Morph data are KSPField floats in the ModulePartSculptor craft node, not a separate file.
 - KSP, shader tangent generation, collider cooking/performance and save/load must be validated in game; offline checks are not proof of gameplay compatibility.

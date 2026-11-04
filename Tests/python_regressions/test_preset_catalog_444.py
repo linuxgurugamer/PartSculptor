@@ -18,7 +18,7 @@ class Catalog444(unittest.TestCase):
         code = (SRC / 'ScalePresetRegistry.cs').read_text()
         self.assertIn('GameData/PartSculptor/PluginData/Presets.cfg', code)
         self.assertIn('ConfigNode.Load(BuiltInPath)', code)
-        self.assertNotIn('GetConfigNodes("STRETCHSCALE_PRESETS")', code)
+        self.assertNotIn('GetConfigNodes("PARTSCULPTOR_PRESETS")', code)
         self.assertIn('SameIdentity(p, name, relative)', code)
         self.assertIn('internal static ScalePresetDefinition Find(string name, bool relative)', code)
         self.assertIn('return Find(name, false) ?? Find(name, true);', code)
@@ -39,6 +39,6 @@ class Catalog444(unittest.TestCase):
 
     def test_windows_height(self):
         self.assertIn('410f, 554f', (SRC/'ScalePresetsWindow.cs').read_text())
-        self.assertIn('510f, 398f', (SRC/'ScaleSettingsWindow.cs').read_text())
+        self.assertIn('510f, 560f', (SRC/'ScaleSettingsWindow.cs').read_text())
 
 if __name__ == '__main__': unittest.main()

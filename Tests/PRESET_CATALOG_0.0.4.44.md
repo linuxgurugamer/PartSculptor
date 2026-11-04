@@ -1,4 +1,4 @@
-# StretchScale 0.0.4.44 — preset catalog regression checklist
+# PartSculptor 0.0.4.44 — preset catalog regression checklist
 
 1. In GameData/PartSculptor/PluginData, confirm `Presets.cfg` contains 8 absolute and 8 relative PRESET nodes. `GameData/PartSculptor/Presets.cfg` must no longer exist.
 2. Open a new craft in VAB. Check the PAW **Scale preset** selector shows the eight absolute entries only; the eight same-name relative entries must not appear in this control.

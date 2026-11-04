@@ -35,8 +35,8 @@
 
 # 3:SOURCEFILE, DESTDIR
 3:PartSculptor.version,GameData/PartSculptor
-#3:LICENSE.md,GameData/PartSculptor
-#3:README.md,GameData/PartSculptor
+3:License.md,GameData/PartSculptor
+3:README.md,GameData/PartSculptor
 
 # 4:SOURCDIR, DESTDIR
 #4:Textures,GameData/ManeuverQueue/Textures

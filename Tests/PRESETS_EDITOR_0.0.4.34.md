@@ -1,8 +1,8 @@
-# StretchScale 0.0.4.34 — Presets regression checklist
+# PartSculptor 0.0.4.34 — Presets regression checklist
 
 Offline: run `python Tests/run_regressions.py` (C# production-math tests also run with the .NET 8 SDK).
 
-1. In VAB add stock part with StretchScale, confirm default PAW presets read from `Presets.cfg`, including Double Y and Half Y.
+1. In VAB add stock part with PartSculptor, confirm default PAW presets read from `Presets.cfg`, including Double Y and Half Y.
 2. With axes 1/1/1 choose Double Y twice (using Repeat preset): expect Y=4, X=Z=1. Reset then choose 1.5x: expect all axes=1.5.
 3. Click Edit scale presets. Create a preset named `Long tank` from the current axes, set absolute X=1, Y=2.5, Z=1, save; confirm it appears immediately in every part's PAW dropdown.
 4. Apply it to part, verify usual symmetry and Career Mode volume limits still govern actual scale.

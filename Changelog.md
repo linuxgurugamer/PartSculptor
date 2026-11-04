@@ -1,3 +1,141 @@
+## 0.0.4.97 — Stretch gizmo modifier locks and help panel
+
+- Add **Ctrl** to temporarily link X and Z when resizing either axis, preserving their aspect ratio while leaving Y unchanged; resizing Y with Ctrl remains Y-only. **Shift+Ctrl** adds the existing 0.05 snap to the X/Z-linked drag.
+- Retain **Shift** snap, **Alt** all-axis lock, and **Shift+Alt** all-axis lock with snap. Alt takes precedence if Alt and Ctrl are both held. Modifier changes never alter the part's saved PAW Lock proportions field, and Ctrl temporarily overrides the persistent all-axis lock while held.
+- Add a Stretch help panel below the editor tool strip, sharing the Morph help panel placement and styling. Display all modifiers and shortcuts when not dragging; update the on-drag tip to include Ctrl.
+- Preserve the current drag cancellation and one-checkpoint-per-gesture undo behavior. Update README copies, regression checks and in-game test instructions.
+
+## 0.0.4.96 — Stretch modifier keys and user Morph gizmo replacement
+
+- Stretch gizmo: Shift continues to snap in 0.05 steps; Alt temporarily locks X/Y/Z proportions while dragging an axis, without modifying the part's persistent Lock proportions setting. Shift+Alt combines both behaviors. The proportional change uses the existing scale limit calculations and one-checkpoint-per-drag native undo flow.
+- Replace `FaceMorphGizmo.cs` **byte-for-byte** with the user-supplied file. The Morph help panel now displays commands on individual lines and sizes itself to the longest line rather than word-wrapping them in a fixed-width box. Morph logic is otherwise the user-provided implementation.
+- Update both README copies and regression tests. In-game testing is still required.
+
+## 0.0.4.95 — Editor Stretch/Morph undo and redo
+
+- Record one native KSP editor undo checkpoint per Stretch gizmo drag, immediately before the first actual scale edit. This keeps whole-drag changes in one undo step rather than adding one snapshot per mouse move.
+- Add the same one-checkpoint-per-gesture behavior to all Morph handle gestures, capturing the full pre-edit face state so Ctrl+Z/Ctrl+Y can restore and reapply morphs via KSP craft serialization.
+- On Ctrl+Z or Ctrl+Y, exit the active Stretch/Morph custom editor tool, clear the selected part, hide handles, and release the pickup lock. Also hide gizmos opened directly through the PAW. Do not intercept KSP's native undo/redo key events.
+- Incorporate the user-supplied updated README in both locations, including project history, alpha testing note, forum link and undo/redo instructions; include manual and offline regression checks. KSP in-game validation is required.
+
+## 0.0.4.94 — README Limitations
+
+- Append the user-supplied Limitations section to both README copies, documenting unsupported B9PartSwitch geometry-changing subtypes and Procedural Parts exclusion. No runtime code changes.
+
+## 0.0.4.93 — README replacement
+
+- Replace both source and GameData README files verbatim with the user-supplied documentation, including updated requirements, settings usage, and Fuel/Part Switchers section. No runtime code changes.
+
+## 0.0.4.92 — Procedural Parts ModuleManager exclusion
+
+- Exclude any part containing `MODULE { name = ProceduralPart }` from the automatic PartSculptor ModuleManager injection patch. Procedural Parts manages its own mesh and volume geometry.
+- Preserve the existing one-module-only check, crewed-part support, and bundled exponent definitions. No changes to scaling C# code.
+
+## 0.0.4.91 — Release build 7-Zip path
+
+- Update `buildRelease.bat` to use `d:\Program Files\7-zip\7z.exe` instead of the previous C: drive path. No mod runtime changes.
+
+## 0.0.4.90 — Vessel Inspector selectable rows
+
+- Replace `VesselInspector.cs` with the user-supplied implementation. The part list now uses `GUILayout.Toggle` to display selected rows as toggled/pressed, while deferring report changes to the existing selection queue.
+- No other production source files changed; update version metadata and add a focused regression test.
+
+## 0.0.4.89 — Cancel restores settings from window opening
+
+- **Cancel** now rolls back all changes made since the Settings window opened, including settings already written by **Apply**. The rollback restores the original `UserSettings.cfg` bytes (or removes the file if none existed when opened), in-memory defaults, Morph opacity/snap/skin, and shared PAW toggles. No changes to Save/Apply behavior.
+- The opening snapshot is never replaced by Apply. If file rollback fails, the window remains open with an error instead of silently losing restoration.
+- Update README copies, manual Settings test instructions, version metadata and regression checks. No changes to scaling, morph geometry, or fuel integration.
+
+## 0.0.4.88 — Settings Cancel restoration and solid Morph tips
+
+- **Cancel** explicitly restores all pending settings fields and session defaults to the values last committed by Save or Apply, then closes without writing. Successful Apply refreshes the restoration point; Cancel does not undo an earlier Apply.
+- Morph help and drag tips now draw a directly alpha-controlled solid panel instead of relying on the current UI skin's semitransparent box texture. At 100% the background is fully opaque; at 10–99% only the background fades, never the text.
+- Update README, regression checks and manual Settings verification. No changes to scaling, morph geometry or fuel integrations.
+
+## 0.0.4.87 — Settings window controls and Morph tip background opacity
+
+- Correct the Settings window clipping: enlarge the default window, constrain its full bounds to the screen, and scroll the options area while keeping footer buttons visible.
+- Retain **Save** (save and close); add **Apply** (save without closing) and **Cancel** (discard pending edits and close), replacing **Close**. Defer button processing outside IMGUI for layout stability.
+- Apply Morph tip opacity only to the help/drag tip **background**. Draw text separately at full opacity, restoring the active GUI color and skin afterward.
+- Update both README copies and add regression/manual testing for small screens, button lifecycles, and opacity behavior. No change to fuel/volume/geometry logic.
+
+## 0.0.4.86 — README update
+
+- Replaced the source and GameData README files with the user-supplied README, including the Fuel/Part Switchers compatibility section.
+- No production functionality changed.
+
+## 0.0.4.85 — RealFuels 15.16.1 ChangeTotalVolume API
+
+- Fix RealFuels 15.16.1 volume not changing (observed 4,000 L while requesting 5,000 L). The RealFuels API no longer has `ChangeVolume()`; it exposes `ChangeTotalVolume(double newTotalVolume, bool propagate = false)`.
+- Reflectively locate `ChangeTotalVolume` on `ModuleFuelTanks` and derived types, passing **pre-utilization total physical volume**, not usable `volume`. Convert using the module's `totalVolume / volume` ratio or utilization fallback, invoke with `propagate=false`, and confirm the resulting usable volume.
+- Retain the older ChangeVolume / SendMessage paths for alternative MFT implementations, restore fuel state after callback, and keep B9 and ordinary stock resource handling unchanged.
+- Add RealFuels 15.16.1 regression cases, including 4,000→5,000 L, 80% utilization and repeated scale/reset. In-game validation remains required.
+
+## 0.0.4.84 — RealFuels volume-change callback compatibility
+
+- Extend the existing `ModuleFuelTanks` volume bridge to detect subclasses and inherited private `ChangeVolume(double/float)` callbacks; older RealFuels implementations may place their receiver in a base type not returned by a derived-type reflection search.
+- If direct invocation fails to update `volume`, try the legacy Unity `SendMessage("ChangeVolume", ...)` receiver and verify that the reported volume actually changed. Warn once per unresolved module with its runtime class, assembly, requested volume and current volume to aid troubleshooting.
+- Restore resource fill state even if the external callback fails, and preserve the existing editor fill-percentage / flight absolute-amount policy. Keep the existing B9PartSwitch and stock-resource code unchanged; no hard dependency on RealFuels or ModularFuelTanks assemblies.
+- Add RealFuels callback regression checks and a dedicated manual compatibility test. KSP/RealFuels runtime behavior remains to be verified.
+
+## Changes in 0.0.4.83 — Modular Fuel Tanks volume integration
+
+- Scale `ModuleFuelTanks.volume` through its `ChangeVolume(double/float)` interface when the part changes dimensions, instead of merely changing PartResource maximum values. This updates MFT's own allocated/free volume and fuel configuration.
+- Use prefab or saved native MFT volumes as immutable baselines; store per-module values in `PARTSCULPTOR_MFT_VOLUME` in the craft for reload and duplication.
+- Apply physical stretch and morph volume and TweakScale's base-volume factor once. Exclude MFT's own module volume from generic exponent binding and exclude its resources from PartSculptor's generic resource pass to prevent double scaling.
+- Restore fill percentage in the editor and preserve absolute fuel amounts in flight when a resize is necessary, without filling tanks automatically in flight.
+- Check for late MFT startup/volume reset at a low rate and expose native/current MFT volume in the inspector. No hard dependency on MFT or RealFuels assemblies.
+- B9PartSwitch behavior unchanged. Actual MFT/RealFuels behavior requires an in-game verification.
+
+## 0.0.4.82 — B9PartSwitch managed resource capacities (rebased on 0.0.4.78)
+
+- Started from the 0.0.4.78 source and intentionally discarded the generic
+  PAW-label and resource-control changes from 0.0.4.79–0.0.4.81.
+- Fix B9PartSwitch-managed tank capacities being restored from the original
+  subtype in the VAB or on entering flight. Read the active B9 subtype's
+  `GetTotalVolume` and each resource's `unitsPerVolume` to reconcile the live
+  `PartResource.maxAmount`; preserve the current resource amount (clamping
+  only if needed after shrinking).
+- Never call B9 `UpdateVolume()` from flight, because its flight implementation
+  zeros tank contents. Check periodically only while B9 is present to cover
+  late B9 startup, subtype switching, and reloaded craft.
+- Non-B9 tanks retain the 0.0.4.78 scaling and PAW behavior.
+
+## 0.0.4.77 — Keep Show Unchanged Values When Switching Parts
+
+- In the Vessel Inspector, retain the right-hand **Show unchanged values** toggle when selecting a different part from the list or clicking the craft directly.
+- Preserve a toggle queued for the next IMGUI Layout event when transferring report state, avoiding a lost click during selection changes.
+- Continue using a fresh report for each part to reset the report scroll position, tooltips and cached values; standalone PAW scaled-values windows remain independent.
+- Added regression checks and manual test instructions; updated version metadata and README.
+
+## 0.0.4.76 — Vessel Inspector Part Name Filter
+
+- Added **Filter by name** above the Vessel Inspector's part list, matching case-insensitive full or partial displayed titles and internal part names.
+- The text filter combines with **Scaled parts only** in both the editor and flight; a **Clear** button removes the name filter without changing the scale filter.
+- Applies filter changes during IMGUI Layout to avoid inconsistent control counts, resets list scroll on filter changes, and keeps part selection synchronized with filtered results.
+- Selecting a part on the craft clears any active filter that would hide that part. The list shows a specific no-match message when nothing matches the name search.
+- Updated README, regression tests, assembly version and both version files.
+
+## 0.0.4.75 — PartSculptor Regression Suite Cleanup
+
+- Replaced obsolete test expectations for former class names and save-node identifiers with current `ModulePartSculptor` and `PARTSCULPTOR_*` names.
+- Updated all-parts patch, preset-loading, user-settings, deployment and project-identity assertions to match the current rebased source, without changing production functionality.
+- Updated the C# docking node math check and converted the manual regression checklists to the PartSculptor identity. Removed the obsolete PatchManager crewed-parts manual checklist.
+- Updated version assertions in the offline tests for version 0.0.4.75.
+
+## 0.0.4.74 — Restore Custom Presets on Reload
+
+- Updated `ScalePresetRegistry.Reload()` to load `PluginData/CustomPresets.cfg` in addition to the bundled `Presets.cfg`.
+- Supports both a named `PARTSCULPTOR_CUSTOM_PRESETS` root and an unnamed root containing that node, following the supplied implementation.
+- Kept existing preset save logic, loading diagnostics, and all scaling and morphing behavior unchanged.
+
+## 0.0.4.73 — Midpoint Morph Drag Sensitivity
+
+- Corrected midpoint handle dragging at angled camera views so screen movement follows the mouse along the handle's allowed axis instead of lagging because of world-plane projection.
+- Uses the projected midpoint position to calculate resize sensitivity, with iterative correction for perspective distortion; handles are still clamped to existing morph limits.
+- Applies to edge midpoint resizing with **Lock X/Z** on or off, and to Ctrl+Alt radial resizing from midpoints. Preserves the existing corner-handle drag implementation, modifiers, Shift snapping, face geometry and save-data format.
+- Added source checks and executable C# regression checks for projected movement, perpendicular movement and degenerate views.
+
 ## 0.0.4.72 — Midpoint Morph Handles
 
 - Added eight new morph handles: one at the midpoint of each perimeter edge on both end faces (16 total handles).
@@ -905,3 +1043,9 @@ is unchanged.
 - Added persistent per-part **Lock X/Z** toggle in StretchScale's editor PAW, default enabled. Ordinary face-morph drags then use one shared X/Z multiplier to preserve the selected face's existing aspect ratio; Shift snaps that shared multiplier. Existing Alt tilt, Shift+Alt translation, and Ctrl+Alt radial modes remain unchanged.
 - Added **Lock X/Z by default** in Vessel Inspector → Settings; stored in user preferences, with a shipped config fallback of `lockMorphXZDefault = true`. Existing craft-part choices take priority over the new default.
 - Removed the line displaying the user-settings file location from the settings window.
+
+## PartSculptor 0.0.4.78 — Morph tip appearance and flight capacity display
+
+- Added a 10–100% opacity slider for the Morph instructions below the editor tools and the active drag tip. The preference is stored in PluginData/UserSettings.cfg and updates immediately after Save.
+- Added a persisted **Use alternate skin** toggle for PartSculptor IMGUI windows; off uses KSP's skin, on uses the host IMGUI skin.
+- Flight: request a one-time PAW rebuild after resource maxAmount is adjusted to prevent the stock fuel display retaining its pre-stretch upper limit. Does not rebuild on ordinary fuel consumption.

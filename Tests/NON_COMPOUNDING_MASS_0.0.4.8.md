@@ -1,9 +1,9 @@
-# Locked-proportions mass/capacity regression — StretchScale 0.0.4.8
+# Locked-proportions mass/capacity regression — PartSculptor 0.0.4.8
 
 ## Reproduction
 
 1. Use an unmodified stock fuel tank without TweakScale or a tank switcher
-   (except ModuleStretchScale); note its 1x **dry** mass, resource capacity,
+   (except ModulePartSculptor); note its 1x **dry** mass, resource capacity,
    resource amount, and vessel wet mass separately.
 2. Enable **Lock proportions**. From 1x, increase one axis to 1.25 and let
    the other two follow. Then increase it to 1.50, then 1.75, then 2.00.
@@ -25,13 +25,13 @@
    mass nor native capacity may drift between updates or craft loads.
 6. Repeat with a stock tank using a mass-changing variant: variant mass and
    other mass-modifier deltas remain **additive**, not multiplied again by
-   StretchScale. Repeat with an unrelated mass-modifying module if available.
+   PartSculptor. Repeat with an unrelated mass-modifying module if available.
 7. Repeat with TweakScale at a fixed non-1x size; the TweakScale-adjusted base
    is stretched once, and TweakScale-only changes continue to work.
 8. Repeat with a tank-switching module and check that selecting a new tank
    configuration still updates native capacity but merely resizing does not
    increase the baseline. If it fails, record the specific switcher/version.
-9. Build DEBUG and check KSP.log for `[StretchScale] ... native mass ... live
+9. Build DEBUG and check KSP.log for `[PartSculptor] ... native mass ... live
    Part.mass ... stretch target ... tank capacity multiplier ...` immediately
    after each axis edit. The stretch target must depend on the *current axes*,
    never on the previous click or previous vessel mass.

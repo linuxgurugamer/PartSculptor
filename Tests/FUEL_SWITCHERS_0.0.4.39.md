@@ -1,6 +1,6 @@
 # MFT / Firespitter / InterstellarFuelSwitch regression checklist (0.0.4.39)
 
-1. Confirm StretchScale starts when none of the three optional DLLs is present.
+1. Confirm PartSculptor starts when none of the three optional DLLs is present.
 2. MFT: switch between tank types; edit tank fuel allocations; change 1x -> 1.5x -> 1x, check fuel amounts, mass and cost, and check the native MFT tank-volume UI independently.
 3. FSfuelSwitch: A -> B -> A -> B at 1.5x, including two setups using the same resource name with different capacity; observe no multiplying growth.
 4. IFS: switch between two resource setups, save/reload, switch back; check resource quantities and subtype names.

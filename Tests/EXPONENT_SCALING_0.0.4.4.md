@@ -1,6 +1,6 @@
 # Exponent scaling checks — 0.0.4.4
 
-Requires a KSP 1.12.x installation with StretchScale and a `.cfg` defining the rules in the prompt. The source is not game-built in this environment.
+Requires a KSP 1.12.x installation with PartSculptor and a `.cfg` defining the rules in the prompt. The source is not game-built in this environment.
 
 1. **Database:** Start KSP and check `KSP.log` for the count of TWEAKSCALEEXPONENTS and TWEAKSCALEBEHAVIOR nodes. Confirm there are nonzero rules when the file is in GameData.
 2. **Equivalent linear scale:** For a `ModuleEngines` engine at X=1, Y=2, Z=1, `maxThrust` and `maxFuelFlow` should multiply by `2^(2.5/3)` (about 1.7818); reset to 1,1,1 and confirm original numbers. Repeat several times to rule out drift.
@@ -15,6 +15,6 @@ Requires a KSP 1.12.x installation with StretchScale and a `.cfg` defining the r
 11. **Ignore:** A part with ModuleFuelTanks must not receive additional stock `Part.Resources` scaling; a part with ModuleEngineConfigs must not receive generic ModuleEngines/ModuleRCS exponent scaling.
 12. **Reload and save:** Save a craft at nontrivial axes, reload, enter flight, return to editor, and verify no multiplying on successive loads. Test alongside TweakScale if installed.
 13. **Other mods:** Trigger a fuel or engine switch; check the refreshed native baseline and verify changing axes only applies one stretch multiplier.
-14. **No file:** Remove the exponent `.cfg`, restart, and verify original StretchScale mass/cost/resource/geometry behavior remains available while module-specific numeric properties remain unchanged.
+14. **No file:** Remove the exponent `.cfg`, restart, and verify original PartSculptor mass/cost/resource/geometry behavior remains available while module-specific numeric properties remain unchanged.
 
 **Limitations:** Some KSP and third-party modules cache values during OnLoad or OnStart. Those need dedicated adapters for the actual runtime effect; crew seat UI changes are not guaranteed live. Verify performance/behavior in game, particularly with engines, wheel suspension and solar panels.

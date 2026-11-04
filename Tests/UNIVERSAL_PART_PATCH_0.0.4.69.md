@@ -1,11 +1,9 @@
-# StretchScale 0.0.4.69 — all-parts ModuleManager patch
+# PartSculptor — all-parts ModuleManager patch regression
 
-1. Remove any previous `GameData/StretchScale` PatchManager folder and bundled `Patches/ScaleExponents.cfg` from the KSP installation before updating.
-2. With ModuleManager installed, launch KSP and verify `ModuleStretchScale` appears exactly once on a stock uncrewed fuel tank.
-3. Check a crewed command pod and a modded cockpit: each should have exactly one `ModuleStretchScale` without installing or enabling PatchManager.
-4. Check a part that already declares `ModuleStretchScale`; it must not receive a duplicate.
-5. Verify save/reload, editor scale and IVA seat capacity safeguards for crewed parts.
-6. With and without TweakScale installed, test any configurations relying on global exponent rules. StretchScale no longer ships its own `TWEAKSCALEEXPONENTS` definitions.
-7. Run `python Tests/run_regressions.py`; if .NET 8 SDK is available, run `python Tests/run_regressions.py --require-dotnet`.
-
-Offline source checks cannot validate the final ModuleManager patch application inside KSP.
+1. Use a clean `GameData/PartSculptor` installation with ModuleManager.
+2. Verify a stock uncrewed tank gets one `ModulePartSculptor`.
+3. Verify a crewed pod and cockpit each get one `ModulePartSculptor`; no PatchManager configuration is required.
+4. Verify a part already declaring `ModulePartSculptor` is not given another instance.
+5. Confirm `Patches/PartSculptor.cfg` is the sole module-injection patch and `Patches/ScaleExponents.cfg` is bundled.
+6. With and without TweakScale installed, verify the fallback exponent rules apply only when TweakScale is absent.
+7. Confirm that part-mass, resource-capacity and stage Δv readouts remain stable when the vessel is idle.

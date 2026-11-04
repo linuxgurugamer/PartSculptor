@@ -20,7 +20,7 @@ class Documentation459(unittest.TestCase):
         for needle in ('# PartSculptor', '## Features', '## Requirements',
                        '## Quick start: stretching a part', '## Face morphing',
                        '## Presets', '## Vessel Inspector and settings',
-                       '## Career Mode limits', '[Changelog.md](Changelog.md)',
+                       '## Career Mode limits', '[License.md](License.md)',
                        'Shift + Alt', 'Ctrl + Alt',
                        'Ctrl + Alt + Shift', '0.01', '0.05',
                        '0.10', '0.25'):

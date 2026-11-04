@@ -1,4 +1,4 @@
-# StretchScale 0.0.4.41 regression checklist
+# PartSculptor 0.0.4.41 regression checklist
 
 1. In VAB/SPH, open Vessel Inspector and click Settings. Check that **Match node sizes by default** starts off without `PluginData/UserSettings.cfg`.
 2. Turn the option on; Save; close/reopen the settings window. Confirm On. Exit and restart KSP; confirm it remains On, including if `Settings.cfg` says false.

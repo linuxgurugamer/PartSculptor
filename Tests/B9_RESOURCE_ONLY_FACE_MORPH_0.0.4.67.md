@@ -3,7 +3,7 @@
 1. Install B9PartSwitch + Streamline Engines Tanks with the provided
    `ModuleB9PartSwitch` (`moduleID=fuelSwitch`, four tankType subtypes and
    `addedMass=-0.03`). Place **DTE OX-50-61 mini Oxidizer Tank** in the VAB.
-2. Activate StretchScale's Morph toolbar button. All eight handles should
+2. Activate PartSculptor's Morph toolbar button. All eight handles should
    appear, rather than `Animated / switchable geometry unsupported`.
 3. Tilt and radially resize a face. Change B9 subtype across LF/O,
    LiquidFuel, Oxidizer and MonoPropellant; confirm visible shape, node

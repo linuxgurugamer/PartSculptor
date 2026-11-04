@@ -19,7 +19,7 @@ class EditorStretchToolTests(unittest.TestCase):
         self.assertIn('centerRight + right.normalized', TOOL)
     def test_tool_selects_part_without_detaching(self):
         self.assertIn('InputLockManager.SetControlLock(mask, LockId)', TOOL)
-        self.assertIn('FindModuleImplementing<ModuleStretchScale>', TOOL)
+        self.assertIn('FindModuleImplementing<ModulePartSculptor>', TOOL)
         self.assertIn('ScaleGizmo.Show(selectedModule)', TOOL)
         self.assertIn('FaceMorphGizmo.Show(selectedModule)', TOOL)
         self.assertIn('ScaleGizmo.IsPointerOnHandleOrDragging()', TOOL)
@@ -30,12 +30,12 @@ class EditorStretchToolTests(unittest.TestCase):
         self.assertIn('ReleaseLock();', TOOL)
         self.assertIn('ScaleGizmo.Hide();', TOOL)
     def test_gizmo_is_non_compounding_existing_scaler(self):
-        self.assertIn('internal static void Show(ModuleStretchScale module)', GIZMO)
+        self.assertIn('internal static void Show(ModulePartSculptor module)', GIZMO)
         self.assertIn('module.CanUseScaleGizmo', GIZMO)
         self.assertIn('SetGizmoAxis', GIZMO)
     def test_icon_plugin_data_loaded_as_file(self):
         self.assertIn('File.ReadAllBytes(path)', TOOL)
-        self.assertIn('GameData/PartSculptor/PluginData/Icons/inspector_38.png', TOOL)
+        self.assertIn('GameData/PartSculptor/PluginData/Icons/inspector_38_gizmo.png', TOOL)
 
 if __name__ == '__main__':
     unittest.main()

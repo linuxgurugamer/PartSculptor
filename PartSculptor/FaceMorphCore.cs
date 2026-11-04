@@ -19,6 +19,22 @@ namespace PartSculptor
         internal static int EdgeDepthSign(int edge)
         { return edge == 2 ? -1 : edge == 3 ? 1 : 0; }
 
+        // Convert a mouse movement in pixels to the selected projected
+        // handle's parameter movement. Projection onto the handle's screen
+        // tangent removes camera-angle foreshortening, unlike a world-plane
+        // ray displacement used directly as a parameter delta.
+        internal static double ProjectedHandleParameterDelta(
+            double mouseX, double mouseY, double probePixelsX,
+            double probePixelsY, double probeParameterStep)
+        {
+            double squared = probePixelsX * probePixelsX +
+                probePixelsY * probePixelsY;
+            if (squared < 1e-8d || double.IsNaN(squared) ||
+                double.IsInfinity(squared)) return 0d;
+            return (mouseX * probePixelsX + mouseY * probePixelsY) /
+                squared * probeParameterStep;
+        }
+
         // Kept for existing callers and craft migration tests; an older morph
         // contains no offsets, so it still produces the original geometry.
         internal static MorphPoint Transform(MorphPoint p, MorphPoint min, MorphPoint max,

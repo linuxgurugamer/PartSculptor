@@ -10,7 +10,7 @@ Run `python Tests/run_regressions.py` and see
 screen-space overlay, 8 hit-aligned corners, 12 cage edges, visual priorities,
 raycast passthrough, cleanup and fallback behavior.
 
-# StretchScale regression tests (KSP 1.12.x)
+# PartSculptor regression tests (KSP 1.12.x)
 
 These are **manual in-game tests**. They have not been run in this environment.
 
@@ -42,7 +42,7 @@ These are **manual in-game tests**. They have not been run in this environment.
 3. Save/reload a switched, stretched tank; verify neither old resource types nor old capacities come back.
 4. Try a tank switch that changes an existing `PartResource.maxAmount` in place, not just swapping resources.
 
-If a specialized switcher changes the capacity *after* StretchScale applies it, a dedicated switcher integration may be required.
+If a specialized switcher changes the capacity *after* PartSculptor applies it, a dedicated switcher integration may be required.
 
 ### 0.0.4.63 — Face-morph Lock X/Z
 

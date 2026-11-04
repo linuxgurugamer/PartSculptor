@@ -10,6 +10,8 @@ using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
+using static PartSculptor.RegisterToolbar;
+
 namespace PartSculptor
 {
     [KSPAddon(KSPAddon.Startup.EditorAny, false)]
@@ -18,7 +20,7 @@ namespace PartSculptor
         private const string LockId = "PartSculptor_StretchTool_Pick";
         private const float FindInterval = 0.5f;
         // No extra margin between the fourth stock editor tool, Stretch and Morph.
-        private const float IconGap = 0f;
+        private const float IconGap = 3f;
         // Logical KSP UI units for each custom Stretch and Morph button.
         private const float ToolButtonSize = 28f;
         // A Unity UI Image with no sprite renders an opaque WHITE rectangle.
@@ -83,6 +85,18 @@ namespace PartSculptor
                 nextFindTime = Time.unscaledTime + FindInterval;
                 TryInstallButton();
             }
+            // A stock Ctrl+Z/Ctrl+Y can replace entire Part instances. Exit
+            // before KSP restores the craft so no custom gizmo/selection keeps
+            // referencing a stale part and the editor pickup lock is released.
+            // This also dismisses a gizmo opened directly from the part PAW.
+            if (EditorUndoSupport.UndoRedoShortcutPressed() &&
+                !EditorLogic.fetch.AnyTextFieldHasFocus())
+            {
+                ExitStretchMode();
+                ScaleGizmo.Hide();
+                FaceMorphGizmo.Hide();
+                return; // Do not consume the shortcut: KSP performs the undo.
+            }
             if (!modeActive) return;
             if (!hasLock)
             {
@@ -144,8 +158,8 @@ namespace PartSculptor
                         ": no PartSculptor module" :
                         "Morph unavailable on " + partTitle + ": " +
                         module.MorphSelectionFailure;
-                    Debug.LogWarning("[PartSculptor] " + faceStatus);
-                    ScreenMessages.PostScreenMessage(faceStatus, 4f,
+                    Log.Warning("[PartSculptor] " + faceStatus);
+                    ScreenMessages.PostScreenMessage(faceStatus, Settings.screenMessageTime,
                         ScreenMessageStyle.UPPER_CENTER);
                 }
                 else faceStatus = "";
@@ -192,7 +206,7 @@ namespace PartSculptor
             ControlTypes mask = EditorPickLock();
             if (mask == (ControlTypes)0)
             {
-                Debug.LogWarning("[PartSculptor] Stretch tool could not locate an editor pickup lock.");
+                Log.Warning("[PartSculptor] Stretch tool could not locate an editor pickup lock.");
                 return false;
             }
             InputLockManager.SetControlLock(mask, LockId);
@@ -283,7 +297,7 @@ namespace PartSculptor
             // Anchor the entire morph help area under all SIX actual tools.
             Rect helpRect = MorphHelpRect();
             FaceMorphGizmo.DrawActive(helpRect); // Sixth tool or direct PAW activation
-            ScaleGizmo.DrawActive(); // Fifth tool; screen-space axes above other parts
+            ScaleGizmo.DrawActive(helpRect); // Fifth tool: foreground axes + anchored help
             // Unsupported meshes use the same anchored area as the normal help.
             if (modeActive && faceMode && !string.IsNullOrEmpty(faceStatus))
                 FaceMorphGizmo.DrawHelpBox(helpRect, faceStatus);
@@ -354,8 +368,8 @@ namespace PartSculptor
                     ": " + selectedModule.FaceMorphFailure;
                 if (!string.IsNullOrEmpty(faceStatus))
                 {
-                    Debug.LogWarning("[PartSculptor] " + faceStatus);
-                    ScreenMessages.PostScreenMessage(faceStatus, 5f,
+                    Log.Warning("[PartSculptor] " + faceStatus);
+                    ScreenMessages.PostScreenMessage(faceStatus, Settings.screenMessageTime,
                         ScreenMessageStyle.UPPER_CENTER);
                 }
             }
@@ -497,7 +511,7 @@ namespace PartSculptor
             try
             {
                 string path = Path.Combine(KSPUtil.ApplicationRootPath,
-                    "GameData/PartSculptor/PluginData/Icons/inspector_38.png");
+                    "GameData/PartSculptor/PluginData/Icons/inspector_38_gizmo.png");
                 if (File.Exists(path))
                 {
                     ownedTexture = new Texture2D(2, 2, TextureFormat.ARGB32, false);
@@ -507,7 +521,7 @@ namespace PartSculptor
             }
             catch (Exception e)
             {
-                Debug.LogWarning("[PartSculptor] Cannot load Stretch tool icon: " + e.Message);
+                Log.Warning("[PartSculptor] Cannot load Stretch tool icon: " + e.Message);
             }
             if (texture != null)
             {
@@ -562,7 +576,7 @@ namespace PartSculptor
             }
             catch (Exception e)
             {
-                Debug.LogWarning("[PartSculptor] Cannot load Morph tool icon: " + e.Message);
+                Log.Warning("[PartSculptor] Cannot load Morph tool icon: " + e.Message);
             }
             if (morphTexture != null)
             {
@@ -627,7 +641,7 @@ namespace PartSculptor
             // Position from the actual edges, not the stock button's width;
             // otherwise shrinking 32 -> 28 leaves a gap between the tools.
             toolRect.position = centerRight + right.normalized *
-                (buttonWorldWidth * 0.5f + gapWorld);
+                (buttonWorldWidth * 0.5f);
             toolRect.rotation = stockReference.rotation;
             if (morphToolRect != null)
             {

@@ -45,10 +45,12 @@ class PresetIntegration(unittest.TestCase):
         registry = (SRC / 'ScalePresetRegistry.cs').read_text()
         self.assertIn('PluginData/CustomPresets.cfg', registry)
         self.assertIn('root.AddNode("PARTSCULPTOR_CUSTOM_PRESETS")', registry)
-        self.assertIn('ConfigNode.Load(customLoadPath)', registry)
+        self.assertIn('ConfigNode.Load(CustomPath)', registry)
+        self.assertIn('root.name == "PARTSCULPTOR_CUSTOM_PRESETS"', registry)
+        self.assertIn('root.GetNodes("PARTSCULPTOR_CUSTOM_PRESETS")', registry)
         self.assertIn('File.Replace(tmp, path, null)', registry)
         self.assertIn('File.Move(tmp, path)', registry)
-        self.assertIn('ModuleStretchScale.RefreshPresetOptionsAll()', registry)
+        self.assertIn('ModulePartSculptor.RefreshPresetOptionsAll()', registry)
         self.assertIn('if (!ScalePresetMath.Valid(item))', registry)
 
     def test_default_presets_are_read_only_custom_are_editable(self):

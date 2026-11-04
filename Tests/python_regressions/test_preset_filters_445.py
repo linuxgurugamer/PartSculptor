@@ -13,10 +13,10 @@ class PresetFilters445(unittest.TestCase):
     def test_settings_load_directly_from_plugin_data(self):
         self.assertFalse((G/'Settings.cfg').exists())
         self.assertTrue((G/'PluginData/Settings.cfg').exists())
-        code = (S/'PartSculptor.cs').read_text()
+        code = (S/'Settings.cs').read_text()
         self.assertIn('GameData/PartSculptor/PluginData/Settings.cfg', code)
         self.assertIn('ConfigNode.Load(path)', code)
-        self.assertNotIn('GameDatabase.Instance.GetConfigNodes("STRETCHSCALE_SETTINGS")', code)
+        self.assertNotIn('GameDatabase.Instance.GetConfigNodes("PARTSCULPTOR_SETTINGS")', code)
         self.assertIn('ScaleUserSettings.Load(ref MatchNodeSizesDefault', code)
 
     def test_browser_filters_modes_and_selects_visible_only(self):

@@ -58,6 +58,43 @@ internal static class Program
             .8, "midpoint radial move uses a shared factor");
     }
 
+    private static void ProjectedMidpointDrag()
+    {
+        // An oblique editor camera projects an allowed axis diagonally.
+        // A cursor motion of (24,12) pixels across a 0.1-wide probe with
+        // a projected delta of (12,6) must produce 0.2, not half-speed.
+        Equal(FaceMorphCore.ProjectedHandleParameterDelta(
+            24, 12, 12, 6, .1), .2, "projected midpoint tracks pixels");
+        Equal(FaceMorphCore.ProjectedHandleParameterDelta(
+            -24, -12, 12, 6, .1), -.2, "reverse direction tracks");
+        Equal(FaceMorphCore.ProjectedHandleParameterDelta(
+            6, -12, 12, 6, .1), 0, "perpendicular mouse ignored");
+        Equal(FaceMorphCore.ProjectedHandleParameterDelta(
+            20, 0, 0, 0, .1), 0, "edge-on camera safely handled");
+        // The same projection helper applies to both single-axis midpoint
+        // resizing and the shared-factor mode when Lock X/Z is enabled.
+        Equal(FaceMorphCore.ProjectedHandleParameterDelta(
+            30, 0, 15, 0, .05), .10, "shared radial factor screen speed");
+    }
+
+    private static void RealFuelsTotalVolume()
+    {
+        // RF v15.16.1: usable 4,000 L -> 5,000 L with 100% utilization.
+        Equal(ScaleMath.MFTTotalVolumeTarget(5000, 4000, 4000, 100),
+            5000, "RF 15.16.1 reported case 4,000 -> 5,000 L");
+        // The API takes pre-utilization volume. At 80% utilization,
+        // a 5,000 L usable request requires 6,250 L total physical volume.
+        Equal(ScaleMath.MFTTotalVolumeTarget(5000, 4000, 5000, 80),
+            6250, "RF 80-percent utilization conversion");
+        Equal(ScaleMath.MFTTotalVolumeTarget(4000, 5000, 6250, 80),
+            5000, "RF reset does not compound");
+        Equal(ScaleMath.MFTTotalVolumeTarget(5000, 0, 0, 80),
+            6250, "RF uninitialized volume uses utilization fallback");
+        if (!double.IsNaN(ScaleMath.MFTTotalVolumeTarget(5000, 0, 0, 0)))
+            throw new Exception("RF target should be invalid without utilization");
+        ++checks;
+    }
+
     private static void StageDeltaVStableMass()
     {
         // The same stretched part can be queried using multiple stage-snapshot
@@ -153,6 +190,35 @@ internal static class Program
         Equal(axes.X, 0.5, "locked gizmo min across axes X");
         Equal(axes.Y, 1, "locked gizmo min across axes Y");
         Equal(axes.Z, 0.75, "locked gizmo min across axes Z");
+        // Ctrl mode: X/Z linked by one multiplier, with Y independent.
+        axes = ScaleMath.GizmoXZAxes(1, 2, 1.5, 0, 1.25, 0.5, 3);
+        Equal(axes.X, 1.25, "Ctrl X grows X");
+        Equal(axes.Y, 2, "Ctrl X keeps Y fixed");
+        Equal(axes.Z, 1.875, "Ctrl X grows Z proportionally");
+        axes = ScaleMath.GizmoXZAxes(1, 2, 1.5, 2, 2, 0.5, 3);
+        Equal(axes.X, 4d / 3d, "Ctrl Z grows X proportionally");
+        Equal(axes.Y, 2, "Ctrl Z keeps Y fixed");
+        Equal(axes.Z, 2, "Ctrl Z grows Z");
+        axes = ScaleMath.GizmoXZAxes(1, 2, 1.5, 1, 2.5, 0.5, 3);
+        Equal(axes.X, 1, "Ctrl Y keeps X fixed");
+        Equal(axes.Y, 2.5, "Ctrl Y changes Y alone");
+        Equal(axes.Z, 1.5, "Ctrl Y keeps Z fixed");
+        axes = ScaleMath.GizmoXZAxes(1, 2, 2, 0, 3, 0.5, 3);
+        Equal(axes.X, 1.5, "Ctrl max clamps linked X");
+        Equal(axes.Y, 2, "Ctrl max leaves Y alone");
+        Equal(axes.Z, 3, "Ctrl max clamps linked Z");
+        axes = ScaleMath.GizmoXZAxes(2, 3, 1, 0, 0.25, 0.5, 10);
+        Equal(axes.X, 1, "Ctrl min clamps linked X");
+        Equal(axes.Y, 3, "Ctrl min leaves Y alone");
+        Equal(axes.Z, 0.5, "Ctrl min clamps linked Z");
+        axes = ScaleMath.GizmoXZAxes(1, 2, 1.5, -1, 5, 0.5, 3);
+        Equal(axes.X, 1, "Ctrl invalid axis keeps X");
+        Equal(axes.Z, 1.5, "Ctrl invalid axis keeps Z");
+        // Shift+Ctrl snaps the active axis; X/Z use the resulting one factor.
+        double snapped = ScaleMath.GizmoFollowValue(1, 1, 14, 60, 0.5, 3, 0.05);
+        axes = ScaleMath.GizmoXZAxes(1, 2, 1.5, 0, snapped, 0.5, 3);
+        Equal(axes.X, 1.25, "Shift+Ctrl snapped X");
+        Equal(axes.Z, 1.875, "Shift+Ctrl preserves X/Z ratio");
     }
 
     private static void Presets()
@@ -244,7 +310,7 @@ internal static class Program
         if (ScaleMath.DockingNodeType("size1", 0.625) != "size0")
             throw new Exception("normal-to-Junior stock docking compatibility");
         ++checks;
-        if (ScaleMath.DockingNodeType("size1", 1.875) != "StretchScaleDock_1875mm")
+        if (ScaleMath.DockingNodeType("size1", 1.875) != "PartSculptorDock_1875mm")
             throw new Exception("intermediate size must not claim stock compatibility");
         ++checks;
         if (ScaleMath.DockingNodeType("size1", 1.875) !=
@@ -315,6 +381,14 @@ internal static class Program
         // baseVolume is derived from the prefab / saved native value, not
         // the value written by a previous stretch or subtype change.
         Equal(ScaleMath.B9BaseVolume(100, 1), 100, "B9 unscaled baseVolume");
+        Equal(ScaleMath.B9ManagedCapacity(122.222, 2), 244.444,
+            "B9 active subtype capacity from scaled total volume");
+        Equal(ScaleMath.B9ManagedCapacity(61.111, 2), 122.222,
+            "B9 original subtype capacity");
+        Equal(ScaleMath.B9ManagedCapacity(122.222, 2), 244.444,
+            "B9 repeated reconciliation does not compound");
+        if (!double.IsNaN(ScaleMath.B9ManagedCapacity(-1, 2)))
+            throw new Exception("B9 invalid total volume should be rejected");
         Equal(ScaleMath.B9BaseVolume(100, 3.375), 337.5, "B9 1.5x uniform baseVolume");
         Equal(ScaleMath.B9BaseVolume(100, 8), 800, "B9 2x uniform baseVolume");
         Equal(ScaleMath.B9BaseVolume(100, 3.375), 337.5, "B9 reverse to 1.5x");
@@ -323,7 +397,7 @@ internal static class Program
         for (int i = 0; i < 100; ++i)
             Equal(ScaleMath.B9BaseVolume(100, 8), 800, "B9 repeated scaling no growth");
         // B9's live modifier already includes the scaled volume contribution.
-        // StretchScale must only add a correction for fixed subtype mass/cost.
+        // PartSculptor must only add a correction for fixed subtype mass/cost.
         Equal(ScaleMath.B9ModifierExtra(35.75, 2, 100d / 337.5d, 3.375), 4.75,
             "B9 mass no second scaling");
         Equal(ScaleMath.B9ModifierExtra(35.75, 2, 100d / 337.5d, 1), -23.75,
@@ -351,7 +425,7 @@ internal static class Program
         Equal(FuelSwitchMath.NativeCapacity(1350, 2, 0, false, 3.375, 200, false),
             200, "already scaled capacity not rebased with TweakScale");
         Equal(FuelSwitchMath.AbsoluteCapacity(200, 2, 3.375), 1350,
-            "TweakScale and StretchScale multipliers combined once");
+            "TweakScale and PartSculptor multipliers combined once");
         for (int i = 0; i < 50; ++i)
             Equal(FuelSwitchMath.AbsoluteCapacity(200, 1, 8), 1600,
                 "repeated MFT scaling never compounds");
@@ -546,10 +620,29 @@ internal static class Program
             "uniformly expanded face doubles approximate volume");
     }
 
+    private static void MFTVolume()
+    {
+        Equal(ScaleMath.MFTManagedVolume(1000, 2, 1), 2000,
+            "MFT stretched height doubles allocated volume");
+        Equal(ScaleMath.MFTManagedVolume(1000, 1, 1), 1000,
+            "MFT reset returns native volume");
+        Equal(ScaleMath.MFTManagedVolume(1000, 2, 1), 2000,
+            "MFT repeated update is absolute, not compounded");
+        Equal(ScaleMath.MFTManagedVolume(1000, 2, 1.953125), 3906.25,
+            "MFT stretch with TweakScale uniform volume");
+        Equal(ScaleMath.MFTManagedVolume(1000, 0.5, 1), 500,
+            "MFT shrink from immutable baseline");
+        ++checks;
+        if (!double.IsNaN(ScaleMath.MFTManagedVolume(0, 2, 1)))
+            throw new Exception("Missing MFT baseline should not be used");
+    }
+
     private static int Main()
     {
         try
         {
+            MFTVolume();
+            RealFuelsTotalVolume();
             Scaling();
             StageDeltaVStableMass();
             Presets();
@@ -563,6 +656,7 @@ internal static class Program
             CrewCapacity();
             FaceMorph();
             MorphEdgeHandles();
+        ProjectedMidpointDrag();
             Console.WriteLine("PASS: " + checks + " production math regression checks");
             return 0;
         }

@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+using static PartSculptor.RegisterToolbar;
+
 namespace PartSculptor
 {
     internal sealed class CrewCapacityScaling
@@ -52,7 +54,7 @@ namespace PartSculptor
             if (next.Requested > next.Applied && next.Status != lastWarning)
             {
                 lastWarning = next.Status;
-                Debug.LogWarning("[PartSculptor] " + part.name +
+                Log.Warning("[PartSculptor] " + part.name +
                     ": requested crew capacity " + next.Requested +
                     " but safe capacity is " + next.Applied + ". " + next.Status);
             }
@@ -133,7 +135,7 @@ namespace PartSculptor
             }
             catch (Exception e)
             {
-                Debug.LogWarning("[PartSculptor] IVA seat check failed: " + e.Message);
+                Log.Warning("[PartSculptor] IVA seat check failed: " + e.Message);
             }
             return verifiedSeatCount;
         }

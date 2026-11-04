@@ -2,9 +2,12 @@
 // baseVolume is updated from an immutable native baseline. B9 then owns the
 // resources created from that volume; PartSculptor must not rescale them again.
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
+
+using static PartSculptor.RegisterToolbar;
 
 namespace PartSculptor
 {
@@ -227,7 +230,7 @@ namespace PartSculptor
                 }
                 catch (Exception e)
                 {
-                    UnityEngine.Debug.LogWarning("[PartSculptor] B9 resource ownership check failed: " +
+                    Log.Warning("[PartSculptor] B9 resource ownership check failed: " +
                         e.Message);
                 }
             }
@@ -285,10 +288,103 @@ namespace PartSculptor
                 }
                 catch (Exception e)
                 {
-                    UnityEngine.Debug.LogWarning("[PartSculptor] B9 UpdateVolume failed on " +
+                    Log.Warning("[PartSculptor] B9 UpdateVolume failed on " +
                         binding.Key + ": " + e.Message);
                 }
             }
+        }
+
+        // OnStart/Start and subtype initialization in B9 can recreate its
+        // PartResources after PartSculptor has already applied the stretched
+        // baseVolume.  Its flight UpdateVolume() must NOT be called here:
+        // ResourceModifier.UpdateVolumeFlight() sets fill amounts to zero.
+        // Instead read the currently selected tank's authoritative total
+        // volume and per-resource unitsPerVolume, and repair only maxAmount.
+        // This is also safe after a resource subtype switch: do not resurrect
+        // resources that the active subtype does not contain.
+        internal bool ReconcileManagedCapacities(Part part)
+        {
+            if (part == null || part.Resources == null) return false;
+            bool changed = false;
+            foreach (VolumeBinding binding in volumes)
+            {
+                if (binding.Native <= 0d || binding.IsManagedResourceMethod == null ||
+                    binding.ManagesResourcesMember == null) continue;
+                try
+                {
+                    object manages = ExponentBinding.Read(binding.ManagesResourcesMember,
+                        binding.Module);
+                    if (!(manages is bool) || !(bool)manages) continue;
+
+                    Type moduleType = binding.Module.GetType();
+                    MemberInfo subtypeMember = ExponentBinding.FindMember(moduleType,
+                        "CurrentSubtype");
+                    MemberInfo tankMember = ExponentBinding.FindMember(moduleType,
+                        "CurrentTankType");
+                    if (subtypeMember == null || tankMember == null) continue;
+                    object subtype = ExponentBinding.Read(subtypeMember, binding.Module);
+                    IEnumerable tankResources = ExponentBinding.Read(tankMember,
+                        binding.Module) as IEnumerable;
+                    if (subtype == null || tankResources == null) continue;
+
+                    // B9's GetTotalVolume accounts for subtype volumeMultiplier,
+                    // volumeAdded, child volume and TweakScale's own VolumeScale.
+                    // Multiplying just baseVolume would be wrong for those tanks.
+                    MethodInfo volumeMethod = moduleType.GetMethod("GetTotalVolume",
+                        BindingFlags.Public | BindingFlags.Instance, null,
+                        new[] { subtype.GetType() }, null);
+                    if (volumeMethod == null) continue;
+                    double volume = Convert.ToDouble(volumeMethod.Invoke(binding.Module,
+                        new[] { subtype }), CultureInfo.InvariantCulture);
+                    if (!ScaleMath.PositiveFinite(volume)) continue;
+
+                    foreach (object tankResource in tankResources)
+                    {
+                        if (tankResource == null) continue;
+                        MemberInfo resourceNameMember = ExponentBinding.FindMember(
+                            tankResource.GetType(), "ResourceName");
+                        if (resourceNameMember == null) continue;
+                        string name = Convert.ToString(ExponentBinding.Read(
+                            resourceNameMember, tankResource), CultureInfo.InvariantCulture);
+                        if (string.IsNullOrEmpty(name)) continue;
+                        double unitsPerVolume = Number(tankResource, "unitsPerVolume",
+                            double.NaN);
+                        double expected = ScaleMath.B9ManagedCapacity(volume,
+                            unitsPerVolume);
+                        if (!FiniteNonNegative(expected)) continue;
+
+                        // B9 owns this resource. Do not add absent resources or
+                        // interfere with resources managed by another switcher.
+                        object managed = binding.IsManagedResourceMethod.Invoke(
+                            binding.Module, new object[] { name });
+                        if (!(managed is bool) || !(bool)managed) continue;
+                        foreach (PartResource resource in part.Resources)
+                        {
+                            if (resource == null || !string.Equals(resource.resourceName,
+                                name, StringComparison.Ordinal)) continue;
+                            if (Math.Abs(resource.maxAmount - expected) <=
+                                Math.Max(1e-5d, expected * 1e-6d)) break;
+                            double oldMaximum = resource.maxAmount;
+                            resource.maxAmount = expected;
+                            // Preserve the current amount: never refill a tank
+                            // or zero the contents in flight. Clamp only if a
+                            // capacity reduction would otherwise overfill it.
+                            if (resource.amount > expected) resource.amount = expected;
+                            ScaleDebug.Change(part, "B9 resource",
+                                name + ".maxAmount", oldMaximum, expected,
+                                "active subtype capacity; no refill");
+                            changed = true;
+                            break;
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Log.Warning("[PartSculptor] B9 capacity reconciliation failed on " +
+                        binding.Key + ": " + e.Message);
+                }
+            }
+            return changed;
         }
 
         // B9 already scales its volume-derived mass/cost after baseVolume is
@@ -346,7 +442,7 @@ namespace PartSculptor
                             ExtraForBinding(binding, live, exponentFactor, false);
                     }
                     catch (Exception e)
-                    { UnityEngine.Debug.LogWarning("[PartSculptor] B9 mass delta failed: " + e.Message); }
+                    { Log.Warning("[PartSculptor] B9 mass delta failed: " + e.Message); }
                 }
                 return total;
             }
@@ -374,7 +470,7 @@ namespace PartSculptor
                             ExtraForBinding(binding, live, exponentFactor, true);
                     }
                     catch (Exception e)
-                    { UnityEngine.Debug.LogWarning("[PartSculptor] B9 cost delta failed: " + e.Message); }
+                    { Log.Warning("[PartSculptor] B9 cost delta failed: " + e.Message); }
                 }
                 return total;
             }
@@ -395,7 +491,7 @@ namespace PartSculptor
                     if (modifier == null) continue;
                     try { total += modifier.GetModuleMass(nativeMass, situation); }
                     catch (Exception e)
-                    { UnityEngine.Debug.LogWarning("[PartSculptor] B9 mass modifier failed: " + e.Message); }
+                    { Log.Warning("[PartSculptor] B9 mass modifier failed: " + e.Message); }
                 }
                 return total;
             }
@@ -416,7 +512,7 @@ namespace PartSculptor
                     if (modifier == null) continue;
                     try { total += modifier.GetModuleCost(nativeCost, situation); }
                     catch (Exception e)
-                    { UnityEngine.Debug.LogWarning("[PartSculptor] B9 cost modifier failed: " + e.Message); }
+                    { Log.Warning("[PartSculptor] B9 cost modifier failed: " + e.Message); }
                 }
                 return total;
             }

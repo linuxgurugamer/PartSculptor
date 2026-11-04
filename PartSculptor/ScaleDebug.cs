@@ -6,6 +6,8 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using UnityEngine;
 
+using static PartSculptor.RegisterToolbar;
+
 namespace PartSculptor
 {
     internal static class ScaleDebug
@@ -59,7 +61,7 @@ namespace PartSculptor
             string oldValue = Format(before);
             string newValue = Format(after);
             if (string.Equals(oldValue, newValue, StringComparison.Ordinal)) return;
-            Debug.Log("[PartSculptor][DEBUG] " + PartLabel(part) + " [" + area + "] " +
+            Log.Info("[PartSculptor][DEBUG] " + PartLabel(part) + " [" + area + "] " +
                 name + ": " + oldValue + " -> " + newValue +
                 (string.IsNullOrEmpty(details) ? "" : "; " + details));
         }
@@ -67,7 +69,7 @@ namespace PartSculptor
         internal static void Info(Part part, string area, string message)
         {
             if (!Enabled) return;
-            Debug.Log("[PartSculptor][DEBUG] " + PartLabel(part) + " [" + area + "] " + message);
+            Log.Info("[PartSculptor][DEBUG] " + PartLabel(part) + " [" + area + "] " + message);
         }
 
         // KSP queries IPartMassModifier/IPartCostModifier frequently (possibly
@@ -82,7 +84,7 @@ namespace PartSculptor
             string old;
             if (previous.TryGetValue(area + "/" + name, out old) && old == current) return;
             previous[area + "/" + name] = current;
-            Debug.Log("[PartSculptor][DEBUG] " + PartLabel(part) + " [" + area +
+            Log.Info("[PartSculptor][DEBUG] " + PartLabel(part) + " [" + area +
                 "] " + name + ": " + (old == null ? "<first>" : old) +
                 " -> " + current);
         }

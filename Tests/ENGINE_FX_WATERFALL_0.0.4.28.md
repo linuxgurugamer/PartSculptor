@@ -7,7 +7,7 @@
 3. Test non-uniform 1x/2y/1z; confirm plume is adjusted by the part model geometry.
 4. Test an effect emitted outside model and verify it is wrapped once, not wrapped every resize.
 5. Clone a resized engine, reload a craft, switch to flight and observe running/flameout FX.
-6. Verify a child-part engine does not have its FX taken over by the parent StretchScale module.
+6. Verify a child-part engine does not have its FX taken over by the parent PartSculptor module.
 
 ## Waterfall installed
 

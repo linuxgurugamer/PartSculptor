@@ -23,12 +23,13 @@ class MorphInfoLayout460(unittest.TestCase):
         self.assertIn('Screen.height - bottom + 4f', EDITOR)
         self.assertIn('RectTransformUtility.WorldToScreenPoint(uiCamera, corners[i])', EDITOR)
 
-    def test_help_and_failures_share_wrapped_box(self):
+    def test_help_and_failures_share_adaptive_box(self):
         self.assertIn('FaceMorphGizmo.DrawActive(helpRect);', EDITOR)
         self.assertIn('FaceMorphGizmo.DrawHelpBox(helpRect, faceStatus);', EDITOR)
         self.assertIn('private void DrawLabels(Rect helpRect)', MORPH)
-        self.assertIn('style.wordWrap = true;', MORPH)
-        self.assertIn('style.CalcHeight(new GUIContent(message), bounds.width)', MORPH)
+        self.assertIn('style.wordWrap = false;', MORPH)
+        self.assertIn('style.CalcMinMaxWidth(new GUIContent(lines[i])', MORPH)
+        self.assertIn('style.CalcHeight(new GUIContent(lines[i]), bounds.width)', MORPH)
         self.assertIn('DrawHelpBox(helpRect,', MORPH)
         self.assertNotIn('new Rect(12f, 249f, 790f, 27f)', MORPH)
         self.assertNotIn('new Rect(14f, 176f, 630f, 45f)', EDITOR)

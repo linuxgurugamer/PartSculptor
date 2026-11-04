@@ -41,6 +41,9 @@
       <HintPath>$(KSPDIR)\GameData\000_ClickThroughBlocker\Plugins\ClickThroughBlocker.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="KSP_Log">
+      <HintPath>R:\KSP\KSP_1.12.5-dev\GameData\SpaceTuxLibrary\Plugins\KSP_Log.dll</HintPath>
+    </Reference>
     <Reference Include="ToolbarController">
       <HintPath>$(KSPDIR)\GameData\001_ToolbarControl\Plugins\ToolbarControl.dll</HintPath>
       <Private>False</Private>
@@ -56,6 +59,7 @@
     <Compile Include="InstallChecker.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="PartSculptor.cs" />
+    <Compile Include="RegisterToolbar.cs" />
     <Compile Include="ScaleExponents.cs" />
     <Compile Include="CrewCapacityScaling.cs" />
     <Compile Include="CrewCapacityMath.cs" />
@@ -67,6 +71,7 @@
     <Compile Include="ScalePresetsWindow.cs" />
     <Compile Include="ScaleSettingsWindow.cs" />
     <Compile Include="ScaleGizmo.cs" />
+    <Compile Include="EditorUndoSupport.cs" />
     <Compile Include="EditorStretchTool.cs" />
     <Compile Include="FaceMorphCore.cs" />
     <Compile Include="FaceMorphMath.cs" />
@@ -75,11 +80,13 @@
     <Compile Include="B9PartSwitchSupport.cs" />
     <Compile Include="B9FaceMorphCompatibility.cs" />
     <Compile Include="FuelSwitchSupport.cs" />
+    <Compile Include="MFTVolumeSupport.cs" />
     <Compile Include="FuelSwitchMath.cs" />
     <Compile Include="EngineEffectScaling.cs" />
     <Compile Include="DockingPortScaling.cs" />
     <Compile Include="ScaleDebug.cs" />
     <Compile Include="ScaledValuesWindow.cs" />
+    <Compile Include="Settings.cs" />
     <Compile Include="VesselInspector.cs" />
   </ItemGroup>
   <ItemGroup>

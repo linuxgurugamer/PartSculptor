@@ -6,6 +6,8 @@ using System.Globalization;
 using System.IO;
 using UnityEngine;
 
+using static PartSculptor.RegisterToolbar;
+
 namespace PartSculptor
 {
     internal static class ScalePresetRegistry
@@ -50,13 +52,28 @@ namespace PartSculptor
                                 ReadDefinitions(n, builtIns, true);
                     }
                 }
-                else Debug.LogWarning("[PartSculptor] Default presets not found: " + BuiltInPath);
+                else Log.Warning("[PartSculptor] Default presets not found: " + BuiltInPath);
+                if (File.Exists(CustomPath))
+                {
+                    ConfigNode root = ConfigNode.Load(CustomPath);
+                    if (root != null)
+                    {
+                        // ConfigNode.Load may return a named root or a root
+                        // containing PARTSCULPTOR_CUSTOM_PRESETS as its child.
+                        if (root.name == "PARTSCULPTOR_CUSTOM_PRESETS")
+                            ReadDefinitions(root, custom, false);
+                        else
+                            foreach (ConfigNode n in root.GetNodes("PARTSCULPTOR_CUSTOM_PRESETS"))
+                                ReadDefinitions(n, custom, false);
+                    }
+                }
+
             }
             catch (Exception e)
             {
-                Debug.LogError("[PartSculptor] Failed to load scale presets: " + e);
+                Log.Error("[PartSculptor] Failed to load scale presets: " + e);
             }
-            Debug.Log("[PartSculptor] Loaded " + builtIns.Count + " default and " +
+            Log.Info("[PartSculptor] Loaded " + builtIns.Count + " default and " +
                 custom.Count + " custom scale presets");
         }
 
@@ -76,7 +93,7 @@ namespace PartSculptor
                     !double.TryParse(node.GetValue("z"), NumberStyles.Float,
                         CultureInfo.InvariantCulture, out z))
                 {
-                    Debug.LogWarning("[PartSculptor] Invalid preset axes: " + name);
+                    Log.Warning("[PartSculptor] Invalid preset axes: " + name);
                     continue;
                 }
                 var item = new ScalePresetDefinition(name != null ? name.Trim() : "",
@@ -85,7 +102,7 @@ namespace PartSculptor
                     (isDefault ? Contains(custom, item.Name, item.Relative) :
                         Contains(builtIns, item.Name, item.Relative)))
                 {
-                    Debug.LogWarning("[PartSculptor] Invalid or duplicate preset: " + name);
+                    Log.Warning("[PartSculptor] Invalid or duplicate preset: " + name);
                     continue;
                 }
                 destination.Add(item);
@@ -282,7 +299,7 @@ namespace PartSculptor
             catch (Exception e)
             {
                 error = "Unable to save custom presets: " + e.Message;
-                Debug.LogError("[PartSculptor] " + error);
+                Log.Error("[PartSculptor] " + error);
                 return false;
             }
             finally

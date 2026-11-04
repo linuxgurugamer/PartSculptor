@@ -9,16 +9,11 @@ using ToolbarControl_NS;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
+using static PartSculptor.RegisterToolbar;
+
 namespace PartSculptor
 {
-    [KSPAddon(KSPAddon.Startup.MainMenu, true)]
-    internal sealed class RegisterVesselInspectorToolbar : MonoBehaviour
-    {
-        void Start()
-        {
-            ToolbarControl.RegisterMod(VesselInspectorHost.ModId, "PartSculptor");
-        }
-    }
+
 
     [KSPAddon(KSPAddon.Startup.EditorAny, false)]
     internal sealed class EditorVesselInspector : VesselInspectorHost { }
@@ -54,6 +49,11 @@ namespace PartSculptor
         static ToolbarControl toolbarControl;
         bool visible;
         bool scaledPartsOnly = true; // Show only resized parts when the inspector first opens.
+        // Empty means no name filter. A pending value is applied on Layout, not
+        // mid-IMGUI event, so the list keeps a stable control count.
+        string nameFilter = "";
+        string pendingNameFilter = "";
+        bool nameFilterChangeQueued;
         // The hover highlight is temporary and restores the part's existing visual state.
         static readonly Color HoverPartColor = new Color(0.3f, 0.95f, 0.4f, 1f);
         Part hoveredPart;
@@ -100,7 +100,7 @@ namespace PartSculptor
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError("[PartSculptor] Unable to create ToolbarController button: " + e);
+                    Log.Error("[PartSculptor] Unable to create ToolbarController button: " + e);
                 }
             }
         }
@@ -216,7 +216,7 @@ namespace PartSculptor
                 if (!warnedUnavailableLock)
                 {
                     warnedUnavailableLock = true;
-                    Debug.LogWarning("[PartSculptor] Inspect-only: KSP input control mask unavailable in this scene; stock part actions may still occur.");
+                    Log.Warning("[PartSculptor] Inspect-only: KSP input control mask unavailable in this scene; stock part actions may still occur.");
                 }
                 return;
             }
@@ -240,6 +240,13 @@ namespace PartSculptor
             {
                 pendingScaledPartsOnly = false;
                 filterChangeQueued = true;
+            }
+            // Selecting a part directly from the craft must reveal it even if
+            // the inspector is currently searching for another part name.
+            if (!MatchesNameFilter(clicked, nameFilter))
+            {
+                pendingNameFilter = "";
+                nameFilterChangeQueued = true;
             }
             queuedPart = clicked;
             selectionQueued = true;
@@ -331,7 +338,7 @@ namespace PartSculptor
             }
             catch (Exception e)
             {
-                Debug.LogWarning("[PartSculptor] Could not highlight hovered part: " + e.Message);
+                Log.Warning("[PartSculptor] Could not highlight hovered part: " + e.Message);
                 ClearHoverHighlight();
             }
         }
@@ -441,6 +448,13 @@ namespace PartSculptor
             {
                 scaledPartsOnly = pendingScaledPartsOnly;
                 filterChangeQueued = false;
+                partScroll.y = 0f;
+            }
+            if (nameFilterChangeQueued)
+            {
+                nameFilter = pendingNameFilter;
+                nameFilterChangeQueued = false;
+                partScroll.y = 0f;
             }
 
             parts.Clear();
@@ -485,20 +499,37 @@ namespace PartSculptor
             }
         }
 
+        // Search both the user-visible title and the internal part name. This
+        // is an ordinal, case-insensitive substring match, not a prefix match.
+        // Whitespace around the query is ignored.
+        static bool MatchesNameFilter(Part part, string query)
+        {
+            if (part == null) return false;
+            if (string.IsNullOrWhiteSpace(query)) return true;
+            string match = query.Trim();
+            string title = DisplayName(part);
+            return (!string.IsNullOrEmpty(title) &&
+                        title.IndexOf(match, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                   (!string.IsNullOrEmpty(part.name) &&
+                        part.name.IndexOf(match, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
         void AddToList(Part part)
         {
             if (part == null) return;
             ++totalPartCount;
-            if (!scaledPartsOnly || HasChangedScale(part)) parts.Add(part);
+            if ((!scaledPartsOnly || HasChangedScale(part)) &&
+                MatchesNameFilter(part, nameFilter)) parts.Add(part);
         }
 
         void Select(Part part)
         {
             if (selectedPart == part) return;
             selectedPart = part;
-            // Independent report state for the selected part; PAW windows are
-            // untouched, and the report never scales or mutates the part.
-            selectedReport = new ScaledValuesWindow();
+            // Keep the inspector's Show unchanged values choice while resetting
+            // report scroll, tooltips and caches for the newly selected part.
+            // The independent PAW scaled-value windows are unaffected.
+            selectedReport = new ScaledValuesWindow(selectedReport.ShowUnchangedValues);
         }
 
         // Window dimensions can be adjusted independently; they are never
@@ -589,7 +620,7 @@ namespace PartSculptor
             GUISkin previous = GUI.skin;
             try
             {
-                GUI.skin = HighLogic.Skin;
+                GUI.skin = ScaleUserSettings.WindowSkin(previous);
                 windowRect = ClickThruBlocker.GUILayoutWindow(instanceID,
                     windowRect, DrawWindow, "PartSculptor - Vessel Inspector");
                 // Settings is a separate ClickThroughBlocker window layered over
@@ -631,7 +662,7 @@ namespace PartSculptor
             {
                 GUILayout.Label(HighLogic.LoadedSceneIsEditor ? "Current craft" : "Active vessel",
                     GUILayout.ExpandWidth(true));
-                GUILayout.Label(scaledPartsOnly ?
+                GUILayout.Label((scaledPartsOnly || !string.IsNullOrEmpty(nameFilter)) ?
                     (parts.Count + " / " + totalPartCount + " parts") :
                     (parts.Count + " parts"), GUILayout.Width(108f));
                 // Preset editing is an editor-only action, acting on the part
@@ -668,6 +699,26 @@ namespace PartSculptor
                     GUILayout.ExpandHeight(true)))
                 {
                     GUILayout.Label("Vessel parts", GUI.skin.label);
+                    GUILayout.Label("Filter by name:");
+                    using (new GUILayout.HorizontalScope())
+                    {
+                        string requestedName = GUILayout.TextField(nameFilter, 128,
+                            GUILayout.ExpandWidth(true));
+                        if (requestedName != nameFilter)
+                        {
+                            pendingNameFilter = requestedName;
+                            nameFilterChangeQueued = true;
+                        }
+                        bool wasEnabled = GUI.enabled;
+                        GUI.enabled = wasEnabled && !string.IsNullOrEmpty(nameFilter);
+                        if (GUILayout.Button("Clear", GUILayout.Width(48f)))
+                        {
+                            pendingNameFilter = "";
+                            nameFilterChangeQueued = true;
+                            GUI.FocusControl(null);
+                        }
+                        GUI.enabled = wasEnabled;
+                    }
                     bool requestedFilter = GUILayout.Toggle(scaledPartsOnly,
                         "Scaled parts only");
                     if (requestedFilter != scaledPartsOnly)
@@ -693,21 +744,32 @@ namespace PartSculptor
                     partScroll = GUILayout.BeginScrollView(partScroll, false, true,
                         GUILayout.ExpandHeight(true));
                     if (parts.Count == 0)
-                        GUILayout.Label(scaledPartsOnly && totalPartCount > 0
-                            ? "No parts have been scaled."
-                            : "No craft or vessel loaded.");
+                        GUILayout.Label(totalPartCount == 0
+                            ? "No craft or vessel loaded."
+                            : !string.IsNullOrWhiteSpace(nameFilter)
+                                ? "No parts match the name filter."
+                                : scaledPartsOnly
+                                    ? "No parts have been scaled."
+                                    : "No matching parts.");
                     foreach (Part part in parts)
                     {
                         bool hasScale = part.FindModuleImplementing<ModulePartSculptor>() != null;
                         string title = DisplayName(part);
                         string note = hasScale ? "" : " (no PartSculptor)";
+
+
                         GUIStyle buttonStyle = part == selectedPart ? GUI.skin.box : GUI.skin.button;
-                        if (GUILayout.Button(new GUIContent(title + note,
+                        buttonStyle = GUI.skin.button;
+                        if (part == selectedPart)
+                            buttonStyle.active.background = buttonStyle.active.background;
+
+                        if (GUILayout.Toggle(
+                                part == selectedPart,
+                                new GUIContent(title + note,
                                 part.name + (hasScale ? "" : "\nThis part has no ModulePartSculptor")),
-                                buttonStyle, GUILayout.ExpandWidth(true)))
+                                GUI.skin.button) &&
+                            part != selectedPart)
                         {
-                            // Defer the selection so the right pane has the same
-                            // control tree during all passes of this event.
                             queuedPart = part;
                             selectionQueued = true;
                         }

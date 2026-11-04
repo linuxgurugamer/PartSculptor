@@ -12,7 +12,7 @@ Automated checks: `python Tests/run_regressions.py --require-dotnet`
 
 Manual (requires KSP 1.12.x; **not** automatically tested):
 
-1. VAB/SPH: attach a fresh 1.25m StretchScale tank to a 2.5m node. X/Z should
+1. VAB/SPH: attach a fresh 1.25m PartSculptor tank to a 2.5m node. X/Z should
    become 2x (for Y-axis stack nodes), with Y length unchanged; no parent change.
 2. Set parent diameter to 1.5x. Reattach fresh tank: its X/Z should become
    1.5x, not 2x due to quantized KSP node size.

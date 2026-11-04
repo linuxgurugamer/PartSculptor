@@ -1,7 +1,7 @@
 # Scaling gizmo regression checklist — 0.0.4.30
 
 ## VAB / SPH input
-1. Start a fresh craft with a stock tank that has ModuleStretchScale.
+1. Start a fresh craft with a stock tank that has ModulePartSculptor.
 2. Open the tank PAW and click **Show scaling gizmo**; verify three axes and
    that colors match X red, Y green, Z blue and labels match scale values.
 3. Move the camera, orbit it and zoom; handles must follow the part and remain

@@ -24,8 +24,8 @@ class EditorWidgetSize458(unittest.TestCase):
         self.assertIn('buttonWorldHeight / morphY', SOURCE)
 
     def test_edge_alignment_without_gaps(self):
-        self.assertIn('private const float IconGap = 0f;', SOURCE)
-        self.assertIn('(buttonWorldWidth * 0.5f + gapWorld)', SOURCE)
+        self.assertIn('private const float IconGap = 3f;', SOURCE)
+        self.assertIn('(buttonWorldWidth * 0.5f)', SOURCE)
         self.assertIn('(buttonWorldWidth + gapWorld)', SOURCE)
         # Example native 32px button width, custom 28px width:
         right_edge_stock = 32

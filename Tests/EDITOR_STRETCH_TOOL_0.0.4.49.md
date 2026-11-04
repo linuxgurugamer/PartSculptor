@@ -1,9 +1,9 @@
 # Stretch tool regression checklist (0.0.4.49)
 
 - Enter VAB and SPH: a fifth Stretch button appears directly to the right of Re-root.
-- Click Stretch, then click an FL-T800 with ModuleStretchScale: 3 axis handles appear.
-- Click an engine with ModuleStretchScale: gizmo moves to the engine; tank stays attached.
-- Click a part without ModuleStretchScale: gizmo hides; craft remains unchanged.
+- Click Stretch, then click an FL-T800 with ModulePartSculptor: 3 axis handles appear.
+- Click an engine with ModulePartSculptor: gizmo moves to the engine; tank stays attached.
+- Click a part without ModulePartSculptor: gizmo hides; craft remains unchanged.
 - Click gizmo handle and drag; handles track cursor and existing scaling rules apply.
 - Hold Shift to snap; Esc during drag restores starting scale without exiting mode.
 - Press Esc again (without dragging) to exit; lock is released.

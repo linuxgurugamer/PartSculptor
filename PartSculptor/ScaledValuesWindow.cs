@@ -101,6 +101,20 @@ namespace PartSculptor
         bool showUnchanged;
         bool pendingShowUnchanged;
         bool hasPendingShowUnchanged;
+
+        // The Vessel Inspector creates a fresh report for each selected part.
+        // Carry the filter choice across reports, including a toggle that is
+        // queued for the next IMGUI Layout pass but has not yet been applied.
+        internal bool ShowUnchangedValues
+        {
+            get { return hasPendingShowUnchanged ? pendingShowUnchanged : showUnchanged; }
+        }
+
+        internal ScaledValuesWindow(bool initiallyShowUnchanged = false)
+        {
+            showUnchanged = initiallyShowUnchanged;
+        }
+
         // Keep the controls clear of the built-in window title.
         // Dragging is registered for the whole window after all controls.
         const float TitleSpacingHeight = 24f;
@@ -151,7 +165,7 @@ namespace PartSculptor
             GUISkin previous = GUI.skin;
             try
             {
-                GUI.skin = HighLogic.Skin;
+                GUI.skin = ScaleUserSettings.WindowSkin(previous);
                 windowRect = ClickThruBlocker.GUIWindow(module.GetInstanceID() ^ 0x51234,
                     windowRect, DrawContents, "PartSculptor - Scaled Values");
                 InspectorWindowPosition.KeepPartiallyVisible(ref windowRect);

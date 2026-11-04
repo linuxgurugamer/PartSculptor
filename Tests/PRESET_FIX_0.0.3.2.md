@@ -1,4 +1,4 @@
-# StretchScale 0.0.3.2 — preset navigation fix
+# PartSculptor 0.0.3.2 — preset navigation fix
 
 ## Cause
 

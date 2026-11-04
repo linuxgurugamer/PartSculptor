@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 MOD = (ROOT/'PartSculptor/PartSculptor.cs').read_text()
+SETTINGS = (ROOT/'PartSculptor/Settings.cs').read_text()
 GIZMO = (ROOT/'PartSculptor/FaceMorphGizmo.cs').read_text()
 PREFS = (ROOT/'PartSculptor/ScaleSettingsWindow.cs').read_text()
 CORE = (ROOT/'PartSculptor/FaceMorphCore.cs').read_text()
@@ -20,10 +21,10 @@ class MorphXZLock463(unittest.TestCase):
         self.assertIn('if (!hasSavedLockMorphXZ)\n                lockMorphXZ = Settings.LockMorphXZDefault;', MOD)
 
     def test_default_true_and_saved_settings_override(self):
-        self.assertIn('public static bool LockMorphXZDefault = true;', MOD)
+        self.assertIn('public static bool LockMorphXZDefault = true;', SETTINGS)
         self.assertIn('lockMorphXZDefault = true', CONFIG)
-        self.assertIn('n.TryGetValue("lockMorphXZDefault", ref LockMorphXZDefault);', MOD)
-        self.assertIn('ref LockProportionsDefault, ref LockMorphXZDefault)', MOD)
+        self.assertIn('n.TryGetValue("lockMorphXZDefault", ref LockMorphXZDefault);', SETTINGS)
+        self.assertIn('ref LockProportionsDefault, ref LockMorphXZDefault)', SETTINGS)
         self.assertIn('"lockMorphXZDefault"', PREFS)
         self.assertIn('lockMorphXZDefault = parsed;', PREFS)
         self.assertIn('node.AddValue("lockMorphXZDefault", morphLockValue);', PREFS)

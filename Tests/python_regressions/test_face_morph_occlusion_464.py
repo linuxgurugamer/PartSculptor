@@ -36,10 +36,10 @@ class BothGizmoOcclusion465(unittest.TestCase):
 
     def test_both_drawn_by_editor_addon_not_part_module(self):
         self.assertIn('FaceMorphGizmo.DrawActive(helpRect);', EDITOR)
-        self.assertIn('ScaleGizmo.DrawActive();', EDITOR)
+        self.assertIn('ScaleGizmo.DrawActive(helpRect);', EDITOR)
         self.assertNotIn('ScaleGizmo.DrawFor(this);', MODULE)
         self.assertLess(EDITOR.index('FaceMorphGizmo.DrawActive(helpRect);'),
-                        EDITOR.index('ScaleGizmo.DrawActive();'))
+                        EDITOR.index('ScaleGizmo.DrawActive(helpRect);'))
 
     def test_overlays_are_visual_only_and_dispose_cleanly(self):
         self.assertNotIn('RawImage', MORPH)
@@ -55,13 +55,13 @@ class BothGizmoOcclusion465(unittest.TestCase):
         self.assertIn('dragLinked = alt && shift && !ctrl;', MORPH)
         self.assertIn('dragTilt = alt && !shift && !ctrl;', MORPH)
         self.assertIn('dragLockXZ = !alt && module.lockMorphXZ;', MORPH)
-        self.assertIn('module.SetGizmoAxis(draggingAxis, desired);', STRETCH)
+        self.assertIn('module.SetGizmoAxis(draggingAxis, desired,\n                    temporaryLockProportions, temporaryLockXZ);', STRETCH)
 
     def test_version_metadata(self):
         for p in (ROOT/'PartSculptor.version',ROOT/'GameData/PartSculptor/PartSculptor.version'):
-            self.assertRegex(p.read_text(), r'"BUILD": 72')
+            self.assertRegex(p.read_text(), r'"BUILD": 97')
         assembly=(ROOT/'PartSculptor/AssemblyVersion.cs').read_text()
-        self.assertIn('AssemblyVersion("0.0.4.72")', assembly)
-        self.assertIn('AssemblyFileVersion("0.0.4.72")', assembly)
+        self.assertIn('AssemblyVersion("0.0.4.97")', assembly)
+        self.assertIn('AssemblyFileVersion("0.0.4.97")', assembly)
 
 if __name__ == '__main__': unittest.main()

@@ -1,4 +1,4 @@
-# StretchScale 0.0.4.45 in-game regression checklist
+# PartSculptor 0.0.4.45 in-game regression checklist
 
 1. Start the VAB with PluginData/Settings.cfg and verify other settings work, including Career limits and editor steps. Delete or rename the old GameData/PartSculptor/Settings.cfg if upgrading in-place.
 2. Open Browse presets. Verify Show relative starts checked and Show absolute starts unchecked. Only eight relative built-ins should be visible initially.

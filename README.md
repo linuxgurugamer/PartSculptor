@@ -1,8 +1,14 @@
 # PartSculptor
 
-**PartSculptor** is a part-scaling and face-morphing mod for **Kerbal Space Program 1 (KSP 1.12.x)**. In the VAB and SPH, you can stretch a part independently along its local X, Y, and Z axes, or reshape its two end faces using interactive handles. Your changes are saved with the craft and restored when it is loaded.
+**PartSculptor** is a part-scaling and face-morphing mod for **KSP 1.12.x**. In the VAB and SPH, you can stretch a part independently along its local X, Y, and Z axes, or reshape its two end faces using interactive handles. Your changes are saved with the craft and restored when it is loaded.
 
 PartSculptor is more than a visual resize: it also updates supported attachment geometry, mass, cost, resource capacities, and other scale-dependent properties.
+
+This started as a derivative of a mod uploaded to Spacedock called StretchScale (https://spacedock.info/mod/4718/StretchScale). Changes made via StretchScale do not affect parts' stats or aero models like TweakScale does, only changing the visible model and its collision.
+
+The mod is currently in an alpha test with a few users. I do welcome more people who would be willing to test and provide feedback.
+
+Forum page is located here:  https://forum.kerbalspaceprogram.com/topic/232076-112x-linuxgurugamers-part-sculptor/
 
 ## Features
 
@@ -11,6 +17,7 @@ PartSculptor is more than a visual resize: it also updates supported attachment 
 - **Craft persistence and symmetry** for part scales and morph settings. Optional **Stretch children** also scales attached descendant parts.
 - **Mass, cost, and resource capacity scaling** from the part's original values, so repeated edits never compound. Fuel fill levels are kept as capacities change.
 - **Attachment handling** for stack and surface nodes: node size tiers, repositioning of attached parts, attach nodes that follow tilted morph faces, and optional automatic stack-node size matching.
+- **Modular Fuel Tanks / RealFuels volumes:** `ModuleFuelTanks` tank volume follows stretched and morphed geometry. The optional adapter uses RealFuels 15.16.1 `ChangeTotalVolume()` with utilization-aware total volume; older MFT callback/message variants remain as fallbacks, and MFT/RealFuels retains responsibility for fuel allocation. Validate individual installations in the editor and flight.
 - **Mod and part compatibility**: docking ports, B9 Part Switch, supported fuel-switcher modules, and engine visual effects (including optional Waterfall effects).
 - **TweakScale coexistence**, including support for `TWEAKSCALEEXPONENTS`, `TWEAKSCALEBEHAVIOR`, and compatible part/module scaling rules. PartSculptor includes `Patches/ScaleExponents.cfg` with fallback `TWEAKSCALEEXPONENTS` and `TWEAKSCALEBEHAVIOR` definitions when TweakScale is not installed.
 - **Vessel Inspector** with per-part reports of scaled values, change filtering, highlighting, and access to presets and settings in the editor. Inspection is also available in flight.
@@ -20,8 +27,8 @@ PartSculptor is more than a visual resize: it also updates supported attachment 
 ## Requirements
 
 - KSP **1.12.x**
-- **ModuleManager**: a single patch adds `ModulePartSculptor` to all parts (including crewed parts) unless that or the legacy `ModulePartSculptor` module is already present.
-- **ClickThroughBlocker** and **ToolbarController**: used by the inspector and other windows.
+- **ModuleManager**: a single patch adds `ModulePartSculptor` to eligible parts (including crewed parts), but skips parts containing `ProceduralPart` from the Procedural Parts mod and parts that already have `ModulePartSculptor`.
+- **ClickThroughBlocker**, **ToolbarController** and **SpaceTuxLibrary**: used by the inspector and other windows.
 
 **Optional integrations:** TweakScale, B9 Part Switch, supported fuel-switching mods, and Waterfall. None of these are needed for basic stretching or morphing.
 
@@ -35,7 +42,7 @@ Restart KSP whenever you install, update, or change ModuleManager patches.
 
 ### Crewed parts
 
-The single ModuleManager patch adds `ModulePartSculptor` to **all parts**, including command pods and cockpits, without requiring PatchManager or an opt-in step. It skips parts that already have either `ModulePartSculptor` or the older `ModulePartSculptor`. Crew-capacity scaling remains limited by available IVA seats.
+The single ModuleManager patch adds `ModulePartSculptor` to **eligible parts**, including command pods and cockpits, without requiring PatchManager or an opt-in step. It excludes Procedural Parts components (`ProceduralPart`) and parts that already contain `ModulePartSculptor`. Crew-capacity scaling remains limited by available IVA seats.
 
 Test crewed parts carefully, especially IVAs, hatches, EVA, and crew assignment. 
 
@@ -50,9 +57,18 @@ Test crewed parts carefully, especially IVAs, hatches, EVA, and crew assignment.
 While dragging a Stretch handle:
 
 - Hold **Shift** to snap in 0.05 steps.
+- Hold **Alt** to temporarily lock X/Y/Z proportions.
+- Hold **Shift+Alt** to lock all proportions and snap.
+- Hold **Ctrl** to lock X/Z together while leaving Y unchanged (when dragging X or Z). Dragging Y still changes only Y.
+- Hold **Shift+Ctrl** to lock X/Z together and snap.
+- **Alt takes precedence over Ctrl** if both are held. These modifiers do not change the part's saved **Lock proportions** setting; Ctrl temporarily overrides it with X/Z-only locking.
 - Press **Esc** or right-click to cancel the drag.
 
+The Stretch tool displays a help panel below the editor tool buttons, similar to the Morph help panel, listing all modifier combinations.
+
 To leave the Stretch tool, select another editor tool, press **Esc** (when not dragging), or click the Stretch tool again.
+
+**Undo / redo:** In the editor, **Ctrl+Z** undoes a Stretch or Morph handle drag, and **Ctrl+Y** redoes it. Each gesture is recorded as a single editor undo step. Undo or redo exits the active Stretch/Morph tool and hides its handles so they cannot remain attached to a part KSP has restored or replaced; choose the tool and part again to keep editing.
 
 Gizmo handles are always drawn on top, so neighboring parts never hide them.
 
@@ -88,6 +104,8 @@ You can also use **Show face morph handles** in the part's PAW. **Reset face mor
 
 **Hold modifier keys before clicking a handle.** The drag mode is chosen when you press the mouse button and does not change mid-drag.
 
+Midpoint resize handles follow the mouse along their permitted on-screen movement direction, including at oblique camera angles. With **Lock X/Z** enabled they move using the common face scale factor; when Shift snapping is active they move in the configured increments. A handle will not follow mouse motion perpendicular to the axis it controls, or beyond the face size limits.
+
 The extra edge handles control the same rectangular face geometry, not independently deformable or curved edges. **Shift** snapping, **Shift+Alt** translation, and **Ctrl+Alt** radial resizing also work from the midpoint handles. Each end face is controlled independently. A help box below the editor toolbar summarizes these controls while the Morph tool is active.
 
 Morph shapes, including face offsets, tilt, and size, are saved with the craft and kept when a part is duplicated or mirrored by symmetry.
@@ -107,7 +125,7 @@ Lock X/Z is saved per part with the craft and copied by symmetry. To change the 
 
 ### Snapping increment
 
-In **Vessel Inspector → Settings**, choose the **Face morph snap increment**: **0.01**, **0.05** (default), **0.10**, or **0.25**, then click **Save**. This affects face morphing only; the Stretch gizmo always snaps in 0.05 steps.
+In **Vessel Inspector → Settings**, choose the **Face morph snap increment**: **0.01**, **0.05** (default), **0.10**, or **0.25**, then click **Apply** or **Save**. This affects face morphing only; the Stretch gizmo always snaps in 0.05 steps.
 
 ### Which parts can be morphed
 
@@ -137,6 +155,8 @@ Built-in presets can't be edited, but you can duplicate and change them. Built-i
 
 Click the **PartSculptor** toolbar button to open **Vessel Inspector** (VAB, SPH, and flight). Select a part in the list to compare its original and scaled values. Options include **Scaled parts only** (on by default), hover highlighting, and a resizable window. In the editor, it also provides **Edit presets**, **Settings**, and an inspect-only selection mode.
 
+To find a particular part, type its full or partial name in **Filter by name** above the part list. The search is case-insensitive and matches both the displayed part title and its internal part name. You can combine it with **Scaled parts only**, and use **Clear** to show all matching parts again. Clicking a part directly on the craft clears any filter that would otherwise hide that part. The **Show unchanged values** toggle in the right-hand report stays selected (or cleared) when you switch parts in the Vessel Inspector.
+
 **Vessel Inspector → Settings** saves your defaults for:
 
 - Match node sizes
@@ -144,8 +164,10 @@ Click the **PartSculptor** toolbar button to open **Vessel Inspector** (VAB, SPH
 - Lock proportions
 - Lock X/Z
 - Face morph snap increment
+- Morph tip opacity (10–100%)
+- Alternate skin (host IMGUI instead of KSP skin)
 
-These preferences are stored in `GameData/PartSculptor/PluginData/UserSettings.cfg`.
+These preferences are stored in `GameData/PartSculptor/PluginData/UserSettings.cfg`. The Morph tip opacity slider adjusts only the **background transparency** of the help box under the editor toolbar and the tip shown while dragging; its text remains fully opaque. At 100%, tip backgrounds are completely solid even if the selected KSP skin uses translucent box textures. The alternate-skin checkbox changes the appearance of PartSculptor windows without changing KSP's own UI. The Settings window keeps **Save**, **Apply**, and **Cancel** accessible in a fixed footer: Save commits and closes; Apply saves without closing; Cancel restores all settings to their values when the window opened, even if Apply was clicked, and rolls back those changes in `UserSettings.cfg`. The settings list scrolls if necessary on smaller screens.
 
 Advanced options are in `GameData/PartSculptor/PluginData/Settings.cfg`: per-axis limits and UI steps, mass and volume safety caps, compatibility and effects toggles, debug logging, and Career Mode limits. Changes to this file usually require a KSP restart.
 
@@ -185,18 +207,41 @@ The reason is also written to `KSP.log`.
 
 If no reason appears but you still can't see handles, they may be behind the camera. Orbit or zoom until the part is in view; handles on long or offset parts appear even when the part's center is off-screen.
 
-## Building from source
+### In-flight fuel display shows the original upper limit
 
-The source repository contains the Visual Studio project and code, not a ready-to-install release.
+For a stretched tank, PartSculptor now refreshes the in-flight Part Action Window when it opens so the displayed maximum matches the live `PartResource.maxAmount`, including vessels launched with an already-correct saved capacity. Ordinary fuel consumption does not trigger UI rebuilds. If the number remains wrong, note whether you are viewing the part's right-click menu or a separate resource-monitor mod, and include the tank name and fuel-switcher modules in your report.
 
-- **Project:** `PartSculptor/PartSculptor.csproj` (Visual Studio, .NET Framework 4.8 targeting pack).
-- Set the project's `KSPDIR` property to your KSP installation. The project references KSP/Unity assemblies and the ClickThroughBlocker and ToolbarController DLLs.
-- **Offline tests:** from the repository root, run `python Tests/run_regressions.py`. Add `--require-dotnet` to require the C# math runner (needs the .NET 8 SDK).
-- **Manual test plans:** see `Tests/` for in-game validation procedures for each feature.
+## License
 
-Offline tests cover the math and data handling. Visual, editor, collider, and flight behavior should be checked in-game.
-
-## Changelog and license
-
-- [Changelog.md](Changelog.md)
 - [License.md](License.md)
+
+## Fuel/Part Switchers
+There is support for the following part/fuel switchers:
+
+- B9 Part Switch
+- ModularFuelTanks
+- RealFuels
+- Firespitter
+- InterstellarFuelSwitch
+- Configurable Containers
+- Cryo Tanks
+- Simple Fuel Switch
+
+There is custom code to work with the following:
+- B9 Part Switch
+- ModularFuelTanks
+- RealFuels
+- Firespitter
+- InterstellarFuelSwitch
+
+### B9PartSwitch and stretched tank capacities
+
+PartSculptor uses B9PartSwitch's selected tank type and scaled `baseVolume` to
+calculate the actual resource capacity. In the editor and on entering flight,
+it reconciles B9-managed `PartResource.maxAmount` without changing the fuel
+amount or refilling a partially emptied tank. Non-B9 tanks use the normal
+resource-scaling path.
+
+### Limitations
+- B9PartSwitch subtypes that change the part's mesh, nodes, or materials are not supported. Only subtypes that change resources (such as fuel type or added mass) are compatible.
+- Procedural Parts (`ProceduralPart`) are not supported.  The ModuleManager patch that adds `ModulePartSculptor` skips any part that already has `ModulePartSculptor` or contains `ProceduralPart`.

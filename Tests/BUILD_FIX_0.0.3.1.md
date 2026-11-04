@@ -1,4 +1,4 @@
-# StretchScale 0.0.3.1 — cost API fix
+# PartSculptor 0.0.3.1 — cost API fix
 
 - Fix compilation: `Part` has no `cost` field. The previous call to `part.partInfo.partPrefab.cost` was invalid.
 - `GetModuleCost()` now uses KSP's provided `defaultCost` value, so fuel price is not charged twice by the modifier.

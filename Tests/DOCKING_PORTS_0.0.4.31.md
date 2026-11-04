@@ -10,7 +10,7 @@ Run `python Tests/run_regressions.py` for the offline structural suite and, with
 3. Scale back to 1×. Confirm `size1` and **exactly** original capture distances.
    Repeat 1×→1.25×→1.5×→2×→1× at least ten times; no compounding.
 4. Make a standard port 1.5× (1.875 m). It should have type
-   `StretchScaleDock_1875mm`, and match another 1.875 m StretchScale port,
+   `PartSculptorDock_1875mm`, and match another 1.875 m PartSculptor port,
    not a stock Senior. Validate 0.625→1.25→2.5 conversions too.
 5. Stretch X and Z of a Y-facing port while keeping Y=1; then change Y alone.
    Confirm that Y-only stretch does not change capture distance or type.

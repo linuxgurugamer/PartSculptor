@@ -7,6 +7,8 @@ using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
+using static PartSculptor.RegisterToolbar;
+
 namespace PartSculptor
 {
     internal sealed class FaceMorphGizmo
@@ -43,9 +45,11 @@ namespace PartSculptor
         private Camera camera;
         private int hovered = -1, dragging = -1;
         private bool locked, disposed, dragTilt, dragLinked, dragRadial, dragLockXZ;
+        private bool undoCheckpointTaken;
         private MorphFace dragBottom, dragTop;
         private Vector2 clickMouse;
         private Vector3 clickWorld;
+        private Vector2 clickHandleScreen;
         private Plane dragPlane;
         private float dragHalfX, dragHalfZ;
 
@@ -61,7 +65,7 @@ namespace PartSculptor
                 active = new FaceMorphGizmo(owner);
             }
             else if (owner != null)
-                Debug.LogWarning("[PartSculptor] Face morph is not supported for " +
+                Log.Warning("[PartSculptor] Face morph is not supported for " +
                     (owner.part != null ? owner.part.name : "unknown part"));
         }
         internal static bool IsFor(ModulePartSculptor owner)
@@ -87,16 +91,80 @@ namespace PartSculptor
         internal static void DrawHelpBox(Rect bounds, string message)
         {
             if (string.IsNullOrEmpty(message)) return;
+
+            var lines = message.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
             GUIStyle style = new GUIStyle(GUI.skin.box);
-            style.wordWrap = true;
+            style.wordWrap = false; //  true;
             style.alignment = TextAnchor.UpperLeft;
             style.padding = new RectOffset(6, 6, 5, 5);
-            float height = style.CalcHeight(new GUIContent(message), bounds.width);
+
+            int maxLineWidth = 0;
+            float height = 0;
+            for (int i = 0; i < lines.Length; ++i)
+            { 
+                lines[i] = lines[i].Trim(); 
+                style.CalcMinMaxWidth(new GUIContent(lines[i]), out float minWidth, out float maxWidth);
+                maxLineWidth = Math.Max(maxLineWidth, (int)maxWidth +20);
+                height += style.CalcHeight(new GUIContent(lines[i]), bounds.width);
+            }
+            bounds.width = maxLineWidth + style.padding.left + style.padding.right;
+
             bounds.height = Mathf.Max(25f, height);
             // Keep the help panel on screen, even with larger KSP UI scales.
             bounds.height = Mathf.Min(bounds.height, Mathf.Max(0f, Screen.height - bounds.y));
             if (bounds.width > 0f && bounds.height > 0f)
-                GUI.Label(bounds, message, style);
+                DrawMorphTip(bounds, message, style);
+        }
+        // IMGUI skins may use transparent box textures even when GUI.color.a is
+        // 1. Draw a solid-color background ourselves, with opacity independent
+        // of any inherited alpha or texture transparency. Text uses its own
+        // pass at full alpha, so the slider never fades the instructions.
+        private static void DrawMorphTip(Rect bounds, string message, GUIStyle style)
+        {
+            GUISkin previousSkin = GUI.skin;
+            Color previousColor = GUI.color;
+            try
+            {
+                GUI.skin = ScaleUserSettings.WindowSkin(previousSkin);
+                GUIStyle textStyle = new GUIStyle(GUI.skin.box);
+                // Carry over the current skin's font and text color, but not
+                // its semitransparent background texture.
+                textStyle.normal.background = null;
+                textStyle.hover.background = null;
+                textStyle.active.background = null;
+                textStyle.focused.background = null;
+                textStyle.onNormal.background = null;
+                textStyle.onHover.background = null;
+                textStyle.onActive.background = null;
+                textStyle.onFocused.background = null;
+                textStyle.wordWrap = style.wordWrap;
+                textStyle.alignment = style.alignment;
+                textStyle.padding = style.padding;
+
+                Color textColor = textStyle.normal.textColor;
+                // Make the background contrast with the current skin's text.
+                float brightness = textColor.r * 0.299f +
+                    textColor.g * 0.587f + textColor.b * 0.114f;
+                Color panelColor = brightness >= 0.5f
+                    ? new Color(0.13f, 0.15f, 0.18f, 1f)
+                    : new Color(0.86f, 0.86f, 0.86f, 1f);
+                // 100% is truly opaque, regardless of GUI.skin.box or any
+                // inherited GUI.color alpha. This also works at 10%–99%.
+                panelColor.a = Mathf.Clamp01(ScaleUserSettings.MorphTipOpacity);
+                GUI.color = panelColor;
+                GUI.DrawTexture(bounds, Texture2D.whiteTexture);
+
+                // Restore the RGB tint, but never let background opacity fade
+                // labels, numbers or controls inside the Morph tip.
+                GUI.color = new Color(previousColor.r, previousColor.g,
+                    previousColor.b, 1f);
+                GUI.Label(bounds, message, textStyle);
+            }
+            finally
+            {
+                GUI.color = previousColor;
+                GUI.skin = previousSkin;
+            }
         }
         internal static bool IsPointerOnHandleOrDragging()
         {
@@ -295,6 +363,115 @@ namespace PartSculptor
             else { InputLockManager.RemoveControlLock(LockId); locked = false; }
         }
 
+        // A midpoint controls one degree of freedom (X, Z, or the shared
+        // X/Z scale). Translate mouse pixels into that control's projected
+        // motion rather than measuring mouse movement on the part's X/Z
+        // plane: at an oblique camera angle the latter can make an edge
+        // handle visibly lag behind the cursor.
+        private Vector2 ProjectMidpoint(int face, int edge, MorphFace candidate)
+        {
+            FaceMorphSupport morph = module.FaceMorph;
+            int index = face * 4 + edge;
+            int a = MidpointPairs[index, 0];
+            int b = MidpointPairs[index, 1];
+            MorphFace bottom = face == 0 ? candidate : dragBottom;
+            MorphFace top = face == 0 ? dragTop : candidate;
+            Vector3 local = (morph.Corner(a / 4, a % 4, bottom, top) +
+                morph.Corner(b / 4, b % 4, bottom, top)) * 0.5f;
+            Vector3 projected = camera.WorldToScreenPoint(
+                module.part.transform.TransformPoint(local));
+            return new Vector2(projected.x, projected.y);
+        }
+
+        private Vector2 ProjectMidpointParameter(int face, int edge,
+            MorphFace initial, bool proportional, float value)
+        {
+            MorphFace candidate = initial;
+            if (proportional)
+            {
+                candidate.Width *= value;
+                candidate.Depth *= value;
+            }
+            else if (edge < 2) candidate.Width = value;
+            else candidate.Depth = value;
+            return ProjectMidpoint(face, edge, candidate);
+        }
+
+        private bool ResizeMidpointFromScreen(int face, int edge,
+            Vector2 mouse, ref MorphFace f)
+        {
+            bool proportional = dragRadial || dragLockXZ;
+            float lower = proportional ? Mathf.Max(0.25f / f.Width,
+                0.25f / f.Depth) : 0.25f;
+            float upper = proportional ? Mathf.Min(4f / f.Width,
+                4f / f.Depth) : 4f;
+            float initial = proportional ? 1f : edge < 2 ? f.Width : f.Depth;
+            float probe = Mathf.Clamp(initial + 0.05f, lower, upper);
+            if (Mathf.Abs(probe - initial) < 0.0001f)
+                probe = Mathf.Clamp(initial - 0.05f, lower, upper);
+            if (Mathf.Abs(probe - initial) < 0.0001f) return false;
+
+            Vector2 probeScreen = ProjectMidpointParameter(face, edge, f,
+                proportional, probe);
+            Vector2 projectedStep = probeScreen - clickHandleScreen;
+            if (projectedStep.sqrMagnitude < 0.01f) return false;
+
+            Vector2 pointerDelta = mouse - clickMouse;
+            float value = Mathf.Clamp(initial + (float)
+                FaceMorphCore.ProjectedHandleParameterDelta(pointerDelta.x,
+                    pointerDelta.y, projectedStep.x, projectedStep.y,
+                    probe - initial), lower, upper);
+            // Perspective projection is not perfectly linear. A few small
+            // corrections make the selected handle track the pointer along
+            // its screen-space motion, even when stretched or face-tilted.
+            Vector2 direction = projectedStep.normalized;
+            for (int iteration = 0; iteration < 4; ++iteration)
+            {
+                Vector2 currentScreen = ProjectMidpointParameter(face, edge,
+                    f, proportional, value);
+                float error = Vector2.Dot(pointerDelta -
+                    (currentScreen - clickHandleScreen), direction);
+                if (Mathf.Abs(error) < 0.05f) break;
+                float next = Mathf.Clamp(value + 0.025f, lower, upper);
+                if (Mathf.Abs(next - value) < 0.0001f)
+                    next = Mathf.Clamp(value - 0.025f, lower, upper);
+                if (Mathf.Abs(next - value) < 0.0001f) break;
+                Vector2 nextScreen = ProjectMidpointParameter(face, edge,
+                    f, proportional, next);
+                float slope = Vector2.Dot(nextScreen - currentScreen,
+                    direction) / (next - value);
+                if (Mathf.Abs(slope) < 0.01f) break;
+                value = Mathf.Clamp(value + error / slope, lower, upper);
+            }
+
+            if (proportional)
+            {
+                // Snap the common factor, never the individual dimensions.
+                // This also preserves the face aspect ratio for edge handles.
+                if (Input.GetKey(KeyCode.LeftShift) ||
+                    Input.GetKey(KeyCode.RightShift))
+                    value = Mathf.Clamp(1f + FaceMorphMath.SnapDelta(
+                        value - 1f, ScaleUserSettings.MorphSnapIncrement),
+                        lower, upper);
+                f.Width *= value;
+                f.Depth *= value;
+            }
+            else if (edge < 2) f.Width = value;
+            else f.Depth = value;
+            return true;
+        }
+
+        private static bool FacesDiffer(MorphFace a, MorphFace b)
+        {
+            const float epsilon = 0.00001f;
+            return Mathf.Abs(a.Width - b.Width) > epsilon ||
+                   Mathf.Abs(a.Depth - b.Depth) > epsilon ||
+                   Mathf.Abs(a.TiltX - b.TiltX) > epsilon ||
+                   Mathf.Abs(a.TiltZ - b.TiltZ) > epsilon ||
+                   Mathf.Abs(a.OffsetX - b.OffsetX) > epsilon ||
+                   Mathf.Abs(a.OffsetZ - b.OffsetZ) > epsilon;
+        }
+
         private void Update()
         {
             if (disposed || !HighLogic.LoadedSceneIsEditor ||
@@ -344,6 +521,12 @@ namespace PartSculptor
                         Mathf.Max(0.01f, dragHalfX) * 0.5f;
                     f.TiltZ += vertical * zSign /
                         Mathf.Max(0.01f, dragHalfZ) * 0.5f;
+                }
+                else if (edge >= 0 && !dragLinked &&
+                    ResizeMidpointFromScreen(face, edge, mouse, ref f))
+                {
+                    // Projected midpoint movement already applied to f.
+                    // The existing Shift snapping below handles unlocked X/Z.
                 }
                 else
                 {
@@ -426,6 +609,18 @@ namespace PartSculptor
                 }
                 f = FaceMorphMath.Clamp(f);
                 if (face == 0) b = f; else top = f;
+                // Morph KSPFields are written directly, unlike stock PAW
+                // fields. Record their initial state before the first actual
+                // change, so Ctrl+Z restores the entire drag in one step.
+                if (!undoCheckpointTaken &&
+                    (FacesDiffer(b, module.GetMorphFace(0)) ||
+                     FacesDiffer(top, module.GetMorphFace(1))))
+                {
+                    // Even if KSP declines the backup, avoid retrying/logging
+                    // on every frame of this one drag.
+                    undoCheckpointTaken = true;
+                    EditorUndoSupport.RecordBeforeChange();
+                }
                 module.SetMorphFaces(b, top);
                 return;
             }
@@ -446,6 +641,7 @@ namespace PartSculptor
             if (hovered >= 0 && Input.GetMouseButtonDown(0) && locked && camera != null)
             {
                 dragging = hovered;
+                undoCheckpointTaken = false;
                 bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
                 bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
                 bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
@@ -462,6 +658,8 @@ namespace PartSculptor
                 dragTop = module.GetMorphFace(1);
                 clickMouse = mouse;
                 clickWorld = position[hovered];
+                Vector3 projectedClick = camera.WorldToScreenPoint(clickWorld);
+                clickHandleScreen = new Vector2(projectedClick.x, projectedClick.y);
                 FaceMorphSupport m = module.FaceMorph;
                 dragHalfX = Mathf.Max(0.01f,(m.Max.x-m.Min.x)*0.5f);
                 dragHalfZ = Mathf.Max(0.01f,(m.Max.z-m.Min.z)*0.5f);
@@ -550,15 +748,19 @@ namespace PartSculptor
                     return;
                 }
                 DrawHelpBox(helpRect,
-                    "Face morph: corners = X/Z taper, edge midpoints = one axis;\n" +
-                    "Alt = tilt; Shift = snap;\n" +
-                    "Shift+Alt = move face; Ctrl+Alt = radial resize;\n" +
-                    "Ctrl+Alt+Shift = radial snap; Lock X/Z = " +
-                    (module.lockMorphXZ ? "On" : "Off") + " (part PAW)");
+                    "Face morph:\n" +
+                    "  corners = X/Z taper\n" +
+                    "  edge midpoints = one axis\n" +
+                    "  Alt = tilt\n" +
+                    "  Shift = snap\n" +
+                    "  Shift+Alt = move face\n" +
+                    "  Ctrl+Alt = radial resize\n" +
+                    "  Ctrl+Alt+Shift = radial snap\n" +
+                    "  Lock X/Z = " + (module.lockMorphXZ ? "On" : "Off") + " (part PAW)");
                 return;
             }
             Vector3 mouse = Input.mousePosition;
-            GUI.Label(new Rect(mouse.x + 20f, Screen.height - mouse.y + 20f, 300f, 25f),
+            DrawMorphTip(new Rect(mouse.x + 20f, Screen.height - mouse.y + 20f, 300f, 25f),
                 dragRadial ? "Radial resize all corners (Esc to cancel)" :
                 dragLinked ? "Move entire face (Esc to cancel)" :
                 dragTilt ? "Tilt face (Esc to cancel)" :

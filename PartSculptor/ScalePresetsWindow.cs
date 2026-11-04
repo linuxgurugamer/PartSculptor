@@ -119,7 +119,7 @@ namespace PartSculptor
             GUISkin previous = GUI.skin;
             try
             {
-                GUI.skin = HighLogic.Skin;
+                GUI.skin = ScaleUserSettings.WindowSkin(previous);
                 window = ClickThruBlocker.GUIWindow(WindowId, window, DrawWindow,
                     "PartSculptor - Presets");
                 InspectorWindowPosition.KeepPartiallyVisible(ref window);

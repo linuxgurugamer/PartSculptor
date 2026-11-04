@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 
+using static PartSculptor.RegisterToolbar;
+
 namespace PartSculptor
 {
     internal sealed class FuelSwitchSupport
@@ -120,7 +122,7 @@ namespace PartSculptor
                     try { total += modifier.GetModuleMass(native, sit); }
                     catch (Exception e)
                     {
-                        UnityEngine.Debug.LogWarning("[PartSculptor] " + p.Kind +
+                        Log.Warning("[PartSculptor] " + p.Kind +
                             " mass modifier: " + e.Message);
                     }
                 }
@@ -143,7 +145,7 @@ namespace PartSculptor
                     try { total += modifier.GetModuleCost(native, sit); }
                     catch (Exception e)
                     {
-                        UnityEngine.Debug.LogWarning("[PartSculptor] " + p.Kind +
+                        Log.Warning("[PartSculptor] " + p.Kind +
                             " cost modifier: " + e.Message);
                     }
                 }

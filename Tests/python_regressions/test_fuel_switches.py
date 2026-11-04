@@ -17,7 +17,7 @@ class FuelSwitchIntegration(unittest.TestCase):
         self.assertIn('IPartCostModifier', ADAPTER)
 
     def test_variant_baselines_saved_and_restored(self):
-        self.assertIn('STRETCHSCALE_FUEL_SWITCH_RESOURCE', SOURCE)
+        self.assertIn('PARTSCULPTOR_FUEL_SWITCH_RESOURCE', SOURCE)
         self.assertIn('fuelSwitchResourceBases.Clear();', SOURCE)
         self.assertIn('fuelSwitchResourceBases[FuelSwitchSupport.Key(', SOURCE)
         self.assertIn('fuelSwitchResourceRebasePending', SOURCE)
