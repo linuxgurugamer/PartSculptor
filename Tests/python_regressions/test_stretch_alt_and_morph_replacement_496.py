@@ -1,4 +1,4 @@
-"""PartSculptor 0.0.4.97: exact user Morph replacement and Stretch key modifiers."""
+"""PartSculptor 0.0.4.99: exact user Morph replacement and Stretch key modifiers."""
 import hashlib
 import unittest
 from pathlib import Path

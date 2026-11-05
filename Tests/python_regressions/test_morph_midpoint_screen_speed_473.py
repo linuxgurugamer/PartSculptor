@@ -38,7 +38,7 @@ class MidpointScreenSpeed473(unittest.TestCase):
 
     def test_release(self):
         for path in (ROOT/'PartSculptor.version', ROOT/'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads(path.read_text())['VERSION']['BUILD'], 97)
-        self.assertIn('AssemblyVersion("0.0.4.97")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads(path.read_text())['VERSION']['BUILD'], 99)
+        self.assertIn('AssemblyVersion("0.0.4.99")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__': unittest.main()

@@ -26,9 +26,9 @@ class PartSculptorRename471(unittest.TestCase):
         for p in [ROOT/'PartSculptor.version', GAME/'PartSculptor.version']:
             data = json.loads(p.read_text())
             self.assertEqual(data['NAME'], 'PartSculptor')
-            self.assertEqual(data['VERSION']['BUILD'], 97)
+            self.assertEqual(data['VERSION']['BUILD'], 99)
             self.assertEqual(data['GITHUB']['REPOSITORY'], 'PartSculptor')
-        self.assertIn('AssemblyVersion("0.0.4.97")', (SOURCE/'AssemblyVersion.cs').read_text())
+        self.assertIn('AssemblyVersion("0.0.4.99")', (SOURCE/'AssemblyVersion.cs').read_text())
 
     def test_module_identity_and_saved_data_nodes(self):
         code = (SOURCE/'PartSculptor.cs').read_text()
@@ -42,7 +42,7 @@ class PartSculptorRename471(unittest.TestCase):
     def test_all_parts_patch_and_exponents(self):
         patches = list((GAME/'Patches').glob('*.cfg'))
         self.assertEqual(set(p.name for p in patches), {'PartSculptor.cfg','ScaleExponents.cfg'})
-        self.assertIn('@PART[*]:HAS[!MODULE[ModulePartSculptor],!MODULE[ProceduralPart]]:NEEDS[PartSculptor]:FINAL',
+        self.assertIn('@PART[*]:HAS[!MODULE[ModulePartSculptor],!MODULE[ProceduralPart],!MODULE[WingProcedural],!MODULE[SmartTankPart],!MODULE[DiameterMatcher],!MODULE[TextureDefaulter],!MODEL:HAS[#model[ModularSegmentedSRBs/*]]]:NEEDS[PartSculptor]:FINAL',
                       (GAME/'Patches/PartSculptor.cfg').read_text())
         self.assertIn('name = ModulePartSculptor', (GAME/'Patches/PartSculptor.cfg').read_text())
         self.assertFalse((GAME/'PatchManager').exists())

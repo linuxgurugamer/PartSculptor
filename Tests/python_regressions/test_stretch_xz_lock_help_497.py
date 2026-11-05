@@ -1,4 +1,4 @@
-"""Version 0.0.4.97: editor Stretch modifiers and anchored help panel."""
+"""Version 0.0.4.99: editor Stretch modifiers and anchored help panel."""
 import json
 from pathlib import Path
 import unittest
@@ -77,10 +77,10 @@ class StretchXZLockHelp497(unittest.TestCase):
                      b'help panel below the editor tool buttons'):
             self.assertIn(text, a)
         for name in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'], 97)
+            self.assertEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'], 99)
         assembly = (SRC / 'AssemblyVersion.cs').read_text()
-        self.assertIn('AssemblyVersion("0.0.4.97")', assembly)
-        self.assertIn('AssemblyFileVersion("0.0.4.97")', assembly)
+        self.assertIn('AssemblyVersion("0.0.4.99")', assembly)
+        self.assertIn('AssemblyFileVersion("0.0.4.99")', assembly)
 
 
 if __name__ == '__main__':

@@ -31,8 +31,8 @@ class MorphCompatibility466(unittest.TestCase):
         self.assertIn('Animated / switchable geometry unsupported', MAIN)
 
     def test_versions(self):
-        self.assertIn('"BUILD": 97', (ROOT/'PartSculptor.version').read_text())
-        self.assertIn('"BUILD": 97', (ROOT/'GameData/PartSculptor/PartSculptor.version').read_text())
-        self.assertIn('0.0.4.97', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+        self.assertIn('"BUILD": 99', (ROOT/'PartSculptor.version').read_text())
+        self.assertIn('"BUILD": 99', (ROOT/'GameData/PartSculptor/PartSculptor.version').read_text())
+        self.assertIn('0.0.4.99', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__': unittest.main()

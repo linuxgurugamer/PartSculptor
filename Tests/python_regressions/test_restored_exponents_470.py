@@ -25,7 +25,7 @@ class RestoredExponents470(unittest.TestCase):
 
     def test_universal_module_patch_unchanged_and_no_patchmanager(self):
         cfg = (PATCHES / 'PartSculptor.cfg').read_text(encoding='utf8')
-        self.assertIn('@PART[*]:HAS[!MODULE[ModulePartSculptor],!MODULE[ProceduralPart]]:NEEDS[PartSculptor]:FINAL',cfg)
+        self.assertIn('@PART[*]:HAS[!MODULE[ModulePartSculptor],!MODULE[ProceduralPart],!MODULE[WingProcedural],!MODULE[SmartTankPart],!MODULE[DiameterMatcher],!MODULE[TextureDefaulter],!MODEL:HAS[#model[ModularSegmentedSRBs/*]]]:NEEDS[PartSculptor]:FINAL',cfg)
         self.assertNotIn('CrewCapacity',cfg)
         self.assertFalse((ROOT/'GameData/PartSculptor/PatchManager').exists())
 

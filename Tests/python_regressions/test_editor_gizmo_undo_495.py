@@ -80,14 +80,14 @@ class EditorGizmoUndo495(unittest.TestCase):
                      'forum.kerbalspaceprogram.com/topic/232076',
                      'Ctrl+Z', 'Ctrl+Y', '## License', '### Limitations'):
             self.assertIn(term, text)
-        self.assertTrue(text.rstrip().endswith('or contains `ProceduralPart`.'))
+        self.assertIn('or contains `ProceduralPart`.', text)
 
     def test_version_metadata_consistent(self):
         import json
         for item in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
             data = json.loads((ROOT / item).read_text())
-            self.assertEqual(data['VERSION']['BUILD'], 97)
-        self.assertIn('AssemblyVersion("0.0.4.97")', source('AssemblyVersion.cs'))
+            self.assertEqual(data['VERSION']['BUILD'], 99)
+        self.assertIn('AssemblyVersion("0.0.4.99")', source('AssemblyVersion.cs'))
 
 
 if __name__ == '__main__':

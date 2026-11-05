@@ -20,7 +20,7 @@ class ProceduralPartsExclusion492(unittest.TestCase):
         self.assertEqual(self.active.count('name = ModulePartSculptor'), 1)
 
     def test_same_patch_remains_active_and_final(self):
-        self.assertRegex(self.active, r'(?m)^@PART\[\*\]:HAS\[!MODULE\[ModulePartSculptor\],!MODULE\[ProceduralPart\]\]:NEEDS\[PartSculptor\]:FINAL$')
+        self.assertRegex(self.active, r'(?m)^@PART\[\*\]:HAS\[!MODULE\[ModulePartSculptor\],!MODULE\[ProceduralPart\],!MODULE\[WingProcedural\],!MODULE\[SmartTankPart\],!MODULE\[DiameterMatcher\],!MODULE\[TextureDefaulter\],!MODEL:HAS\[#model\[ModularSegmentedSRBs/\*\]\]\]:NEEDS\[PartSculptor\]:FINAL$')
         self.assertEqual(len(re.findall(r'(?m)^@PART\[', self.active)), 1)
 
     def test_no_broad_exclusion_when_procedural_parts_installed(self):

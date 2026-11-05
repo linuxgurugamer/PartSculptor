@@ -1,4 +1,4 @@
-"""Regression checks for the 0.0.4.97 limitations append."""
+"""Regression checks for the 0.0.4.99 limitations append."""
 import unittest
 from pathlib import Path
 
@@ -10,7 +10,8 @@ LIMITATIONS = ("### Limitations\n"
 class ReadmeLimitations494(unittest.TestCase):
     def test_limitations_are_final_section(self):
         readme = (ROOT / 'README.md').read_text(encoding='utf-8')
-        self.assertTrue(readme.endswith('\n\n'+LIMITATIONS))
+        self.assertIn('\n\n'+LIMITATIONS, readme)
+        self.assertTrue(readme.rstrip().endswith('verify the loaded ModuleManager cache and add an explicit part-name exclusion if necessary.'))
         self.assertEqual(readme.count('### Limitations'), 1)
 
     def test_two_readme_copies_identical(self):
@@ -20,9 +21,9 @@ class ReadmeLimitations494(unittest.TestCase):
     def test_version_metadata(self):
         for name in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
             version = __import__('json').loads((ROOT/name).read_text())
-            self.assertEqual(version['VERSION']['BUILD'], 97)
+            self.assertEqual(version['VERSION']['BUILD'], 99)
         assembly = (ROOT/'PartSculptor/AssemblyVersion.cs').read_text()
-        self.assertIn('AssemblyVersion("0.0.4.97")', assembly)
+        self.assertIn('AssemblyVersion("0.0.4.99")', assembly)
 
 if __name__ == '__main__':
     unittest.main()

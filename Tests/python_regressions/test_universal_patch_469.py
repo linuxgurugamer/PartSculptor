@@ -17,7 +17,7 @@ class UniversalPatch469(unittest.TestCase):
     def test_all_parts_including_crewed_no_duplicate(self):
         code = (PATCHES / 'PartSculptor.cfg').read_text(encoding='utf-8')
         active = '\n'.join(line.split('//', 1)[0] for line in code.splitlines())
-        self.assertRegex(active, r'@PART\[\*\]:HAS\[!MODULE\[ModulePartSculptor\],!MODULE\[ProceduralPart\]\]:NEEDS\[PartSculptor\]:FINAL')
+        self.assertRegex(active, r'@PART\[\*\]:HAS\[!MODULE\[ModulePartSculptor\],!MODULE\[ProceduralPart\],!MODULE\[WingProcedural\],!MODULE\[SmartTankPart\],!MODULE\[DiameterMatcher\],!MODULE\[TextureDefaulter\],!MODEL:HAS\[#model\[ModularSegmentedSRBs/\*\]\]\]:NEEDS\[PartSculptor\]:FINAL')
         self.assertEqual(len(re.findall(r'(?m)^\s*name\s*=\s*ModulePartSculptor\s*$', active)), 1)
         self.assertNotIn('CrewCapacity', active)
         self.assertEqual(len(re.findall(r'(?m)^@PART\[', active)), 1)
@@ -35,8 +35,8 @@ class UniversalPatch469(unittest.TestCase):
     def test_project_source_and_versions_untouched_except_metadata(self):
         from json import loads
         for file in (ROOT / 'PartSculptor.version', GAMEDATA / 'PartSculptor.version'):
-            self.assertEqual(loads(file.read_text())['VERSION']['BUILD'], 97)
-        self.assertIn('AssemblyVersion("0.0.4.97")',
+            self.assertEqual(loads(file.read_text())['VERSION']['BUILD'], 99)
+        self.assertIn('AssemblyVersion("0.0.4.99")',
                       (ROOT / 'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__':

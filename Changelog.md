@@ -1,3 +1,15 @@
+## 0.0.4.99 — Modular Segmented SRBs exclusion
+
+- Exclude parts whose `MODEL.model` path begins `ModularSegmentedSRBs/` from the automatic `ModulePartSculptor` ModuleManager patch.
+- Retain existing per-module exclusions; PartSculptor remains available to other eligible parts even when ModularSegmentedSRBs is installed.
+- Add verification for the nested ModuleManager model-path filter. This filter relies on ModularSegmentedSRBs parts using `MODEL` paths beneath its GameData folder; verify actual configs in-game.
+
+## 0.0.4.98 — More ModuleManager part exclusions
+
+- Exclude parts containing `WingProcedural`, `SmartTankPart`, `DiameterMatcher`, or `TextureDefaulter` modules from automatic `ModulePartSculptor` injection.
+- Retain existing exclusions for `ProceduralPart` and parts already containing `ModulePartSculptor`; all other eligible parts still receive the module.
+- Update both README copies and add regression and manual checks. No gameplay C# logic changes.
+
 ## 0.0.4.97 — Stretch gizmo modifier locks and help panel
 
 - Add **Ctrl** to temporarily link X and Z when resizing either axis, preserving their aspect ratio while leaving Y unchanged; resizing Y with Ctrl remains Y-only. **Shift+Ctrl** adds the existing 0.05 snap to the X/Z-linked drag.

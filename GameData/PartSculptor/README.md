@@ -245,3 +245,6 @@ resource-scaling path.
 ### Limitations
 - B9PartSwitch subtypes that change the part's mesh, nodes, or materials are not supported. Only subtypes that change resources (such as fuel type or added mass) are compatible.
 - Procedural Parts (`ProceduralPart`) are not supported.  The ModuleManager patch that adds `ModulePartSculptor` skips any part that already has `ModulePartSculptor` or contains `ProceduralPart`.
+- The automatic ModuleManager patch also skips parts containing `WingProcedural`, `SmartTankPart`, `DiameterMatcher`, or `TextureDefaulter`. These parts do not receive `ModulePartSculptor` automatically.
+
+- Modular Segmented SRBs: automatic injection skips parts with a `MODEL` path under `ModularSegmentedSRBs/`. Existing module-based exclusions remain. For parts using legacy `mesh =` rather than `MODEL`, verify the loaded ModuleManager cache and add an explicit part-name exclusion if necessary.
