@@ -29,6 +29,16 @@ namespace PartSculptor
             internal int size;
         }
 
+        // Capture the node's *previous* local pose before applying a face
+        // deformation. A child must follow the whole node pose (position and
+        // normal), not just the offset of its center point.
+        private struct AttachedChildMotion
+        {
+            internal AttachNode node;
+            internal Part child;
+            internal Vector3 previousPosition, previousOrientation;
+        }
+
         private readonly Part part;
         private readonly Transform model;
         private readonly List<MeshRecord> meshes = new List<MeshRecord>();
@@ -52,6 +62,93 @@ namespace PartSculptor
         {
             return mesh != null && mesh.name != null &&
                 (mesh.name.StartsWith(MorphMeshPrefix, StringComparison.Ordinal) );
+        }
+
+        // KSP Alt-copy and symmetry construction copy MeshFilter.sharedMesh and
+        // MeshCollider.sharedMesh references from the live source GameObject.
+        // If the source already has a FaceMorphSupport, its private, MUTABLE
+        // meshes are therefore shared with the copy until the latter builds its
+        // own morph support. Detach them during PartModule.OnWasCopied, before
+        // any later drag on the source can deform the copied part too.
+        internal static List<Mesh> DetachCopiedMorphMeshes(Part copy)
+        {
+            var owned = new List<Mesh>();
+            if (copy == null) return owned;
+            var copies = new Dictionary<Mesh, Mesh>();
+            Transform copyModel = copy.transform.Find("model");
+            if (copyModel != null)
+            {
+                foreach (MeshFilter filter in copyModel.GetComponentsInChildren<MeshFilter>(true))
+                {
+                    if (filter == null || filter.GetComponentInParent<Part>() != copy ||
+                        !IsMorphInstance(filter.sharedMesh)) continue;
+                    filter.sharedMesh = IndependentCopy(filter.sharedMesh, copies, owned);
+                }
+            }
+            foreach (MeshCollider collider in copy.GetComponentsInChildren<MeshCollider>(true))
+            {
+                if (collider == null || collider.GetComponentInParent<Part>() != copy ||
+                    !IsMorphInstance(collider.sharedMesh)) continue;
+                collider.sharedMesh = IndependentCopy(collider.sharedMesh, copies, owned);
+            }
+            return owned;
+        }
+
+        private static Mesh IndependentCopy(Mesh original,
+            Dictionary<Mesh, Mesh> copies, List<Mesh> owned)
+        {
+            Mesh independent;
+            if (!copies.TryGetValue(original, out independent))
+            {
+                independent = UnityEngine.Object.Instantiate(original);
+                // Keep the prefix: EnsureFaceMorph can then restore the clean
+                // prefab baseline and reapply the copied part's saved face values.
+                independent.name = original.name;
+                copies.Add(original, independent);
+                owned.Add(independent);
+            }
+            return independent;
+        }
+
+        // Meshes detached during copying are provisional. Once this part has
+        // rebuilt its own FaceMorphSupport, release only meshes no longer used
+        // by any of its renderers or colliders. Never destroy a shared source.
+        internal static void ReleaseDetachedMorphMeshes(Part copy, List<Mesh> owned)
+        {
+            if (owned == null || owned.Count == 0) return;
+            for (int i = owned.Count - 1; i >= 0; --i)
+            {
+                Mesh mesh = owned[i];
+                bool referenced = false;
+                if (copy != null)
+                {
+                    foreach (MeshFilter f in copy.GetComponentsInChildren<MeshFilter>(true))
+                        if (f != null && f.GetComponentInParent<Part>() == copy &&
+                            f.sharedMesh == mesh) { referenced = true; break; }
+                    if (!referenced)
+                        foreach (MeshCollider c in copy.GetComponentsInChildren<MeshCollider>(true))
+                            if (c != null && c.GetComponentInParent<Part>() == copy &&
+                                c.sharedMesh == mesh) { referenced = true; break; }
+                }
+                if (referenced) continue;
+                if (mesh != null) UnityEngine.Object.Destroy(mesh);
+                owned.RemoveAt(i);
+            }
+        }
+
+        // Fallback for copies restored through craft loading/editor paths that
+        // do not invoke OnWasCopied before OnStartFinished.
+        internal static bool ContainsMorphMeshes(Part copy)
+        {
+            if (copy == null) return false;
+            Transform copyModel = copy.transform.Find("model");
+            if (copyModel != null)
+                foreach (MeshFilter f in copyModel.GetComponentsInChildren<MeshFilter>(true))
+                    if (f != null && IsMorphInstance(f.sharedMesh)) return true;
+            foreach (MeshCollider c in copy.GetComponentsInChildren<MeshCollider>(true))
+                if (c != null && c.GetComponentInParent<Part>() == copy &&
+                    IsMorphInstance(c.sharedMesh)) return true;
+            return false;
         }
 
         // Resolve the same transform in the prefab by name and occurrence
@@ -434,12 +531,20 @@ namespace PartSculptor
                         r.collider.enabled = !identity && r.originalEnabled;
                 }
             }
+            // Calculate the new node poses first, then move the connected
+            // subtrees. This ensures a part attached through our parent node
+            // can translate the owner before the child connection pivots are
+            // evaluated, independent of dictionary enumeration order.
+            Vector3 selfMove = Vector3.zero;
+            List<AttachedChildMotion> childMotions = moveAttachments ?
+                new List<AttachedChildMotion>() : null;
             foreach (KeyValuePair<AttachNode, NodeRecord> pair in nodes)
             {
                 AttachNode node = pair.Key;
                 if (node == null) continue;
                 NodeRecord original = pair.Value;
                 Vector3 was = node.position;
+                Vector3 previousOrientation = node.orientation;
                 node.position = FaceMorphMath.Transform(original.position, min, max, bottom, top);
                 node.originalPosition = FaceMorphMath.Transform(original.originalPosition,
                     min, max, bottom, top);
@@ -457,16 +562,49 @@ namespace PartSculptor
                     original.orientation.x, original.orientation.y, original.orientation.z,
                     width, 1f, depth);
                 if (!moveAttachments || node.attachedPart == null) continue;
-                Vector3 change = node.position - was;
                 if (node.attachedPart == part.parent)
                 {
-                    part.transform.position -= part.transform.TransformVector(change);
+                    // Keep our connection to the parent at the same world
+                    // position. Never rotate/move the editor's parent vessel.
+                    selfMove -= node.position - was;
                 }
                 else if (node.attachedPart.parent == part)
                 {
-                    Part child = node.attachedPart;
-                    child.transform.position += part.transform.TransformVector(change);
+                    childMotions.Add(new AttachedChildMotion {
+                        node = node,
+                        child = node.attachedPart,
+                        previousPosition = was,
+                        previousOrientation = previousOrientation
+                    });
                 }
+            }
+            if (!moveAttachments) return;
+            if (selfMove.sqrMagnitude > 1e-12f)
+                part.transform.position += part.transform.TransformVector(selfMove);
+
+            foreach (AttachedChildMotion motion in childMotions)
+            {
+                Part child = motion.child;
+                if (child == null || motion.node == null || child.parent != part)
+                    continue;
+
+                // Use the attach node as the pivot, not the child's origin:
+                // engines, adapters and offset child parts can have their
+                // transforms a long way from their connection point.
+                Vector3 beforeAnchor = part.transform.TransformPoint(motion.previousPosition);
+                Vector3 afterAnchor = part.transform.TransformPoint(motion.node.position);
+                Vector3 oldNormal = part.transform.TransformDirection(motion.previousOrientation);
+                Vector3 newNormal = part.transform.TransformDirection(motion.node.orientation);
+                Quaternion turn = Quaternion.identity;
+                if (oldNormal.sqrMagnitude > 1e-12f && newNormal.sqrMagnitude > 1e-12f)
+                    turn = Quaternion.FromToRotation(oldNormal, newNormal);
+
+                // Assign world rotation and position together. All parts
+                // further down this child's hierarchy follow automatically.
+                Vector3 offsetFromNode = child.transform.position - beforeAnchor;
+                Quaternion previousRotation = child.transform.rotation;
+                child.transform.rotation = turn * previousRotation;
+                child.transform.position = afterAnchor + turn * offsetFromNode;
             }
         }
 

@@ -226,6 +226,8 @@ namespace PartSculptor
         EngineEffectScaling visualEffects;
         DockingPortScaling dockingPorts;
         FaceMorphSupport faceMorph;
+        // Temporary, independently cloned mesh assets on KSP Alt-copy/symmetry.
+        private List<Mesh> copiedMorphMeshInstances;
         readonly ScaledValuesWindow scaledValuesWindow = new ScaledValuesWindow();
 
         // A single ship notification is delivered after ALL direct, symmetry,
@@ -425,6 +427,28 @@ namespace PartSculptor
             ScaleChildrenGlobal = scaleChildren;
         }
 
+        public override void OnWasCopied(PartModule copyPartModule, bool asSymCounterpart)
+        {
+            base.OnWasCopied(copyPartModule, asSymCounterpart);
+            ModulePartSculptor copy = copyPartModule as ModulePartSculptor;
+            if (copy == null || copy == this || copy.part == null || copy.part == part)
+                return;
+            // A copied PartModule must never retain its source's morph support.
+            if (ReferenceEquals(copy.faceMorph, faceMorph)) copy.faceMorph = null;
+            // A copy which has already constructed its own support is isolated;
+            // replacing its assigned meshes would break subsequent morph edits.
+            if (copy.faceMorph != null && copy.faceMorph.Valid) return;
+            // Both Alt-copy (independent part) and symmetry copies require
+            // independent mesh ownership. Symmetry only shares face VALUES.
+            FaceMorphSupport.ReleaseDetachedMorphMeshes(copy.part,
+                copy.copiedMorphMeshInstances);
+            List<Mesh> detached = FaceMorphSupport.DetachCopiedMorphMeshes(copy.part);
+            if (copy.copiedMorphMeshInstances == null)
+                copy.copiedMorphMeshInstances = detached;
+            else
+                copy.copiedMorphMeshInstances.AddRange(detached);
+        }
+
         void OnDestroy()
         {
             ScaleGizmo.HideFor(this);
@@ -433,6 +457,14 @@ namespace PartSculptor
             ScalePresetsWindow.CloseFor(this);
             scaledValuesWindow.Close();
             if (faceMorph != null) { faceMorph.Dispose(); faceMorph = null; }
+            // This part is going away, so none of its copied-only meshes can
+            // remain referenced by a live PartSculptor owner.
+            if (copiedMorphMeshInstances != null)
+            {
+                foreach (Mesh copiedMesh in copiedMorphMeshInstances)
+                    if (copiedMesh != null) UnityEngine.Object.Destroy(copiedMesh);
+                copiedMorphMeshInstances.Clear();
+            }
             BaseField f = Fields != null ? Fields["scaleChildren"] : null;
             if (f != null) f.OnValueModified -= OnScaleChildrenModified;
             f = Fields != null ? Fields["matchNodeSizes"] : null;
@@ -867,14 +899,21 @@ namespace PartSculptor
             // Restore saved face shape after ordinary PartSculptor has rebuilt
             // its native geometry and attachment nodes. In flight as well as
             // the editor, the launched part must retain the same collision mesh.
-            if (HasFaceMorph)
+            // Even a copied part whose saved morph is at identity can inherit
+            // the SOURCE part's mutable private meshes (the source may merely
+            // have opened Morph without changing its dimensions). Give that
+            // copied part its own FaceMorphSupport so future source edits cannot
+            // leak into its geometry or collision mesh.
+            bool inheritedMorphMeshes = FaceMorphSupport.ContainsMorphMeshes(part);
+            if (HasFaceMorph || inheritedMorphMeshes)
             {
                 if (EnsureFaceMorph())
                     faceMorph.Apply(GetMorphFace(0), GetMorphFace(1), false);
                 else
-                    Log.Warning("[PartSculptor] Cannot restore saved face morph on " +
+                    Log.Warning("[PartSculptor] Cannot restore copied face morph on " +
                         part.name + ": " + morphFailure);
             }
+            FaceMorphSupport.ReleaseDetachedMorphMeshes(part, copiedMorphMeshInstances);
             lastAcceptedScale = Target;
             initialized = true;
             UpdateCalculatedValues();

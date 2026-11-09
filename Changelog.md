@@ -1,3 +1,17 @@
+## 0.0.4.101 — Independent morph meshes for duplicated parts
+
+- Fix Alt-copied parts unintentionally following later Morph edits to the source part. KSP clones mesh references from existing live parts, including private meshes previously allocated by the Morph gizmo.
+- Use PartModule.OnWasCopied to detach copied visual and collision meshes from their source. Reuse a single private mesh copy for duplicate components that referenced the same original mesh, preserving their relationships.
+- At startup, rebuild FaceMorphSupport for copied morph meshes even if no morph parameters were changed, restoring clean prefab baselines and the copy's saved face values. Leave intentional symmetry-value propagation intact.
+- Release temporary copied meshes after rebind or when the part is destroyed; add regression checks and editor test plan. Actual in-game duplication and symmetry behavior requires validation.
+
+## 0.0.4.100 — Attached parts follow tilted face nodes
+
+- Rebased on the user-supplied `PartSculptor(3).zip`, preserving its source and project changes.
+- In the editor, face-morph attach nodes now carry their attached child parts through both **position** and **orientation** changes. Each child rotates around the node's world-space connection point and translates with it; attached descendants follow the child's transform.
+- Keep attachment positions anchored when the morphed part itself is connected to a parent; do not rotate or move the parent part. Preserve absolute baseline node geometry, symmetry, undo, and existing stretch behavior.
+- Add manual test scenarios and offline regression checks for tilt, offset, undo/reset and attached subassemblies. KSP in-game validation remains required.
+
 ## 0.0.4.99 — Modular Segmented SRBs exclusion
 
 - Exclude parts whose `MODEL.model` path begins `ModularSegmentedSRBs/` from the automatic `ModulePartSculptor` ModuleManager patch.
