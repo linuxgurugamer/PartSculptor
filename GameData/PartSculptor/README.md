@@ -108,7 +108,9 @@ Midpoint resize handles follow the mouse along their permitted on-screen movemen
 
 The extra edge handles control the same rectangular face geometry, not independently deformable or curved edges. **Shift** snapping, **Shift+Alt** translation, and **Ctrl+Alt** radial resizing also work from the midpoint handles. Each end face is controlled independently. A help box below the editor toolbar summarizes these controls while the Morph tool is active.
 
-Morph shapes, including face offsets, tilt, and size, are saved with the craft and kept when a part is duplicated or mirrored by symmetry.
+Morph shapes, including face offsets, tilt, and size, are saved with the craft and kept when a part is duplicated or mirrored by symmetry. A duplicated part keeps its own independent geometry: subsequent Morph changes to the original do not alter an Alt-copied part. Genuine symmetry counterparts still follow the selected part's face settings.
+
+When you tilt a face in the editor, parts connected to its attach nodes move and rotate with those nodes, pivoting around their attachment points. Connected child assemblies follow as a group.
 
 > **Linux users:** Many desktop environments use Alt + drag to move windows, which prevents KSP from seeing Alt-based gestures. If tilt or translate doesn't work, change or disable that shortcut in your desktop's window settings.
 
@@ -129,7 +131,7 @@ In **Vessel Inspector → Settings**, choose the **Face morph snap increment**: 
 
 ### Which parts can be morphed
 
-Face morphing works on static parts with readable meshes and supported colliders. Parts that are animated, skinned, or whose shape is changed by a part switcher can't be morphed safely. B9 Part Switch subtypes that only change resources (such as fuel type or added mass) are fine; subtypes that change meshes, nodes, or materials are not.
+Face morphing works on parts with readable static meshes and supported colliders. A `ModuleAnimateGeneric` module alone no longer blocks morphing: the part still undergoes normal mesh/collider validation. Skinned or dynamically regenerated meshes are not supported, and animation-driven transform movement may produce distorted deployed geometry or misaligned colliders; test animated parts carefully. B9 Part Switch subtypes can change resources, use `TEXTURE` blocks (including `transform` / `baseTransform` texture targets), or use `transform = someModelName` to show/hide **pre-existing static model variants**. PartSculptor captures both active and inactive variant meshes, so they remain morphed when the subtype changes. Nested `TRANSFORM { ... }` blocks that reposition, rotate, or scale transforms, attachment-node switches, and unsupported `MATERIAL` blocks are not supported.
 
 Always check collisions, attachments, and flight behavior before relying on a heavily morphed craft.
 
@@ -201,7 +203,7 @@ Select the Morph tool and click the part. If the part can't be morphed, PartScul
 - the part doesn't have PartSculptor,
 - its mesh can't be read,
 - its collider type isn't supported, or
-- its shape is controlled by an animation or part switcher.
+- a robotic or transform-switching module is present, or its part-switcher configuration is incompatible with face morphing.
 
 The reason is also written to `KSP.log`.
 
@@ -242,8 +244,29 @@ it reconciles B9-managed `PartResource.maxAmount` without changing the fuel
 amount or refilling a partially emptied tank. Non-B9 tanks use the normal
 resource-scaling path.
 
+B9 `ModuleB9PartSwitch` fields `affectFARVoxels`, `advancedTweakablesOnly`
+and `parentID` are accepted by the face-morph compatibility check. Repeated
+`transform = ...` fields inside `SUBTYPE` may select between pre-existing static
+meshes. B9 still owns which transform group is active; PartSculptor only deforms
+the independently cloned mesh vertices and supported colliders.
+
+### B9 `volumeAddedToParent` and face morphing
+
+B9PartSwitch child switchers (`parentID = ...`) can set a signed
+`volumeAddedToParent` on each `SUBTYPE`. PartSculptor scales this contribution
+from its **original** value by the part's total X/Y/Z and face-morph volume
+factor, just as it scales B9 `baseVolume`. For example, a subtype with
+`volumeAddedToParent = -200` becomes `-250` at 1.25× volume, or `-100`
+at 0.5× volume. Zero remains zero, and inactive subtypes are updated too.
+
+Parent B9 tank resources are recalculated in the editor without changing their
+fill percentage; in flight, capacities are reconciled without refilling or
+emptying tanks. Values return to their native amounts at 1× geometry and are
+preserved across subtype switches, undo, symmetry, and craft reloads. B9 remains
+the owner of parent/child tank allocation.
+
 ### Limitations
-- B9PartSwitch subtypes that change the part's mesh, nodes, or materials are not supported. Only subtypes that change resources (such as fuel type or added mass) are compatible.
+- B9PartSwitch resource and `TEXTURE` changes are supported. `transform`/`baseTransform` inside `TEXTURE` select renderers; `transform = ...` directly inside `SUBTYPE` toggles pre-existing static model variants and is also supported. All existing variant meshes, including inactive ones, are morphed. Nested `TRANSFORM` blocks that move/rotate/scale geometry, node switches, `MATERIAL` blocks, and unknown B9 operations remain unsupported. For variant models with different geometry, verify the full set of meshes, collision shapes, attachment placement, and flight behavior in-game.
 - Procedural Parts (`ProceduralPart`) are not supported.  The ModuleManager patch that adds `ModulePartSculptor` skips any part that already has `ModulePartSculptor` or contains `ProceduralPart`.
 - The automatic ModuleManager patch also skips parts containing `WingProcedural`, `SmartTankPart`, `DiameterMatcher`, or `TextureDefaulter`. These parts do not receive `ModulePartSculptor` automatically.
 

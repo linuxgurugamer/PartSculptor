@@ -1,3 +1,33 @@
+## 0.0.4.106 — Allow face morphing on parts with animation modules
+
+- Remove the unconditional module-name `"Animate"` exclusion from `EnsureFaceMorph()`. Parts with `ModuleAnimateGeneric` or another animation-named module can now try morphing when their meshes and colliders pass existing validation.
+- Keep the conservative `Robotic` and `B9DisableTransform` checks, as well as the existing B9 subtype compatibility checks. The separate optional `RestrictAnimatedParts` setting for ordinary stretching is unchanged.
+- Update the on-screen failure reason, mirrored READMEs, and regression/manual validation guidance. Test deployed animations and collider alignment in KSP; no in-game validation is claimed.
+
+## 0.0.4.105 — B9 `SUBTYPE.volumeAddedToParent` follows morph volume
+
+- Allow the signed `volumeAddedToParent` field on otherwise morph-safe B9PartSwitch SUBTYPEs. Scale each child subtype contribution from its immutable native value by the current stretch and face-morph volume factor (including negative and zero contributions).
+- Maintain per-part native subtype baselines in the craft save, update inactive as well as selected subtypes, and refresh parent tank volumes when child contributions change. Avoid cumulative scaling across repeated morph edits, subtype switches, undo, and reload.
+- Preserve editor fuel fill percentages while refreshing B9 resources; never invoke B9.UpdateVolume in flight. Reconcile B9-managed resources even when a parent has zero baseVolume but receives volume from a child switcher.
+- Update the mirrored READMEs and add regression/manual tests. Real KSP/B9 in-game validation is required.
+
+## 0.0.4.104 — B9PartSwitch subtype transform toggles and parentID
+
+- Permit `parentID` at the `ModuleB9PartSwitch` level. Allow repeated nonempty `transform = ...` selectors directly inside B9 `SUBTYPE` nodes, in addition to prior resource and texture switching. Match exact names, wildcards and regex using B9's own selector handling.
+- FaceMorphSupport captures static visual and collision meshes in inactive B9 model variants as well as active ones, preserving private per-part meshes and B9's control of GameObject activation. Reapply the saved morph on subtype changes. Nested `TRANSFORM { ... }` geometry modifiers and `NODE`/`MATERIAL`/`MODULE` operations remain rejected.
+- Update both README copies, offline regression tests, and manual editor/flight validation guide. In-game verification is required for topology and collider behavior.
+
+## 0.0.4.103 — B9 module-level options allowed for face morphing
+
+- Allow the `affectFARVoxels` and `advancedTweakablesOnly` fields on `ModuleB9PartSwitch` without rejecting otherwise morph-safe B9 subtype configurations.
+- Keep `RESOURCE` and `TEXTURE` subtype support, and continue rejecting actual geometry-changing or unknown B9 operations. Update both README copies and offline regression checks. In-game validation remains required.
+
+## 0.0.4.102 — B9PartSwitch TEXTURE subtype compatibility
+
+- Permit face morphing on B9PartSwitch parts when every subtype uses only the already-supported resource/metadata fields and/or documented `TEXTURE` blocks. The optional `transform` and `baseTransform` entries within `TEXTURE` target renderers for retexturing; they do not transform geometry.
+- Validate `TEXTURE` fields (`texture`, `currentTexture`, `isNormalMap`, `shaderProperty`, `transform`, `baseTransform`), require a texture path, and reject unknown fields/nested blocks. Preserve rejection of actual mesh/transform/node switching, `MATERIAL`, and unknown subtype operations.
+- Keep B9 in charge of material/texture changes and PartSculptor in charge of private morphed mesh vertices and colliders, without adding a B9 assembly dependency. Update documentation and regression/manual test coverage. In-game validation is still required.
+
 ## 0.0.4.101 — Independent morph meshes for duplicated parts
 
 - Fix Alt-copied parts unintentionally following later Morph edits to the source part. KSP clones mesh references from existing live parts, including private meshes previously allocated by the Morph gizmo.

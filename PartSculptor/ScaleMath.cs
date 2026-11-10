@@ -62,6 +62,16 @@ namespace PartSculptor
             return native * stretchVolume;
         }
 
+        // B9 child subtype adjustments to a parent tank may be negative.
+        // Apply the TOTAL part geometry volume ratio (axis stretch × morph
+        // cross-section integral), not a ratio of successive live values.
+        internal static double B9ParentVolume(double native, double volumeFactor)
+        {
+            if (double.IsNaN(native) || double.IsInfinity(native) ||
+                !PositiveFinite(volumeFactor)) return double.NaN;
+            return native * volumeFactor;
+        }
+
         // Modular Fuel Tanks' allocated volume follows the physical geometry.
         // Compute from a saved/prefab native volume, not its already-resized
         // live value. TweakScale owns the base uniform multiplier.
@@ -94,7 +104,8 @@ namespace PartSculptor
         internal static double B9ManagedCapacity(double totalVolume,
             double unitsPerVolume)
         {
-            if (!PositiveFinite(totalVolume) || unitsPerVolume < 0d ||
+            if (totalVolume < 0d || double.IsNaN(totalVolume) ||
+                double.IsInfinity(totalVolume) || unitsPerVolume < 0d ||
                 double.IsNaN(unitsPerVolume) || double.IsInfinity(unitsPerVolume))
                 return double.NaN;
             return totalVolume * unitsPerVolume;

@@ -25,7 +25,7 @@ class Documentation459(unittest.TestCase):
                        'Ctrl + Alt + Shift', '0.01', '0.05',
                        '0.10', '0.25'):
             self.assertIn(needle, guide)
-        self.assertLess(len(guide.splitlines()), 260)
+        self.assertLess(len(guide.splitlines()), 330)
 
     def test_version_files_and_assembly(self):
         a = json.loads((ROOT / 'PartSculptor.version').read_text())['VERSION']

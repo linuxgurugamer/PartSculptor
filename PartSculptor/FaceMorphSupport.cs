@@ -272,6 +272,11 @@ namespace PartSculptor
                 Error = "Unsupported collider: " + c.GetType().Name;
                 return;
             }
+            // Include *inactive* models. B9 SUBTYPE transform = ... selects
+            // between existing GameObjects by toggling their active state. If
+            // only the currently visible variant were captured, switching to
+            // another subtype after morphing would reveal an unmorphed mesh.
+            // Never activate/deactivate these objects ourselves; B9 owns that.
             foreach (MeshFilter f in model.GetComponentsInChildren<MeshFilter>(true))
             {
                 if (f == null || f.sharedMesh == null || f.GetComponent<MeshRenderer>() == null)
@@ -286,6 +291,8 @@ namespace PartSculptor
                 { Error = "Readable native visual mesh is unavailable"; Dispose(); return; }
                 Add(f, null, native);
             }
+            // Inactive B9 alternatives can also own their own collision mesh.
+            // Record those too, so a later subtype switch has morphed physics.
             foreach (MeshCollider c in part.GetComponentsInChildren<MeshCollider>(true))
             {
                 if (c == null || c.GetComponentInParent<Part>() != part ||

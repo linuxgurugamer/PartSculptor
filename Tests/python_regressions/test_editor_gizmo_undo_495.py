@@ -86,8 +86,8 @@ class EditorGizmoUndo495(unittest.TestCase):
         import json
         for item in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
             data = json.loads((ROOT / item).read_text())
-            self.assertEqual(data['VERSION']['BUILD'], 99)
-        self.assertIn('AssemblyVersion("0.0.4.99")', source('AssemblyVersion.cs'))
+            self.assertEqual(data['VERSION']['BUILD'], 106)
+        self.assertIn('AssemblyVersion("0.0.4.106")', source('AssemblyVersion.cs'))
 
 
 if __name__ == '__main__':

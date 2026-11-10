@@ -380,6 +380,25 @@ internal static class Program
     {
         // baseVolume is derived from the prefab / saved native value, not
         // the value written by a previous stretch or subtype change.
+        // Child SUBTYPE.volumeAddedToParent is a SIGNED B9 parent tank
+        // adjustment. Recompute from native every time (no compounding).
+        Equal(ScaleMath.B9ParentVolume(200, 1.25), 250,
+            "B9 positive parent volume contribution at 125% volume");
+        Equal(ScaleMath.B9ParentVolume(-200, 1.25), -250,
+            "B9 negative parent volume contribution at 125% volume");
+        Equal(ScaleMath.B9ParentVolume(-200, 0.5), -100,
+            "B9 negative parent volume contribution at 50% volume");
+        Equal(ScaleMath.B9ParentVolume(-200, 1), -200,
+            "B9 undo returns to native parent volume contribution");
+        Equal(ScaleMath.B9ParentVolume(0, 2), 0,
+            "B9 zero parent contribution stays zero");
+        for (int i = 0; i < 100; ++i)
+            Equal(ScaleMath.B9ParentVolume(-200, 1.25), -250,
+                "B9 repeated morph must never compound parent volume");
+        if (!double.IsNaN(ScaleMath.B9ParentVolume(-200, -1)))
+            throw new Exception("B9 nonpositive morph factor must be rejected");
+        Equal(ScaleMath.B9ManagedCapacity(0, 2), 0,
+            "B9 parent tank at zero total volume has zero capacity");
         Equal(ScaleMath.B9BaseVolume(100, 1), 100, "B9 unscaled baseVolume");
         Equal(ScaleMath.B9ManagedCapacity(122.222, 2), 244.444,
             "B9 active subtype capacity from scaled total volume");

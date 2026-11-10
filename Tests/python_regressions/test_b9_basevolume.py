@@ -27,7 +27,7 @@ class B9BaseVolumeIntegration(unittest.TestCase):
     def test_b9_owns_its_resources(self):
         self.assertIn('b9Support.OwnsScaledResource(resource.resourceName)', SCALER)
         self.assertIn('b9Support.ApplyBaseVolumes(part, StretchVolumeFactor,', SCALER)
-        self.assertIn('if (!editor) return;', B9)
+        self.assertIn('if (!editor || refresh.Count == 0) return;', B9)
         self.assertIn('fillFractions', B9)
 
     def test_existing_b9_modifier_not_multiplied_twice(self):

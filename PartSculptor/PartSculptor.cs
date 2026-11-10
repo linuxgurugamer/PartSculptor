@@ -268,6 +268,10 @@ namespace PartSculptor
         const string RESOURCE_NODE = "PARTSCULPTOR_RESOURCE";
         const string B9_RESOURCE_NODE = "PARTSCULPTOR_B9_RESOURCE";
         const string B9_VOLUME_NODE = "PARTSCULPTOR_B9_BASE_VOLUME";
+        const string B9_PARENT_VOLUME_NODE = "PARTSCULPTOR_B9_PARENT_VOLUME";
+        // Native, signed volumeAddedToParent for every B9 child subtype.
+        readonly Dictionary<string, double> b9ParentVolumes =
+            new Dictionary<string, double>(StringComparer.Ordinal);
         // Baseline per B9 switcher, independent of selected subtype.
         readonly Dictionary<string, double> b9BaseVolumes =
             new Dictionary<string, double>(StringComparer.Ordinal);
@@ -526,6 +530,20 @@ namespace PartSculptor
                     native >= 0d && !double.IsInfinity(native) && !double.IsNaN(native))
                     b9BaseVolumes[key] = native;
             }
+            b9ParentVolumes.Clear();
+            foreach (ConfigNode entry in node.GetNodes(B9_PARENT_VOLUME_NODE))
+            {
+                string switchKey = entry.GetValue("switchKey");
+                string subtype = entry.GetValue("subtype");
+                double native;
+                if (!string.IsNullOrEmpty(switchKey) &&
+                    !string.IsNullOrEmpty(subtype) &&
+                    double.TryParse(entry.GetValue("nativeVolumeAddedToParent"),
+                        NumberStyles.Float, CultureInfo.InvariantCulture, out native) &&
+                    !double.IsNaN(native) && !double.IsInfinity(native) &&
+                    native >= -float.MaxValue && native <= float.MaxValue)
+                    b9ParentVolumes[B9PartSwitchSupport.ResourceKey(switchKey, subtype)] = native;
+            }
             b9NodeBaselines.Clear();
             foreach (ConfigNode entry in node.GetNodes(B9_NODE_BASELINE))
             {
@@ -617,6 +635,20 @@ namespace PartSculptor
                 ConfigNode record = node.AddNode(B9_VOLUME_NODE);
                 record.AddValue("key", entry.Key);
                 record.AddValue("nativeBaseVolume",
+                    entry.Value.ToString("R", CultureInfo.InvariantCulture));
+            }
+            node.RemoveNodes(B9_PARENT_VOLUME_NODE);
+            foreach (KeyValuePair<string, double> entry in b9ParentVolumes)
+            {
+                // ResourceKey contains a control-character separator; never
+                // write it directly into a craft ConfigNode value.
+                string switchKey, subtype;
+                if (!B9PartSwitchSupport.SplitResourceKey(entry.Key,
+                    out switchKey, out subtype)) continue;
+                ConfigNode record = node.AddNode(B9_PARENT_VOLUME_NODE);
+                record.AddValue("switchKey", switchKey);
+                record.AddValue("subtype", subtype);
+                record.AddValue("nativeVolumeAddedToParent",
                     entry.Value.ToString("R", CultureInfo.InvariantCulture));
             }
             node.RemoveNodes(B9_NODE_BASELINE);
@@ -816,7 +848,7 @@ namespace PartSculptor
             // B9 is optional: locate ModuleB9PartSwitch by its PartModule name
             // and use KSP's modifier interfaces. No B9 binary reference.
             b9Support = B9PartSwitchSupport.Create(part, b9BaseVolumes,
-                StretchVolumeFactor);
+                b9ParentVolumes, StretchVolumeFactor);
             b9Signature = b9Support != null ? b9Support.Signature : null;
             if (b9Support != null)
                 ScaleDebug.Info(part, "B9", "detected B9PartSwitch; selected=" +
@@ -1308,18 +1340,26 @@ namespace PartSculptor
                         string reason;
                         if (!B9FaceMorphCompatibility.AllowsFaceMorph(part, other, out reason))
                         {
-                            morphFailure = "B9 geometry switch not supported: " + reason;
+                            morphFailure = "B9 switcher incompatible with face morph: " + reason;
                             return false;
                         }
-                        // Resource-only B9 fuel switching is safe; its resource
-                        // volumes remain managed by B9PartSwitchSupport.
+                        // B9 resource/TEXTURE changes and static SUBTYPE
+                        // transform = ... toggles are supported. All variant
+                        // meshes (including inactive GameObjects) receive
+                        // private morph geometry; B9 continues to own their
+                        // active states and textures. Nested TRANSFORM geometry
+                        // modifiers and attach-node switching remain blocked.
+                        // Fuel volumes stay managed by B9PartSwitchSupport.
                         continue;
                     }
-                    if (name.IndexOf("Animate", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                        name.IndexOf("Robotic", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    // ModuleAnimateGeneric alone does not imply that mesh
+                    // vertices or colliders are animated. Let normal mesh and
+                    // collider validation decide whether morphing is possible.
+                    // Robotic / transform-switching geometry stays excluded.
+                    if (name.IndexOf("Robotic", StringComparison.OrdinalIgnoreCase) >= 0 ||
                         name.IndexOf("B9DisableTransform", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
-                        morphFailure = "Animated / switchable geometry unsupported: " + name;
+                        morphFailure = "Robotic / transform-switching geometry unsupported: " + name;
                         return false;
                     }
                 }
@@ -1652,6 +1692,9 @@ namespace PartSculptor
                 exponentScaler.RebaseExternallyChangedFields(scaleX, scaleY, scaleZ);
             RefreshB9NodeBaselines();
             resourceCheckPending = true;
+            // Applies the saved face deformation using the existing meshes of
+            // every B9 variant, including currently inactive transform groups.
+            // FaceMorphSupport never toggles those groups: B9 owns visibility.
             Apply(false, false, false);
             if (HighLogic.LoadedSceneIsEditor)
                 FireEditorShipModified();

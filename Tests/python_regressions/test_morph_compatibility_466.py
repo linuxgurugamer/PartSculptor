@@ -28,11 +28,11 @@ class MorphCompatibility466(unittest.TestCase):
         self.assertIn('if (onCamera == 0)', GIZMO)
         self.assertIn('behind the editor camera', GIZMO)
         self.assertIn('FaceMorphSupport(part, model)', MAIN)
-        self.assertIn('Animated / switchable geometry unsupported', MAIN)
+        self.assertIn('Robotic / transform-switching geometry unsupported', MAIN)
 
     def test_versions(self):
-        self.assertIn('"BUILD": 99', (ROOT/'PartSculptor.version').read_text())
-        self.assertIn('"BUILD": 99', (ROOT/'GameData/PartSculptor/PartSculptor.version').read_text())
-        self.assertIn('0.0.4.99', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+        self.assertIn('"BUILD": 106', (ROOT/'PartSculptor.version').read_text())
+        self.assertIn('"BUILD": 106', (ROOT/'GameData/PartSculptor/PartSculptor.version').read_text())
+        self.assertIn('0.0.4.106', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__': unittest.main()

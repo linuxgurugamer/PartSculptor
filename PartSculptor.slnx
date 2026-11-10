@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/Solution Items/">
     <File Path="buildRelease.bat" />
+    <File Path="Changelog.txt" />
     <File Path="deploy.bat" />
     <File Path="GameData/PartSculptor/Patches/ScaleExponents.cfg" />
     <File Path="GameData/PartSculptor/Patches/PartSculptor.cfg" />

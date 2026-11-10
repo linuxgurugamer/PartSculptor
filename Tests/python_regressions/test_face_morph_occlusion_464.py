@@ -59,9 +59,9 @@ class BothGizmoOcclusion465(unittest.TestCase):
 
     def test_version_metadata(self):
         for p in (ROOT/'PartSculptor.version',ROOT/'GameData/PartSculptor/PartSculptor.version'):
-            self.assertRegex(p.read_text(), r'"BUILD": 99')
+            self.assertRegex(p.read_text(), r'"BUILD": 106')
         assembly=(ROOT/'PartSculptor/AssemblyVersion.cs').read_text()
-        self.assertIn('AssemblyVersion("0.0.4.99")', assembly)
-        self.assertIn('AssemblyFileVersion("0.0.4.99")', assembly)
+        self.assertIn('AssemblyVersion("0.0.4.106")', assembly)
+        self.assertIn('AssemblyFileVersion("0.0.4.106")', assembly)
 
 if __name__ == '__main__': unittest.main()
