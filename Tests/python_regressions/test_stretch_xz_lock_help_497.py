@@ -77,10 +77,10 @@ class StretchXZLockHelp497(unittest.TestCase):
                      b'help panel below the editor tool buttons'):
             self.assertIn(text, a)
         for name in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'], 106)
+            self.assertEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'], 130)
         assembly = (SRC / 'AssemblyVersion.cs').read_text()
-        self.assertIn('AssemblyVersion("0.0.4.106")', assembly)
-        self.assertIn('AssemblyFileVersion("0.0.4.106")', assembly)
+        self.assertIn('AssemblyVersion("0.0.4.130")', assembly)
+        self.assertIn('AssemblyFileVersion("0.0.4.130")', assembly)
 
 
 if __name__ == '__main__':

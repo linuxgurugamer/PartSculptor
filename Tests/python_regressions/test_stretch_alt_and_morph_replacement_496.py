@@ -7,9 +7,15 @@ ROOT = Path(__file__).resolve().parents[2]
 CODE = ROOT / 'PartSculptor'
 
 class StretchAltAndMorphReplacement496(unittest.TestCase):
-    def test_user_uploaded_morph_file_is_exact(self):
-        digest = hashlib.sha256((CODE / 'FaceMorphGizmo.cs').read_bytes()).hexdigest()
-        self.assertEqual(digest, '45917f15e4cb0ccef51d0fc5f125efa402d6b8a2308c7d229582970840c5f42a')
+    def test_original_morph_controls_preserved_with_degree_readout(self):
+        source = (CODE / 'FaceMorphGizmo.cs').read_text()
+        for token in ('MidpointPairs', 'CornerCount', 'dragRadial',
+                      'dragLinked', 'dragTilt', 'dragLockXZ',
+                      'EditorUndoSupport.RecordBeforeChange();',
+                      'module.SetMorphFaces(b, top);'):
+            self.assertIn(token, source)
+        self.assertIn('module.GetFaceTiltDisplay(editedFace)', source)
+        self.assertIn('DrawMorphTip(tipRect,', source)
 
     def test_morph_help_panel_calculates_width_per_line(self):
         code = (CODE / 'FaceMorphGizmo.cs').read_text()

@@ -56,7 +56,7 @@ class SettingsFooterAndMorphTipBackground487(unittest.TestCase):
 
     def test_both_tip_types_share_one_draw_path(self):
         self.assertIn('DrawMorphTip(bounds, message, style);', MORPH)
-        self.assertIn('DrawMorphTip(new Rect(mouse.x + 20f,', MORPH)
+        self.assertIn('DrawMorphTip(tipRect,', MORPH)
 
     def test_readmes_document_new_behavior(self):
         for path in ('README.md','GameData/PartSculptor/README.md'):

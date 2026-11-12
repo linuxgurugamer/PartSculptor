@@ -30,7 +30,7 @@ class MorphTipsAndFlightCapacity478(unittest.TestCase):
 
     def test_both_morph_tips_honor_transparency_and_restore_gui_state(self):
         self.assertIn('DrawMorphTip(bounds, message, style)', GIZMO)
-        self.assertIn('DrawMorphTip(new Rect(mouse.x + 20f,', GIZMO)
+        self.assertIn('DrawMorphTip(tipRect,', GIZMO)
         self.assertIn('GUI.DrawTexture(bounds, Texture2D.whiteTexture);', GIZMO)
         self.assertIn('panelColor.a = Mathf.Clamp01(ScaleUserSettings.MorphTipOpacity)', GIZMO)
         self.assertIn('GUI.color = new Color(previousColor.r', GIZMO)
@@ -42,7 +42,7 @@ class MorphTipsAndFlightCapacity478(unittest.TestCase):
         self.assertIn('if (HighLogic.LoadedSceneIsFlight)', PART)
         self.assertIn('RefreshFlightResourceDisplay();', PART)
         body = PART.split('private void RefreshFlightResourceDisplay()',1)[1].split(
-            '// Match the newly attached child',1)[0]
+            'void CheckForNewStackAttachment()',1)[0]
         self.assertIn('resourceDisplayDirty', body)
         self.assertIn('part.PartActionWindow == null', body)
         self.assertIn('!part.PartActionWindow.gameObject.activeInHierarchy', body)

@@ -45,13 +45,13 @@ class TestFaceMorphAttachedChildFollow4100(unittest.TestCase):
     def test_morph_editor_active_only_and_symmetry_kept(self):
         self.assertIn('if (!CanUseScaleGizmo) return;', MAIN)
         self.assertIn('foreach (Part counterpart in part.symmetryCounterparts)', MAIN)
-        self.assertIn('m.faceMorph.Apply(bottom, top, true);', MAIN)
+        self.assertIn('m.faceMorph.Apply(bottom, top, true,', MAIN)
         self.assertIn('faceMorph.Apply(GetMorphFace(0), GetMorphFace(1), false);', MAIN)
 
     def test_release_metadata_and_mirrored_readme(self):
         for name in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT / name).read_text())['VERSION']['BUILD'], 106)
-        self.assertIn('AssemblyVersion("0.0.4.106")',
+            self.assertEqual(json.loads((ROOT / name).read_text())['VERSION']['BUILD'], 130)
+        self.assertIn('AssemblyVersion("0.0.4.130")',
                       (ROOT / 'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT / 'README.md').read_bytes(),
                          (ROOT / 'GameData/PartSculptor/README.md').read_bytes())

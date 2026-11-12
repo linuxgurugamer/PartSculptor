@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -17,11 +17,17 @@ namespace PartSculptor
         public static float IncrementLarge = 0.25f;
         public static float IncrementSmall = 0.05f;
         public static float IncrementSlide = 0.001f;
+        // Absolute bound on either local face-tilt slope (not degrees).
+        // Default +/-2.5; maximum allowed configured magnitude remains 4.0.
+        public const float DefaultMaxFaceTilt = 2.5f;
+        public static float MaxFaceTilt = DefaultMaxFaceTilt;
         public static bool ScaleChildrenDefault = false;
         public static bool LockProportionsDefault = false;
         // A new face-morph part defaults to X/Z-coupled resizing.
         public static bool LockMorphXZDefault = true;
         public static bool MatchNodeSizesDefault = false;
+        public static bool MatchAttachedFacesDefault = false;
+        public static bool CopyAttachedMorphStepsDefault = false;
 
         // These limits apply to the non-uniform mass factor and the final
         // geometric volume (including an optional TweakScale multiplier).
@@ -104,10 +110,13 @@ namespace PartSculptor
                             n.TryGetValue("incrementLarge", ref IncrementLarge);
                             n.TryGetValue("incrementSmall", ref IncrementSmall);
                             n.TryGetValue("incrementSlide", ref IncrementSlide);
+                            n.TryGetValue("maxFaceTilt", ref MaxFaceTilt);
                             n.TryGetValue("scaleChildrenDefault", ref ScaleChildrenDefault);
                             n.TryGetValue("lockProportionsDefault", ref LockProportionsDefault);
                             n.TryGetValue("lockMorphXZDefault", ref LockMorphXZDefault);
                             n.TryGetValue("matchNodeSizesDefault", ref MatchNodeSizesDefault);
+                            n.TryGetValue("matchAttachedFacesDefault", ref MatchAttachedFacesDefault);
+                            n.TryGetValue("copyAttachedMorphStepsDefault", ref CopyAttachedMorphStepsDefault);
                             n.TryGetValue("maxMassMultiplier", ref MaxMassMultiplier);
                             n.TryGetValue("maxVolumeMultiplier", ref MaxVolumeMultiplier);
                             n.TryGetValue("warnMassMultiplier", ref WarnMassMultiplier);
@@ -148,6 +157,10 @@ namespace PartSculptor
             if (!(IncrementLarge > 0f)) IncrementLarge = 0.25f;
             if (!(IncrementSmall > 0f)) IncrementSmall = 0.05f;
             if (!(IncrementSlide > 0f)) IncrementSlide = 0.001f;
+            // Reject NaN, infinity, nonpositive and impractically large
+            // values rather than letting a malformed cfg disable the clamp.
+            if (!(MaxFaceTilt > 0f) || float.IsInfinity(MaxFaceTilt) || MaxFaceTilt > 4f)
+                MaxFaceTilt = DefaultMaxFaceTilt;
             if (!(MaxMassMultiplier > 0f) || float.IsInfinity(MaxMassMultiplier)) MaxMassMultiplier = 10000f;
             if (!(MaxVolumeMultiplier > 0f) || float.IsInfinity(MaxVolumeMultiplier)) MaxVolumeMultiplier = 10000f;
             if (!(WarnMassMultiplier > 1f) || float.IsInfinity(WarnMassMultiplier)) WarnMassMultiplier = 100f;
@@ -160,7 +173,8 @@ namespace PartSculptor
             // A user-set default takes precedence over the shipped Settings.cfg.
             // The PAW toggle itself remains a session-level control.
             ScaleUserSettings.Load(ref MatchNodeSizesDefault, ref ScaleChildrenDefault,
-                ref LockProportionsDefault, ref LockMorphXZDefault);
+                ref LockProportionsDefault, ref LockMorphXZDefault,
+                ref MatchAttachedFacesDefault);
             NormalizeCareerTier(ref CareerLevel1MinScale, ref CareerLevel1MaxScale, ref CareerLevel1MaxVolume,
                 0.75f, 1.5f, 3f);
             NormalizeCareerTier(ref CareerLevel2MinScale, ref CareerLevel2MaxScale, ref CareerLevel2MaxVolume,

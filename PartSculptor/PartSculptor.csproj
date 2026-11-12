@@ -72,8 +72,11 @@
     <Compile Include="ScaleSettingsWindow.cs" />
     <Compile Include="ScaleGizmo.cs" />
     <Compile Include="EditorUndoSupport.cs" />
+    <Compile Include="EditorPartMorphRotation.cs" />
     <Compile Include="EditorStretchTool.cs" />
     <Compile Include="FaceMorphCore.cs" />
+    <Compile Include="FaceAttachmentMatchCore.cs" />
+    <Compile Include="FaceMorphStepCore.cs" />
     <Compile Include="FaceMorphMath.cs" />
     <Compile Include="FaceMorphSupport.cs" />
     <Compile Include="FaceMorphGizmo.cs" />

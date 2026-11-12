@@ -1,4 +1,4 @@
-"""Release 0.0.4.106: animation modules do not automatically block morphing."""
+"""Release 0.0.4.109: animation modules do not automatically block morphing."""
 import unittest
 from pathlib import Path
 
@@ -30,8 +30,8 @@ class AnimateGenericFaceMorph4106(unittest.TestCase):
 
     def test_versions_and_docs(self):
         for name in ('PartSculptor.version','GameData/PartSculptor/PartSculptor.version'):
-            self.assertIn('"BUILD": 106', (ROOT/name).read_text())
-        self.assertIn('AssemblyVersion("0.0.4.106")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertIn('"BUILD": 130', (ROOT/name).read_text())
+        self.assertIn('AssemblyVersion("0.0.4.130")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         for name in ('README.md','GameData/PartSculptor/README.md'):
             self.assertIn('`ModuleAnimateGeneric` module alone no longer blocks morphing', (ROOT/name).read_text())
 

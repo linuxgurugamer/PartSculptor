@@ -9,8 +9,39 @@ namespace PartSculptor
         internal MorphPoint(double x, double y, double z)
         { X = x; Y = y; Z = z; }
     }
+    // Local angular orientation of a morphed end face, measured relative to
+    // an un-tilted X/Z plane. X and Z are signed component inclinations;
+    // Total is the unsigned angular deviation of the face normal from Y.
+    internal struct FaceTiltAngles
+    {
+        internal double X, Z, Total;
+        internal FaceTiltAngles(double x, double z, double total)
+        { X = x; Z = z; Total = total; }
+    }
     internal static class FaceMorphCore
     {
+        // TiltX/TiltZ are local Y displacement per *native* X/Z unit, NOT
+        // angles. The deformed end-plane tangents are (width, tiltX, 0)
+        // and (0, tiltZ, depth). Include the current X/Y/Z stretch to
+        // report the actual angle of the scaled face, rather than atan(tilt)
+        // (which is incorrect when a face is resized or an axis stretched).
+        // Rigid rotation of the whole part is intentionally excluded.
+        internal static FaceTiltAngles GetTiltDegrees(double width, double depth,
+            double tiltX, double tiltZ, double scaleX, double scaleY, double scaleZ)
+        {
+            double xSpan = width * scaleX;
+            double zSpan = depth * scaleZ;
+            if (Math.Abs(xSpan) < 1e-12d || Math.Abs(zSpan) < 1e-12d)
+                return new FaceTiltAngles(0d, 0d, 0d);
+            double slopeX = tiltX * scaleY / xSpan;
+            double slopeZ = tiltZ * scaleY / zSpan;
+            const double radToDeg = 180d / Math.PI;
+            return new FaceTiltAngles(
+                Math.Atan(slopeX) * radToDeg,
+                Math.Atan(slopeZ) * radToDeg,
+                Math.Atan(Math.Sqrt(slopeX * slopeX + slopeZ * slopeZ)) * radToDeg);
+        }
+
         // Edge midpoint handles on either face follow the same X-/X+/Z-/Z+
         // ordering. The axis perpendicular to a selected edge is the only
         // axis changed by a regular unlocked drag (or Alt tilt).

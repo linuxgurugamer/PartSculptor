@@ -24,7 +24,7 @@ class MorphXZLock463(unittest.TestCase):
         self.assertIn('public static bool LockMorphXZDefault = true;', SETTINGS)
         self.assertIn('lockMorphXZDefault = true', CONFIG)
         self.assertIn('n.TryGetValue("lockMorphXZDefault", ref LockMorphXZDefault);', SETTINGS)
-        self.assertIn('ref LockProportionsDefault, ref LockMorphXZDefault)', SETTINGS)
+        self.assertIn('ref LockProportionsDefault, ref LockMorphXZDefault,', SETTINGS)
         self.assertIn('"lockMorphXZDefault"', PREFS)
         self.assertIn('lockMorphXZDefault = parsed;', PREFS)
         self.assertIn('node.AddValue("lockMorphXZDefault", morphLockValue);', PREFS)

@@ -28,7 +28,7 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('void CheckForNewStackAttachment()', CODE)
         self.assertIn('if (!HighLogic.LoadedSceneIsEditor || part == null) return;', CODE)
         self.assertIn('nodeAttachWatcher.Observe(part.parent)', CODE)
-        self.assertIn('nodeAttachWatcher.Complete();  // One attempt per NEW attachment only.', CODE)
+        self.assertIn('nodeAttachWatcher.Complete(); // Never repeatedly reshape this join.', CODE)
         self.assertIn('nodeAttachWatcher.Seed(part.parent);', CODE)
         self.assertIn('nodeAttachWatcher.Retry();', CODE)
         self.assertIn('internal sealed class NodeAttachWatcher', MATH)
@@ -39,7 +39,7 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('matchNodeSizesDefault = false', SETTINGS)
         self.assertIn('matchNodeSizes = MatchNodeSizesGlobal;', CODE)
         self.assertIn('Fields["matchNodeSizes"].OnValueModified += OnMatchNodeSizesModified;', CODE)
-        self.assertIn('if (!MatchNodeSizesGlobal || !string.IsNullOrEmpty(restrictedReason))', CODE)
+        self.assertIn('if ((!MatchNodeSizesGlobal && !MatchAttachedFacesGlobal) ||', CODE)
 
     def test_math_protects_zero_and_previous_value(self):
         self.assertIn('return baseline * ExponentFactor(volume, exponent);', MATH)

@@ -9,6 +9,8 @@
   <!-- Compile the ACTUAL production math code, without Unity or KSP stubs. -->
   <ItemGroup>
     <Compile Include="../../PartSculptor/FaceMorphCore.cs" Link="Production/FaceMorphCore.cs" />
+    <Compile Include="../../PartSculptor/FaceAttachmentMatchCore.cs" Link="Production/FaceAttachmentMatchCore.cs" />
+    <Compile Include="../../PartSculptor/FaceMorphStepCore.cs" Link="Production/FaceMorphStepCore.cs" />
     <Compile Include="../../PartSculptor/ScaleMath.cs" Link="Production/ScaleMath.cs" />
     <Compile Include="../../PartSculptor/CrewCapacityMath.cs" Link="Production/CrewCapacityMath.cs" />
     <Compile Include="../../PartSculptor/FuelSwitchMath.cs" Link="Production/FuelSwitchMath.cs" />

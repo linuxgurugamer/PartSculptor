@@ -492,6 +492,43 @@ namespace PartSculptor
             }
         }
 
+        // Use the native (pre-morph) node pose and the undistorted native
+        // mesh bounds. Neither the node label nor its CURRENT tilted normal
+        // reliably identifies the parent/child end of a morphed part.
+        internal bool TryGetEndFace(AttachNode node, out int face)
+        {
+            face = -1;
+            NodeRecord native;
+            if (!valid || node == null || !nodes.TryGetValue(node, out native))
+                return false;
+            float magnitude = native.orientation.magnitude;
+            if (magnitude < 0.01f ||
+                Mathf.Abs(native.orientation.y) / magnitude < 0.65f)
+                return false; // Not an axial/stack end face.
+            face = native.orientation.y > 0f ? 1 : 0;
+            float endY = face == 0 ? min.y : max.y;
+            if (Mathf.Abs(native.position.y - endY) >
+                (max.y - min.y) * 0.20f)
+            {
+                face = -1;
+                return false; // Recessed/side/inset connection.
+            }
+            return true;
+        }
+
+        internal bool TryGetNativeNodePosition(AttachNode node,
+            out Vector3 nativePosition)
+        {
+            NodeRecord native;
+            if (valid && node != null && nodes.TryGetValue(node, out native))
+            {
+                nativePosition = native.position;
+                return true;
+            }
+            nativePosition = Vector3.zero;
+            return false;
+        }
+
         internal Vector3 Corner(int face, int corner, MorphFace bottom, MorphFace top)
         {
             Vector3 point = new Vector3((corner & 1) == 0 ? min.x : max.x,
@@ -500,7 +537,8 @@ namespace PartSculptor
             return FaceMorphMath.Transform(point, min, max, bottom, top);
         }
 
-        internal void Apply(MorphFace bottom, MorphFace top, bool moveAttachments)
+        internal void Apply(MorphFace bottom, MorphFace top, bool moveAttachments,
+            Part stationaryConnectedChild = null)
         {
             if (!valid) return;
             // Base geometry reflects current regular PartSculptor dimensions.
@@ -575,7 +613,8 @@ namespace PartSculptor
                     // position. Never rotate/move the editor's parent vessel.
                     selfMove -= node.position - was;
                 }
-                else if (node.attachedPart.parent == part)
+                else if (node.attachedPart.parent == part &&
+                    node.attachedPart != stationaryConnectedChild)
                 {
                     childMotions.Add(new AttachedChildMotion {
                         node = node,

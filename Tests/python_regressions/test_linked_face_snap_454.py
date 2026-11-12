@@ -47,7 +47,7 @@ class LinkedFaceAndSnap(unittest.TestCase):
         for name in ['morphBottomOffsetX','morphBottomOffsetZ','morphTopOffsetX','morphTopOffsetZ']:
             self.assertIn('[KSPField(isPersistant = true)] public float '+name+' = 0f;', MAIN)
             self.assertIn('m.'+name+' =', MAIN)
-        self.assertIn('m.faceMorph.Apply(bottom, top, true);', MAIN)
+        self.assertIn('m.faceMorph.Apply(bottom, top, true,', MAIN)
         self.assertIn('new MorphFace(1f, 1f, 0f, 0f)', MAIN)
         self.assertIn('FaceMorphMath.IsIdentity(GetMorphFace', MAIN)
         self.assertIn('"Bottom offset X"', MAIN)

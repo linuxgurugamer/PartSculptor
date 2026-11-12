@@ -13,16 +13,29 @@ Forum page is located here:  https://forum.kerbalspaceprogram.com/topic/232076-1
 ## Features
 
 - **Independent X/Y/Z scaling**, or **Lock proportions** to resize uniformly. Use numeric fields, built-in or custom presets, or the three-axis editor gizmo.
-- **Face morphing** with sixteen handles (four corners and four edge midpoints on each end face). Create tapered, tilted, offset, and radially expanded or contracted shapes.
+- **Face morphing** with sixteen handles (four corners and four edge midpoints on each end face). Create tapered, tilted, offset, and radially expanded or contracted shapes. The PAW and Morph tool show each face's tilt in degrees (overall angle and signed X/Z components), updating while you drag.
 - **Craft persistence and symmetry** for part scales and morph settings. Optional **Stretch children** also scales attached descendant parts.
 - **Mass, cost, and resource capacity scaling** from the part's original values, so repeated edits never compound. Fuel fill levels are kept as capacities change.
 - **Attachment handling** for stack and surface nodes: node size tiers, repositioning of attached parts, attach nodes that follow tilted morph faces, and optional automatic stack-node size matching.
+- **Copy attached morph steps** additionally rotates and repositions the connected child through the editor rotation path after both touching faces morph. This retains mirrored local face changes and refreshes editor rotation events/gizmos. Actual edge-to-edge flushness still depends on compatible geometry.
 - **Modular Fuel Tanks / RealFuels volumes:** `ModuleFuelTanks` tank volume follows stretched and morphed geometry. The optional adapter uses RealFuels 15.16.1 `ChangeTotalVolume()` with utilization-aware total volume; older MFT callback/message variants remain as fallbacks, and MFT/RealFuels retains responsibility for fuel allocation. Validate individual installations in the editor and flight.
 - **Mod and part compatibility**: docking ports, B9 Part Switch, supported fuel-switcher modules, and engine visual effects (including optional Waterfall effects).
 - **TweakScale coexistence**, including support for `TWEAKSCALEEXPONENTS`, `TWEAKSCALEBEHAVIOR`, and compatible part/module scaling rules. PartSculptor includes `Patches/ScaleExponents.cfg` with fallback `TWEAKSCALEEXPONENTS` and `TWEAKSCALEBEHAVIOR` definitions when TweakScale is not installed.
 - **Vessel Inspector** with per-part reports of scaled values, change filtering, highlighting, and access to presets and settings in the editor. Inspection is also available in flight.
 - **Career Mode scale limits** based on VAB/SPH upgrade level, plus configurable safety limits.
 - **Crewed parts included by default**, with crew-capacity increases limited by the seats actually available in the part's IVA.
+
+
+**Maximum face tilt:** Edit `maxFaceTilt = 2.5` in
+`GameData/PartSculptor/PluginData/Settings.cfg` and restart KSP to change
+the maximum magnitude of **each** tilt-axis slope. The new default is `2.5`;
+set `0.75` to restore the original, more restrictive limit (valid values are
+greater than 0 and at most 4.0). This is a dimensionless slope **not** a
+degree limit: the PAW/Morph tool degree displays depend on the face width,
+depth and part stretching, and two-axis tilt produces a combined angle.
+The same setting applies to attached-face matching **and Copy attached
+morph steps** (including the copied child face). Extreme tilts can
+distort mesh geometry, colliders or attachment behavior.
 
 ## Requirements
 
@@ -78,12 +91,34 @@ The PAW also offers **Show scaling gizmo** and **Show scaled values**. The scale
 
 - **Stretch children:** Also stretch attached descendant parts that support PartSculptor.
 - **Match node sizes:** Automatically fit a newly attached stack part to the cross-section of the node it attaches to.
+- **Match attached faces:** When enabled, newly placed stack parts automatically attempt to match their connecting face to the morphed parent. **Morphing the end of an already connected part now also updates its attached neighbor's touching end live**, whether you edit the parent or the child. Only the matching end is reshaped; the opposite face stays as it was. Supports different native sizes, quarter-turn rotations and small deviations caused by tilted nodes. Unsupported, side/surface and unsafe matches are skipped.
+- **Copy attached morph steps (opposite-side mirror):** During live Morph edits, duplicate the *incremental* change onto the neighbor's touching end. The same **visible side** is used (including rolled parts), but the **Y/tilt movement is reversed across the joint**: drag the primary's right side down and the connected part's right side moves up. Width/depth and X/Z offsets follow the matching visible directions. The neighbor's existing shape differences and its opposite end are preserved. This is intentionally different from absolute **Match attached faces**, which makes the two touching surfaces geometrically coincide. If both modes are enabled, **Copy** takes priority for live edits; new placements still use Match.
+- **Match face to parent now:** Retry a face match from the newly attached child's PAW, even when automatic matching is disabled. An on-screen message explains why a match is unavailable.
 - **Scale preset:** Apply an **absolute** preset. **Browse presets** opens the full list of absolute and relative presets.
 - **Repeat preset:** Reapply the last preset used, including relative presets.
 
-**Stretch children** and **Match node sizes** apply to the whole editor session, not to one part. Changing them in the PAW lasts until you leave the editor; their starting values come from **Vessel Inspector → Settings**.
+**Stretch children**, **Match node sizes**, **Match attached faces**, and **Copy attached morph steps** apply to the whole editor session, not to one part. Changing them in the PAW lasts until you leave the editor; their starting values come from **Vessel Inspector → Settings**.
+
+### Matching faces on attached parts
+
+Enable **Match attached faces** in any PartSculptor PAW before you attach a new part. It is **off by default**, independently of **Match node sizes**. To enable it automatically in future editor sessions, use **Vessel Inspector → Settings → Match attached faces by default**.
+
+After morphing one end of a tank, attach another compatible PartSculptor tank **by a stack node** to that end. The new tank's touching face is reshaped (width, depth and tilt) to fit the four corners of the parent face; the new tank's other end stays as it was. A small closest-fit tolerance accommodates tilted node orientations that rotate a placed part slightly. Existing craft are never automatically re-morphed merely by opening them.
+
+**Live face matching (0.0.4.109):** With **Match attached faces** enabled, select the Morph tool and drag an end-face handle of an already attached part. Its stack-connected neighbor automatically attempts to fit its own touching face to the edited face, during the drag. This works both from parent to child and child to parent; it also runs when you reset the face or cancel a drag, so the neighbor can return to its previous shape. The opposite face of each neighbor is preserved, and matching never propagates beyond the immediate neighbor. Parts that share symmetry are handled independently at each physical join. This option applies to both new placements and subsequent face edits; disable it if you want to edit faces independently. Already-loaded craft are unchanged **until you actually edit a face**.
+
+**Mirrored copy mode (reworked in 0.0.4.113):** Enable **Copy attached morph steps** in a PartSculptor PAW and drag a connected end-face handle. The module records the source and neighbor face values and relative axes *before* moving anything. The neighbor receives the corresponding **relative** width/depth/offset change on the same visible X/Z side, while face tilt is **reversed along the stack's Y direction**. For example, lowering the right side of the primary face raises the right side of the connected face relative to that part. The other end is left unchanged; this is not a geometric Match. The orientation is captured before KSP moves an attached child, so the mapping stays stable during a drag.
+
+If both connecting faces were flush before the edit, this mode attempts to keep them flush as width, depth, tilt, and offset change. If they already differed, their original physical differences are preserved where the new shape is representable, rather than forcing the child to match the parent's absolute shape. For different native part sizes, the copied *physical* dimension may correspond to a different normalized width/depth factor on the neighbor. The neighbor's far end stays unchanged, changes do not cascade to grandchildren, and undo/cancel/reset apply their reverse physical motion. If the geometry cannot be mirrored to within 0.5% of the smaller native face span (or 1 mm), or would exceed Career, volume or morph limits, that neighbor is skipped instead of leaving a visible gap. Use **Match face to parent now** first when the two faces were not flush initially. New part placement continues to use the separate **Match attached faces** option. This mode is off by default and its starting value can be set in Vessel Inspector → Settings.
+
+If a part did not match when attached, right-click **the newly attached child** and choose **Match face to parent now**. This tries again with the current geometry, regardless of the automatic toggle, and displays a reason if matching is not possible. It can also be used after editing an already attached parent.
+
+The **Match attached faces** option is a **geometry match**, not generic mesh welding or a surface-attach feature. **Copy attached morph steps** now mirrors incremental morph-control changes on the same visible sides, reversing local longitudinal tilt; it does not force different starting faces into an absolute match. For live updates, only an end face that actually changes is considered, and only its directly attached stack neighbor is modified. Other ends and other parts are not automatically changed. Both nodes must be near the model's Y end faces, with compatible planar geometry. The **Match** mode permits at most 7.5% closest-fit corner mismatch. **Copy** is deliberately a mirrored step, not a face fit; it can create an angled joint or gaps on some models, even when the two faces started flush. Use Match when flush contact is the priority. Arbitrary rotations or major skew, joint offsets that cannot be reproduced, unsupported colliders, large size differences outside the 0.25–4 face limits, and Career/volume-restricted changes are left unchanged. If both matching toggles are enabled, node-size scaling is applied first, then the new face fit is attempted. Test tilted/offset joins in the editor before launch.
 
 ## Face morphing
+
+**Tilt readout:** The PartSculptor PAW shows **Bottom face tilt** and **Top face tilt**. The Morph tool's instruction box shows both values, and the tooltip while dragging shows the edited face's value live. The first number is the total angle in degrees from a flat end face; X and Z are signed component angles (for example, `12.6° (X +12.6°, Z 0.0°)`). Values account for face width/depth and independent X/Y/Z stretching. This measures the face relative to the part's own axis, **not** the rotation of the entire part in the editor. A face with no tilt reads `0.0°`.
+
 
 Select the **Morph** tool (the sixth editor tool) and click a compatible part. Eight **orange** handles control one end face and eight **cyan** handles control the other. Each end has four corner handles and four smaller handles halfway along its perimeter edges. Between the two faces, the part's shape blends smoothly from one to the other. Handles and their outline are drawn on top of other parts, so you can still reach a face that a neighboring part covers.
 
@@ -162,6 +197,8 @@ To find a particular part, type its full or partial name in **Filter by name** a
 **Vessel Inspector → Settings** saves your defaults for:
 
 - Match node sizes
+- Match attached faces
+- Copy attached morph steps
 - Stretch children
 - Lock proportions
 - Lock X/Z
@@ -193,6 +230,16 @@ Science and Sandbox modes ignore these limits. Saved craft are never resized whe
 - Where scaling rules or module integrations exist, other values are adjusted too. Test B9 Part Switch, ModularFuelTanks/RealFuels, Firespitter, InterstellarFuelSwitch, docking ports, and engine effects with your particular craft and mod combination.
 - Crew capacity only increases if the part's IVA has enough seats. Stock pods do **not** gain usable seats just by growing.
 - Scaling and morphing can affect attachment placement, collisions, docking alignment, and animations. Back up important craft before major edits.
+
+
+**Mirrored face inclination:** With **Copy attached morph steps** enabled, the
+attached face now copies each change in physical face slope (tilt angle) rather
+than copying only raw tilt parameters. This accounts for face width/depth and
+individual part X/Y/Z stretch, while preserving pre-existing angle differences.
+The child's separate rigid rotation still moves it to follow the attachment.
+If in-game angles disagree, set `debugLogChanges = true` in
+`GameData/PartSculptor/PluginData/Settings.cfg` and compare the `mirrored face
+inclination` entries in `KSP.log`.
 
 ## Troubleshooting
 

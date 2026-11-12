@@ -24,8 +24,8 @@ namespace PartSculptor
         {
             f.Width = Mathf.Clamp(f.Width, 0.25f, 4f);
             f.Depth = Mathf.Clamp(f.Depth, 0.25f, 4f);
-            f.TiltX = Mathf.Clamp(f.TiltX, -0.75f, 0.75f);
-            f.TiltZ = Mathf.Clamp(f.TiltZ, -0.75f, 0.75f);
+            f.TiltX = Mathf.Clamp(f.TiltX, -Settings.MaxFaceTilt, Settings.MaxFaceTilt);
+            f.TiltZ = Mathf.Clamp(f.TiltZ, -Settings.MaxFaceTilt, Settings.MaxFaceTilt);
             f.OffsetX = Mathf.Clamp(f.OffsetX, -4f, 4f);
             f.OffsetZ = Mathf.Clamp(f.OffsetZ, -4f, 4f);
             return f;

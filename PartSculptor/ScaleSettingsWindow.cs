@@ -16,6 +16,8 @@ namespace PartSculptor
         const string NodeName = "PARTSCULPTOR_USER_SETTINGS";
         static bool loaded;
         static bool? matchNodeSizesDefault;
+        static bool? matchAttachedFacesDefault;
+        static bool? copyAttachedMorphStepsDefault;
         static bool? scaleChildrenDefault;
         static bool? lockProportionsDefault;
         static bool? lockMorphXZDefault;
@@ -54,7 +56,7 @@ namespace PartSculptor
         // The GameData option is the fallback, even when the file is absent or
         // malformed. Only a valid user preference can override it.
         internal static void Load(ref bool matchDefault, ref bool childrenDefault,
-            ref bool lockDefault, ref bool morphLockDefault)
+            ref bool lockDefault, ref bool morphLockDefault, ref bool faceMatchDefault)
         {
             if (!loaded)
             {
@@ -75,6 +77,10 @@ namespace PartSculptor
                                 bool parsed;
                                 if (bool.TryParse(n.GetValue("matchNodeSizesDefault"), out parsed))
                                     matchNodeSizesDefault = parsed;
+                                if (bool.TryParse(n.GetValue("matchAttachedFacesDefault"), out parsed))
+                                    matchAttachedFacesDefault = parsed;
+                                if (bool.TryParse(n.GetValue("copyAttachedMorphStepsDefault"), out parsed))
+                                    copyAttachedMorphStepsDefault = parsed;
                                 if (bool.TryParse(n.GetValue("scaleChildrenDefault"), out parsed))
                                     scaleChildrenDefault = parsed;
                                 if (bool.TryParse(n.GetValue("lockProportionsDefault"), out parsed))
@@ -102,6 +108,10 @@ namespace PartSculptor
             }
             if (matchNodeSizesDefault.HasValue)
                 matchDefault = matchNodeSizesDefault.Value;
+            if (matchAttachedFacesDefault.HasValue)
+                faceMatchDefault = matchAttachedFacesDefault.Value;
+            if (copyAttachedMorphStepsDefault.HasValue)
+                Settings.CopyAttachedMorphStepsDefault = copyAttachedMorphStepsDefault.Value;
             if (scaleChildrenDefault.HasValue)
                 childrenDefault = scaleChildrenDefault.Value;
             if (lockProportionsDefault.HasValue)
@@ -117,6 +127,8 @@ namespace PartSculptor
         {
             internal bool Loaded;
             internal bool? MatchNodeSizesDefault, ScaleChildrenDefault;
+            internal bool? MatchAttachedFacesDefault;
+            internal bool? CopyAttachedMorphStepsDefault;
             internal bool? LockProportionsDefault, LockMorphXZDefault;
             internal float MorphSnapIncrement, MorphTipOpacity;
             internal bool UseAlternateSkin;
@@ -136,6 +148,8 @@ namespace PartSculptor
                 {
                     Loaded = loaded,
                     MatchNodeSizesDefault = matchNodeSizesDefault,
+                    MatchAttachedFacesDefault = matchAttachedFacesDefault,
+                    CopyAttachedMorphStepsDefault = copyAttachedMorphStepsDefault,
                     ScaleChildrenDefault = scaleChildrenDefault,
                     LockProportionsDefault = lockProportionsDefault,
                     LockMorphXZDefault = lockMorphXZDefault,
@@ -190,6 +204,8 @@ namespace PartSculptor
                 // those back to their values at window opening, not Apply time.
                 loaded = snapshot.Loaded;
                 matchNodeSizesDefault = snapshot.MatchNodeSizesDefault;
+                matchAttachedFacesDefault = snapshot.MatchAttachedFacesDefault;
+                copyAttachedMorphStepsDefault = snapshot.CopyAttachedMorphStepsDefault;
                 scaleChildrenDefault = snapshot.ScaleChildrenDefault;
                 lockProportionsDefault = snapshot.LockProportionsDefault;
                 lockMorphXZDefault = snapshot.LockMorphXZDefault;
@@ -235,6 +251,24 @@ namespace PartSculptor
             bool lockValue, bool morphLockValue, float snapValue, float opacityValue,
             bool alternateSkinValue, out string error)
         {
+            return SaveDefaults(matchValue, childrenValue, lockValue, morphLockValue,
+                snapValue, opacityValue, alternateSkinValue,
+                Settings.MatchAttachedFacesDefault, out error);
+        }
+
+        internal static bool SaveDefaults(bool matchValue, bool childrenValue,
+            bool lockValue, bool morphLockValue, float snapValue, float opacityValue,
+            bool alternateSkinValue, bool faceMatchValue, out string error)
+        {
+            return SaveDefaults(matchValue, childrenValue, lockValue, morphLockValue,
+                snapValue, opacityValue, alternateSkinValue, faceMatchValue,
+                Settings.CopyAttachedMorphStepsDefault, out error);
+        }
+
+        internal static bool SaveDefaults(bool matchValue, bool childrenValue,
+            bool lockValue, bool morphLockValue, float snapValue, float opacityValue,
+            bool alternateSkinValue, bool faceMatchValue, bool copyStepsValue, out string error)
+        {
             error = null;
             if (!IsValidMorphTipOpacity(opacityValue))
             {
@@ -254,6 +288,8 @@ namespace PartSculptor
                 var root = new ConfigNode();
                 ConfigNode node = root.AddNode(NodeName);
                 node.AddValue("matchNodeSizesDefault", matchValue);
+                node.AddValue("matchAttachedFacesDefault", faceMatchValue);
+                node.AddValue("copyAttachedMorphStepsDefault", copyStepsValue);
                 node.AddValue("scaleChildrenDefault", childrenValue);
                 node.AddValue("lockProportionsDefault", lockValue);
                 node.AddValue("lockMorphXZDefault", morphLockValue);
@@ -267,6 +303,8 @@ namespace PartSculptor
 
                 loaded = true;
                 matchNodeSizesDefault = matchValue;
+                matchAttachedFacesDefault = faceMatchValue;
+                copyAttachedMorphStepsDefault = copyStepsValue;
                 scaleChildrenDefault = childrenValue;
                 lockProportionsDefault = lockValue;
                 lockMorphXZDefault = morphLockValue;
@@ -274,12 +312,16 @@ namespace PartSculptor
                 morphTipOpacity = opacityValue;
                 useAlternateSkin = alternateSkinValue;
                 Settings.MatchNodeSizesDefault = matchValue;
+                Settings.MatchAttachedFacesDefault = faceMatchValue;
+                Settings.CopyAttachedMorphStepsDefault = copyStepsValue;
                 Settings.ScaleChildrenDefault = childrenValue;
                 Settings.LockProportionsDefault = lockValue;
                 Settings.LockMorphXZDefault = morphLockValue;
                 // Immediately update the shared editor option as well. Every
                 // ModulePartSculptor PAW synchronizes from this flag in Update.
                 ModulePartSculptor.MatchNodeSizesGlobal = matchValue;
+                ModulePartSculptor.MatchAttachedFacesGlobal = faceMatchValue;
+                ModulePartSculptor.CopyAttachedMorphStepsGlobal = copyStepsValue;
                 ModulePartSculptor.ScaleChildrenGlobal = childrenValue;
                 return true;
             }
@@ -304,6 +346,8 @@ namespace PartSculptor
         Vector2 optionsScroll;
         bool visible;
         bool matchNodeDefault;
+        bool matchFacesDefault;
+        bool copyStepsDefault;
         bool childrenDefault;
         bool lockDefault;
         bool morphLockDefault;
@@ -319,12 +363,12 @@ namespace PartSculptor
         // even if Apply was clicked one or more times in this session.
         struct OpeningSettings
         {
-            internal bool MatchNodes, StretchChildren, LockProportions, LockMorphXZ;
+            internal bool MatchNodes, MatchFaces, CopySteps, StretchChildren, LockProportions, LockMorphXZ;
             internal int SnapSelection;
             internal float TipOpacity;
             internal bool AlternateSkin;
             // Session-level PAW toggles can differ from the default settings.
-            internal bool ActiveMatchNodes, ActiveStretchChildren;
+            internal bool ActiveMatchNodes, ActiveMatchFaces, ActiveCopySteps, ActiveStretchChildren;
         }
         OpeningSettings opened;
         ScaleUserSettings.UserSettingsSnapshot openingPreferences;
@@ -333,6 +377,8 @@ namespace PartSculptor
         void CaptureOpeningSettings()
         {
             opened.MatchNodes = matchNodeDefault;
+            opened.MatchFaces = matchFacesDefault;
+            opened.CopySteps = copyStepsDefault;
             opened.StretchChildren = childrenDefault;
             opened.LockProportions = lockDefault;
             opened.LockMorphXZ = morphLockDefault;
@@ -340,12 +386,16 @@ namespace PartSculptor
             opened.TipOpacity = tipOpacity;
             opened.AlternateSkin = alternateSkin;
             opened.ActiveMatchNodes = ModulePartSculptor.MatchNodeSizesGlobal;
+            opened.ActiveMatchFaces = ModulePartSculptor.MatchAttachedFacesGlobal;
+            opened.ActiveCopySteps = ModulePartSculptor.CopyAttachedMorphStepsGlobal;
             opened.ActiveStretchChildren = ModulePartSculptor.ScaleChildrenGlobal;
         }
 
         void RestoreOpeningSettings()
         {
             matchNodeDefault = opened.MatchNodes;
+            matchFacesDefault = opened.MatchFaces;
+            copyStepsDefault = opened.CopySteps;
             childrenDefault = opened.StretchChildren;
             lockDefault = opened.LockProportions;
             morphLockDefault = opened.LockMorphXZ;
@@ -356,10 +406,14 @@ namespace PartSculptor
             // Restore the original editor defaults and live PAW toggles,
             // including changes that Apply made while this dialog was open.
             Settings.MatchNodeSizesDefault = opened.MatchNodes;
+            Settings.MatchAttachedFacesDefault = opened.MatchFaces;
+            Settings.CopyAttachedMorphStepsDefault = opened.CopySteps;
             Settings.ScaleChildrenDefault = opened.StretchChildren;
             Settings.LockProportionsDefault = opened.LockProportions;
             Settings.LockMorphXZDefault = opened.LockMorphXZ;
             ModulePartSculptor.MatchNodeSizesGlobal = opened.ActiveMatchNodes;
+            ModulePartSculptor.MatchAttachedFacesGlobal = opened.ActiveMatchFaces;
+            ModulePartSculptor.CopyAttachedMorphStepsGlobal = opened.ActiveCopySteps;
             ModulePartSculptor.ScaleChildrenGlobal = opened.ActiveStretchChildren;
         }
 
@@ -373,6 +427,8 @@ namespace PartSculptor
         {
             Settings.Load();
             matchNodeDefault = Settings.MatchNodeSizesDefault;
+            matchFacesDefault = Settings.MatchAttachedFacesDefault;
+            copyStepsDefault = Settings.CopyAttachedMorphStepsDefault;
             childrenDefault = Settings.ScaleChildrenDefault;
             lockDefault = Settings.LockProportionsDefault;
             morphLockDefault = Settings.LockMorphXZDefault;
@@ -433,7 +489,7 @@ namespace PartSculptor
             string error;
             if (ScaleUserSettings.SaveDefaults(matchNodeDefault, childrenDefault, lockDefault,
                 morphLockDefault, ScaleUserSettings.MorphSnapChoices[snapSelection],
-                tipOpacity, alternateSkin, out error))
+                tipOpacity, alternateSkin, matchFacesDefault, copyStepsDefault, out error))
             {
                 appliedSinceOpening = true;
                 if (closeAfterSaving) Close();
@@ -475,6 +531,18 @@ namespace PartSculptor
             matchNodeDefault = GUILayout.Toggle(matchNodeDefault,
                 new GUIContent("Match node sizes by default",
                     "When enabled, newly attached stack parts automatically resize to match the connected node."));
+            matchFacesDefault = GUILayout.Toggle(matchFacesDefault,
+                new GUIContent("Match attached faces by default",
+                    "On a NEW stack attachment, fit the child's touching end to the parent's morphed face. " +
+                    "Also keep already attached stack faces matched during live Morph edits, " +
+                    "from either parent or child; the opposite end remains unchanged."));
+            copyStepsDefault = GUILayout.Toggle(copyStepsDefault,
+                new GUIContent("Mirror incremental morph steps on the same sides of attached faces",
+                    "During a live Morph edit, MIRROR the actual movement of the four " +
+                    "connecting corners, compensating for any child rotation caused by " +
+                    "the tilted node. Prior face differences are preserved when safe. " +
+                    "This works on its own and takes precedence over Match attached faces for live edits. " +
+                    "New part placement uses Match attached faces as before."));
             childrenDefault = GUILayout.Toggle(childrenDefault,
                 new GUIContent("Stretch children by default",
                     "Sets the shared Stretch children option when editing begins."));
@@ -500,7 +568,7 @@ namespace PartSculptor
             alternateSkin = GUILayout.Toggle(alternateSkin,
                 new GUIContent("Use alternate skin",
                     "Use the host Unity IMGUI skin instead of the KSP skin in PartSculptor windows."));
-            GUILayout.Label("Match node sizes and Stretch children update now; " +
+            GUILayout.Label("Match node sizes, Match attached faces, Copy morph steps, and Stretch children update now; " +
                 "Lock proportions and Lock X/Z apply to new parts only.");
             GUILayout.EndScrollView();
             GUILayout.Label(status, GUILayout.Height(24f));

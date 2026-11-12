@@ -4,19 +4,34 @@ using System;
 
 namespace PartSculptor
 {
-    // Small reference-identity state machine. A craft loaded with a parent
-    // is seeded as already attached; only a NEW parent assignment can match.
-    // Kept independent of Part so its event/undo decisions are unit-testable.
+    // Editor placement may arrive before or after the new module's OnStart.
+    // Its explicit placed event is authoritative even when KSP assigned the
+    // new parent before the module was initialized. Loading a saved craft
+    // only calls Seed(), so its existing joins remain untouched.
     internal sealed class NodeAttachWatcher
     {
         private object observedParent;
         private bool pending;
+        private bool placedEventPending;
         private int attempts;
 
         internal void Seed(object initialParent)
         {
             observedParent = initialParent;
-            pending = false;
+            // A placed event can precede OnStart on a freshly instantiated
+            // part. Do not erase that event when establishing load state.
+            if (!placedEventPending)
+            {
+                pending = false;
+                attempts = 0;
+            }
+        }
+
+        internal void Placed(object parent)
+        {
+            observedParent = parent;
+            placedEventPending = true;
+            pending = true;
             attempts = 0;
         }
 
@@ -25,17 +40,23 @@ namespace PartSculptor
             if (!object.ReferenceEquals(parent, observedParent))
             {
                 observedParent = parent;
-                pending = parent != null;
+                pending = parent != null || placedEventPending;
                 attempts = 0;
             }
-            return pending;
+            return pending && parent != null;
         }
 
-        internal void Complete() { pending = false; }
+        internal void Complete()
+        {
+            pending = false;
+            placedEventPending = false;
+        }
 
+        // 90 frames tolerates moderately expensive modded editor startups
+        // without polling indefinitely or repeatedly resizing an attachment.
         internal void Retry()
         {
-            if (++attempts >= 12) pending = false;
+            if (++attempts >= 90) Complete();
         }
     }
 

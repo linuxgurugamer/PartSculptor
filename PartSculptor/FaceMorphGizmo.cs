@@ -756,17 +756,32 @@ namespace PartSculptor
                     "  Shift+Alt = move face\n" +
                     "  Ctrl+Alt = radial resize\n" +
                     "  Ctrl+Alt+Shift = radial snap\n" +
-                    "  Lock X/Z = " + (module.lockMorphXZ ? "On" : "Off") + " (part PAW)");
+                    "  Lock X/Z = " + (module.lockMorphXZ ? "On" : "Off") + " (part PAW)\n" +
+                    "  Bottom tilt: " + module.GetFaceTiltDisplay(0) + "\n" +
+                    "  Top tilt: " + module.GetFaceTiltDisplay(1));
                 return;
             }
             Vector3 mouse = Input.mousePosition;
-            DrawMorphTip(new Rect(mouse.x + 20f, Screen.height - mouse.y + 20f, 300f, 25f),
-                dragRadial ? "Radial resize all corners (Esc to cancel)" :
+            int editedFace = dragging < 4 || (dragging >= 8 && dragging < 12) ? 0 : 1;
+            string caption = dragRadial ? "Radial resize all corners (Esc to cancel)" :
                 dragLinked ? "Move entire face (Esc to cancel)" :
                 dragTilt ? "Tilt face (Esc to cancel)" :
                 dragLockXZ ? "Resize X/Z together (Esc to cancel)" :
                 dragging >= CornerCount ? "Resize face from edge (Esc to cancel)" :
-                "Resize face (Esc to cancel)", GUI.skin.box);
+                "Resize face (Esc to cancel)";
+            // Two lines need more space than the original 25px tip. Retain
+            // DrawMorphTip so drag labels honor the user's background-opacity
+            // setting, and clamp the larger tooltip to the editor viewport.
+            Rect tipRect = new Rect(mouse.x + 20f, Screen.height - mouse.y + 20f,
+                355f, 56f);
+            tipRect.x = Mathf.Clamp(tipRect.x, 0f,
+                Mathf.Max(0f, Screen.width - tipRect.width));
+            tipRect.y = Mathf.Clamp(tipRect.y, 0f,
+                Mathf.Max(0f, Screen.height - tipRect.height));
+            DrawMorphTip(tipRect,
+                caption + "\n" +
+                (editedFace == 0 ? "Bottom" : "Top") +
+                " tilt: " + module.GetFaceTiltDisplay(editedFace), GUI.skin.box);
         }
 
         private void Dispose()

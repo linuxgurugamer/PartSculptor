@@ -17,6 +17,192 @@ internal static class Program
             throw new Exception(name + ": expected " + expected + ", got " + actual);
     }
 
+    private static void AttachedFaceFitting()
+    {
+        var min = new MorphPoint(-1, -2, -1);
+        var max = new MorphPoint(1, 2, 1);
+        var nativeNode = new MorphPoint(.2, 2, -.1);
+        var unchanged = new AttachmentFaceShape(1, 1, 0, 0, 0, 0);
+        var desired = new AttachmentFaceShape(1.5, .7, .3, -.2, .4, -.1);
+        MorphPoint anchor = FaceAttachmentMatchCore.Transform(nativeNode,
+            min, max, unchanged, desired);
+        var corners = new MorphPoint[4];
+        for (int i = 0; i < 4; ++i)
+        {
+            var baseline = new MorphPoint((i & 1) == 0 ? min.X : max.X,
+                max.Y, (i & 2) == 0 ? min.Z : max.Z);
+            MorphPoint p = FaceAttachmentMatchCore.Transform(baseline,
+                min, max, unchanged, desired);
+            corners[(i + 1) % 4] = new MorphPoint(p.X - anchor.X,
+                p.Y - anchor.Y, p.Z - anchor.Z);
+        }
+        AttachmentFaceShape fitted;
+        double error;
+        if (!FaceAttachmentMatchCore.TryFit(corners, min, max, nativeNode,
+            1, unchanged, new AttachmentFaceShape(1, 1, 0, 0, .4, -.1),
+            out fitted, out error))
+            throw new Exception("Matching four corners must succeed");
+        Equal(fitted.Width, 1.5, "child width fits attached parent");
+        Equal(fitted.Depth, .7, "child depth fits attached parent");
+        Equal(fitted.TiltX, .3, "child X tilt fits attached parent");
+        Equal(fitted.TiltZ, -.2, "child Z tilt fits attached parent");
+        Equal(fitted.OffsetX, .4, "existing face offset X preserved");
+        Equal(fitted.OffsetZ, -.1, "existing face offset Z preserved");
+        Equal(error, 0, "exact fit anchors at source node");
+
+        // A quarter-turn in the editor swaps the physical X and Z spans.
+        var rotated = new MorphPoint[4];
+        for (int i = 0; i < 4; ++i)
+            rotated[i] = new MorphPoint(corners[i].Z,
+                corners[i].Y, -corners[i].X);
+        // A rotated child may have its node off-center; test the common
+        // central axial-node case, which is what stock tanks normally use.
+        var centerNode = new MorphPoint(0, 2, 0);
+        anchor = FaceAttachmentMatchCore.Transform(centerNode,
+            min, max, unchanged, desired);
+        for (int i = 0; i < 4; ++i)
+        {
+            var baseline = new MorphPoint((i & 1) == 0 ? min.X : max.X,
+                max.Y, (i & 2) == 0 ? min.Z : max.Z);
+            MorphPoint p = FaceAttachmentMatchCore.Transform(baseline,
+                min, max, unchanged, desired);
+            rotated[i] = new MorphPoint(p.Z - anchor.Z,
+                p.Y - anchor.Y, anchor.X - p.X);
+        }
+        if (!FaceAttachmentMatchCore.TryFit(rotated, min, max, centerNode,
+            1, unchanged, unchanged, out fitted, out error))
+            throw new Exception("90-degree part rotation must fit");
+        Equal(fitted.Width, .7, "quarter-turn swaps width");
+        Equal(fitted.Depth, 1.5, "quarter-turn swaps depth");
+        Equal(fitted.TiltX, -.2, "quarter-turn remaps X tilt");
+        Equal(fitted.TiltZ, -.3, "quarter-turn remaps Z tilt");
+
+        var skewed = new MorphPoint[4];
+        for (int i = 0; i < 4; ++i)
+            skewed[i] = new MorphPoint(
+                (rotated[i].X - rotated[i].Z) / Math.Sqrt(2),
+                rotated[i].Y,
+                (rotated[i].X + rotated[i].Z) / Math.Sqrt(2));
+        if (FaceAttachmentMatchCore.TryFit(skewed, min, max, centerNode,
+            1, unchanged, unchanged, out fitted, out error))
+            throw new Exception("arbitrary 45-degree rotation must be skipped");
+        if (FaceAttachmentMatchCore.TryFit(skewed, min, max, centerNode,
+            1, unchanged, unchanged, out fitted, out error, true))
+            throw new Exception("approximate match must still reject 45-degree roll");
+        // A tilted parent node rotates a child into its surface normal.
+        // In the child's frame the parent's formerly square XZ corners
+        // become slightly skewed; a closest (bounded) fit is useful.
+        var slightlySkewed = new MorphPoint[4];
+        for (int i = 0; i < 4; ++i)
+            slightlySkewed[i] = new MorphPoint(
+                rotated[i].X + 0.04 * rotated[i].Z,
+                rotated[i].Y, rotated[i].Z);
+        if (FaceAttachmentMatchCore.TryFit(slightlySkewed, min, max, centerNode,
+            1, unchanged, unchanged, out fitted, out error))
+            throw new Exception("strict fit must reject slight XZ skew");
+        if (!FaceAttachmentMatchCore.TryFit(slightlySkewed, min, max, centerNode,
+            1, unchanged, unchanged, out fitted, out error, true))
+            throw new Exception("close fit must allow slight skew caused by tilted nodes");
+        if (!(error > 0d && error < .15d))
+            throw new Exception("close fit must retain bounded, measured error");
+        var tooWide = new MorphPoint[4];
+        for (int i = 0; i < 4; ++i)
+            tooWide[i] = new MorphPoint(rotated[i].X * 8,
+                rotated[i].Y, rotated[i].Z);
+        if (FaceAttachmentMatchCore.TryFit(tooWide, min, max, centerNode,
+            1, unchanged, unchanged, out fitted, out error))
+            throw new Exception("out-of-range face width must be skipped");
+        if (FaceAttachmentMatchCore.TryFit(rotated, min, max,
+            new MorphPoint(0, 0, 0), 1, unchanged, unchanged,
+            out fitted, out error))
+            throw new Exception("an interior attach node must be skipped");
+        checks += 3;
+    }
+
+    // High-tilt faces must remain matchable when the user raises the limit.
+    // The pure math runner uses an explicit value because it does not load
+    // Unity's Settings.cfg at runtime.
+    private static void ConfigurableFaceTiltFitting()
+    {
+        var min = new MorphPoint(-1, -2, -1);
+        var max = new MorphPoint(1, 2, 1);
+        var node = new MorphPoint(0, 2, 0);
+        var plain = new AttachmentFaceShape(1, 1, 0, 0, 0, 0);
+        var steep = new AttachmentFaceShape(1, 1, 1.2, -.9, 0, 0);
+        MorphPoint anchor = FaceAttachmentMatchCore.Transform(node, min, max, plain, steep);
+        var corners = new MorphPoint[4];
+        for (int i = 0; i < corners.Length; ++i)
+        {
+            var corner = new MorphPoint((i & 1) == 0 ? min.X : max.X,
+                max.Y, (i & 2) == 0 ? min.Z : max.Z);
+            MorphPoint pt = FaceAttachmentMatchCore.Transform(corner, min, max, plain, steep);
+            corners[i] = new MorphPoint(pt.X - anchor.X, pt.Y - anchor.Y, pt.Z - anchor.Z);
+        }
+        AttachmentFaceShape fitted;
+        double error;
+        if (FaceAttachmentMatchCore.TryFit(corners, min, max, node, 1, plain, plain,
+            out fitted, out error))
+            throw new Exception("default tilt limit must reject a 1.2 slope face");
+        if (!FaceAttachmentMatchCore.TryFit(corners, min, max, node, 1, plain, plain,
+            out fitted, out error, false, 1.5))
+            throw new Exception("configured 1.5 tilt limit must fit steep face");
+        Equal(fitted.TiltX, 1.2, "configurable X tilt fits steeper face");
+        Equal(fitted.TiltZ, -.9, "configurable Z tilt fits steeper face");
+        Equal(error, 0, "steep face matches exactly");
+        if (FaceAttachmentMatchCore.TryFit(corners, min, max, node, 1, plain, plain,
+            out fitted, out error, false, double.PositiveInfinity))
+            throw new Exception("nonfinite configured tilt limit must fail safely");
+        if (FaceAttachmentMatchCore.TryFit(corners, min, max, node, 1, plain, plain,
+            out fitted, out error, false, 0))
+            throw new Exception("zero configured tilt limit must fail safely");
+        checks += 4;
+    }
+
+    // Live matching uses the same production fitter as placement. Test both
+    // possible connected ends, including restoring a face to identity and
+    // keeping the other end's shape unchanged.
+    private static void LiveAttachedFaceFitting()
+    {
+        var min = new MorphPoint(-1, -2, -1);
+        var max = new MorphPoint(1, 2, 1);
+        var nativeBottomNode = new MorphPoint(0, -2, 0);
+        var original = new AttachmentFaceShape(1, 1, 0, 0, 0, 0);
+        var untouchedTop = new AttachmentFaceShape(.65, 1.3, .2, 0, .1, -.15);
+        var shapes = new [] {
+            new AttachmentFaceShape(1.4, .75, -.2, .18, 0, 0),
+            new AttachmentFaceShape(.9, 1.5, .12, -.1, 0, 0),
+            original // Reset a connected end to identity.
+        };
+        foreach (var desired in shapes)
+        {
+            MorphPoint anchor = FaceAttachmentMatchCore.Transform(nativeBottomNode,
+                min, max, desired, untouchedTop);
+            var corners = new MorphPoint[4];
+            for (int i = 0; i < corners.Length; ++i)
+            {
+                var point = new MorphPoint((i & 1) == 0 ? min.X : max.X,
+                    min.Y, (i & 2) == 0 ? min.Z : max.Z);
+                MorphPoint transformed = FaceAttachmentMatchCore.Transform(point,
+                    min, max, desired, untouchedTop);
+                corners[(i + 3) % 4] = new MorphPoint(
+                    transformed.X - anchor.X, transformed.Y - anchor.Y,
+                    transformed.Z - anchor.Z);
+            }
+            AttachmentFaceShape fitted;
+            double error;
+            if (!FaceAttachmentMatchCore.TryFit(corners, min, max,
+                nativeBottomNode, 0, original, untouchedTop,
+                out fitted, out error, true))
+                throw new Exception("Live bottom-end matching should succeed");
+            Equal(fitted.Width, desired.Width, "live width follows connected end");
+            Equal(fitted.Depth, desired.Depth, "live depth follows connected end");
+            Equal(fitted.TiltX, desired.TiltX, "live X tilt follows connected end");
+            Equal(fitted.TiltZ, desired.TiltZ, "live Z tilt follows connected end");
+            Equal(error, 0, "live connection fit is exact", 1e-6);
+            Equal(untouchedTop.Width, .65, "opposite end remains unchanged");
+        }
+    }
+
     private static void MorphEdgeHandles()
     {
         // The midpoint of an edge on a planar, tilted and translated face
@@ -372,8 +558,28 @@ internal static class Program
             Equal(watcher.Observe(parentB) ? 1 : 0, 1, "await late node reference");
             watcher.Retry();
         }
+        for (int i = 11; i < 89; ++i)
+            watcher.Retry();
+        Equal(watcher.Observe(parentB) ? 1 : 0, 1, "retry tolerates late editor nodes");
         watcher.Retry();
         Equal(watcher.Observe(parentB) ? 1 : 0, 0, "retry bounded");
+
+        // KSP may assign a parent BEFORE OnStart on a newly placed part.
+        // A placed event must override this seed, even if the event arrives
+        // before the module's OnStart, without matching ordinary loaded craft.
+        watcher.Seed(parentA);
+        Equal(watcher.Observe(parentA) ? 1 : 0, 0, "saved craft remains untouched");
+        watcher.Placed(parentA);
+        Equal(watcher.Observe(parentA) ? 1 : 0, 1, "placed event overrides same parent");
+        watcher.Seed(parentA);
+        Equal(watcher.Observe(parentA) ? 1 : 0, 1, "early place survives OnStart seed");
+        watcher.Complete();
+        Equal(watcher.Observe(parentA) ? 1 : 0, 0, "placed event is one-shot");
+        watcher.Placed(null);
+        watcher.Seed(null);
+        Equal(watcher.Observe(null) ? 1 : 0, 0, "placement without parent waits");
+        Equal(watcher.Observe(parentB) ? 1 : 0, 1, "delayed parent is detected");
+        watcher.Complete();
     }
 
     private static void B9VolumeScaling()
@@ -656,6 +862,270 @@ internal static class Program
             throw new Exception("Missing MFT baseline should not be used");
     }
 
+    private static void CopyAttachedMorphSteps()
+    {
+        MorphStep before = new MorphStep(1, 1, .1, -.05, .2, 0);
+        MorphStep after = new MorphStep(1.3, .8, .15, -.12, .3, -.2);
+        MorphStep delta = MorphStep.Subtract(after, before);
+        MorphStep mapped;
+        // A physically valid 180-degree roll around X reverses local Y/Z.
+        if (!FaceMorphStepCore.TryMap(delta, 1, 0, 0, -1, -1, out mapped))
+            throw new Exception("Opposed end faces must map morph steps");
+        Equal(mapped.Width, .3, "copy X resize");
+        Equal(mapped.Depth, -.2, "copy Z resize");
+        Equal(mapped.TiltX, -.05, "opposite Y reverses X tilt");
+        Equal(mapped.TiltZ, -.07, "reversed YZ preserves Z tilt");
+        Equal(mapped.OffsetX, .1, "copy X translation");
+        Equal(mapped.OffsetZ, .2, "reversed Z translation");
+
+        // Quarter-turn about diagonal XZ: both X/Z axes are exchanged,
+        // and the local Y axis reverses, as at real opposing stack ends.
+        if (!FaceMorphStepCore.TryMap(delta, 0, 1, 1, 0, -1, out mapped))
+            throw new Exception("Quarter-turn stack end must map steps");
+        Equal(mapped.Width, -.2, "quarter-turn swaps width/depth");
+        Equal(mapped.Depth, .3, "quarter-turn swaps depth/width");
+        Equal(mapped.TiltX, .07, "quarter-turn remaps tilt X");
+        Equal(mapped.TiltZ, -.05, "quarter-turn remaps tilt Z");
+        Equal(mapped.OffsetX, -.2, "quarter-turn remaps offset X");
+        Equal(mapped.OffsetZ, .1, "quarter-turn remaps offset Z");
+
+        // Mild tilt in an existing attach node does not alter step SIZE.
+        if (!FaceMorphStepCore.TryMap(delta, .966, .259, -.259, .966, 1,
+            out mapped)) throw new Exception("Tilted but aligned joined ends should copy");
+        Equal(mapped.Width, .3, "tilted connection still copies raw step");
+        if (FaceMorphStepCore.TryMap(delta, .70710678, .70710678,
+            -.70710678, .70710678, 1, out mapped))
+            throw new Exception("Ambiguous 45-degree roll should be rejected");
+        if (FaceMorphStepCore.TryMap(delta, 1, 0, 1, 0, -1, out mapped))
+            throw new Exception("Two destination axes must not map to one source axis");
+
+        // Starting shape is intentionally different. The copy adds the edit
+        // delta rather than replacing the receiver with the source shape.
+        if (!FaceMorphStepCore.TryMap(delta, 1, 0, 0, -1, -1, out mapped))
+            throw new Exception("Repeat map failed");
+        MorphStep result = MorphStep.Add(new MorphStep(1.5, 1.4, .2, .1, .1, 0), mapped);
+        Equal(result.Width, 1.8, "copy retains receiver initial width difference");
+        Equal(result.Depth, 1.2, "copy retains receiver initial depth difference");
+        if (!MorphStep.Valid(result, .75d)) throw new Exception("Valid copy rejected");
+        if (MorphStep.Valid(MorphStep.Add(new MorphStep(3.9, 1, 0, 0, 0, 0), delta), .75d))
+            throw new Exception("Entire out-of-limits step must be rejected");
+        if (!FaceMorphStepCore.TryMap(MorphStep.Subtract(before, after),
+            1, 0, 0, -1, -1, out mapped))
+            throw new Exception("Reverse step failed");
+        MorphStep back = MorphStep.Add(result, mapped);
+        Equal(back.Width, 1.5, "cancel restores receiver previous width");
+        Equal(back.Depth, 1.4, "cancel restores receiver previous depth");
+    }
+
+    private static void ConfigurableCopyTiltLimit()
+    {
+        // Copy mode previously had a second, hard-coded .75 validation
+        // despite the gizmo / match fitter respecting maxFaceTilt.
+        MorphStep flat = new MorphStep(1, 1, 0, 0, 0, 0);
+        MorphStep steep = new MorphStep(1, 1, 1.5, -1.25, 0, 0);
+        if (MorphStep.Valid(steep, .75d))
+            throw new Exception("Default copy limit must reject steep tilt");
+        if (!MorphStep.Valid(steep, 4d))
+            throw new Exception("Configured 4.0 copy limit must allow steep tilt");
+        if (!MorphStep.Valid(new MorphStep(1, 1, 4, -4, 0, 0), 4d))
+            throw new Exception("Copy must accept both axes at configured bound");
+        if (MorphStep.Valid(new MorphStep(1, 1, 4.0001, 0, 0, 0), 4d) ||
+            MorphStep.Valid(new MorphStep(1, 1, 0, -4.0001, 0, 0), 4d))
+            throw new Exception("Copy must reject a step above configured bound");
+        if (MorphStep.Valid(steep, double.NaN) ||
+            MorphStep.Valid(steep, double.PositiveInfinity) ||
+            MorphStep.Valid(steep, 0d))
+            throw new Exception("Invalid copy-limit settings must reject steps");
+        MorphStep mirrored;
+        if (!FaceMorphStepCore.TryMapMirrored(MorphStep.Subtract(steep, flat),
+            1, 0, 0, 1, 1, out mirrored))
+            throw new Exception("Steep tank tilt must map onto the same visible side");
+        MorphStep child = MorphStep.Add(flat, mirrored);
+        if (!MorphStep.Valid(child, 4d))
+            throw new Exception("Copied steep child tilt must pass configured bound");
+        Equal(child.TiltX, -1.5, "child X tilt mirrors above old limit");
+        Equal(child.TiltZ, 1.25, "child Z tilt mirrors above old limit");
+    }
+
+    private static void MirroredAttachedMorphSteps()
+    {
+        // Same visible right side, opposed Y motion. Starting with both parts
+        // upright, dragging the source's +X edge DOWN must lift the connected
+        // part's +X edge UP. Match, by contrast, would fit equal geometry.
+        MorphStep rightDown = new MorphStep(0, 0, -.20, 0, 0, 0);
+        MorphStep mirrored;
+        if (!FaceMorphStepCore.TryMapMirrored(rightDown,
+            1, 0, 0, 1, 1, out mirrored))
+            throw new Exception("Same-orientation stacked parts must mirror");
+        Equal(mirrored.TiltX, .20, "source right down -> child right up");
+        Equal(mirrored.TiltZ, 0, "right drag does not change front/back tilt");
+        // Preserve a different pre-existing shape and leave the far end to
+        // the caller (we only ever change the actual touching face).
+        MorphStep neighborBefore = new MorphStep(1.6, 1.2, .1, -.05, .2, -.1);
+        MorphStep neighborAfter = MorphStep.Add(neighborBefore, mirrored);
+        Equal(neighborAfter.TiltX, .3, "incremental mirrored tilt");
+        Equal(neighborAfter.Width, 1.6, "no absolute face-size matching");
+        if (!MorphStep.Valid(neighborAfter, .75d))
+            throw new Exception("Valid mirrored increment rejected");
+
+        // 180-degree roll reverses local X and Z: the SAME visible right side
+        // is local -X on the child, so the sign must change accordingly.
+        if (!FaceMorphStepCore.TryMapMirrored(rightDown,
+            -1, 0, 0, -1, 1, out mirrored))
+            throw new Exception("180 degree roll must mirror");
+        Equal(mirrored.TiltX, -.2, "rolled part's -X side moves up");
+
+        // Opposing Y local axes change the *local* tilt mapping, but the
+        // visible side still moves in the opposite world Y direction.
+        if (!FaceMorphStepCore.TryMapMirrored(rightDown,
+            1, 0, 0, -1, -1, out mirrored))
+            throw new Exception("Opposed local Y axes must mirror");
+        Equal(mirrored.TiltX, -.2, "opposed Y local tilt mapping");
+
+        // Quarter roll swaps the X/Z controls but keeps the touched *side*.
+        if (!FaceMorphStepCore.TryMapMirrored(rightDown,
+            0, 1, -1, 0, 1, out mirrored))
+            throw new Exception("90 degree roll must mirror");
+        Equal(mirrored.TiltX, 0, "quarter roll has no recipient X tilt");
+        Equal(mirrored.TiltZ, -.2, "quarter roll moves recipient's -Z side up");
+
+        // Width/depth increments and radial offsets are copied on the same
+        // visible sides; only longitudinal movement is reflected.
+        MorphStep all = new MorphStep(.2, -.1, -.15, .12, .3, -.25);
+        if (!FaceMorphStepCore.TryMapMirrored(all,
+            1, 0, 0, 1, 1, out mirrored))
+            throw new Exception("Combined morph increments must mirror");
+        Equal(mirrored.Width, .2, "width increment preserved");
+        Equal(mirrored.Depth, -.1, "depth increment preserved");
+        Equal(mirrored.TiltX, .15, "X tilt reversed");
+        Equal(mirrored.TiltZ, -.12, "Z tilt reversed");
+        Equal(mirrored.OffsetX, .3, "X offset preserved");
+        Equal(mirrored.OffsetZ, -.25, "Z offset preserved");
+
+        // Mirror and reverse-mirror a canceled drag to prove reversibility.
+        if (!FaceMorphStepCore.TryMapMirrored(MorphStep.Subtract(
+            new MorphStep(0,0,0,0,0,0), rightDown),
+            1, 0, 0, 1, 1, out mirrored))
+            throw new Exception("Cancel must map");
+        Equal(MorphStep.Add(neighborAfter, mirrored).TiltX,
+            neighborBefore.TiltX, "cancel restores original child tilt");
+        if (FaceMorphStepCore.TryMapMirrored(rightDown,
+            .70710678, .70710678, -.70710678, .70710678, 1,
+            out mirrored))
+            throw new Exception("Ambiguous 45 degree roll should be rejected");
+    }
+
+    private static void CopyAttachedInclination()
+    {
+        // Two identical FL-T400 end faces with an X/Z compound tilt of
+        // 39.6 degrees. A raw parameter copy should NOT lose magnitude.
+        double component = Math.Tan(39.6 * Math.PI / 180d) / Math.Sqrt(2d);
+        MorphStep flat = new MorphStep(1, 1, 0, 0, 0, 0);
+        MorphStep source = new MorphStep(1, 1, component, component, 0, 0);
+        MorphStep mirrored;
+        if (!FaceMorphStepCore.TryMapMirrored(MorphStep.Subtract(source, flat),
+            1, 0, 0, 1, 1, out mirrored))
+            throw new Exception("Expected normal aligned tank mapping");
+        MorphStep proposed = MorphStep.Add(flat, mirrored), corrected;
+        if (!FaceMorphStepCore.TryMirrorInclinationStep(flat, source, flat, proposed,
+            1, 1, 1, 1, 1, 1,
+            1, 0, 0, 1, 1, out corrected))
+            throw new Exception("Two T400s must accept mirrored inclination");
+        FaceTiltAngles child = FaceMorphCore.GetTiltDegrees(corrected.Width,
+            corrected.Depth, corrected.TiltX, corrected.TiltZ, 1, 1, 1);
+        Equal(child.Total, 39.6, "identical tanks preserve 39.6-degree tilt", 1e-8);
+        Equal(corrected.TiltX, -component, "same side moves up when source moves down");
+        Equal(corrected.TiltZ, -component, "both components mirror");
+
+        // If the child has twice the face width/depth, copying unchanged raw
+        // Tilt produces a shallow ~22.3-degree inclination; the slope mapping
+        // must still produce 39.6 degrees instead.
+        MorphStep wider = new MorphStep(2, 2, 0, 0, 0, 0);
+        MorphStep widerProposed = MorphStep.Add(wider, mirrored);
+        if (!FaceMorphStepCore.TryMirrorInclinationStep(flat, source, wider,
+            widerProposed, 1, 1, 1, 1, 1, 1,
+            1, 0, 0, 1, 1, out corrected))
+            throw new Exception("Wider receiving face must accept physical slope");
+        child = FaceMorphCore.GetTiltDegrees(corrected.Width,
+            corrected.Depth, corrected.TiltX, corrected.TiltZ, 1, 1, 1);
+        Equal(child.Total, 39.6, "wider face preserves signed angular change", 1e-8);
+        Equal(corrected.TiltX, -2d * component, "wider face scales raw tilt twice");
+
+        // The source and receiver need not have identical starting slopes;
+        // additive change, including reverse/cancel, is the contract.
+        MorphStep sourcePrior = new MorphStep(1, 1, .10, .05, 0, 0);
+        MorphStep receiverPrior = new MorphStep(1.4, 1.6, -.20, .12, 0, 0);
+        MorphStep sourceNew = new MorphStep(1, 1, .25, .02, 0, 0);
+        MorphStep rawStep;
+        if (!FaceMorphStepCore.TryMapMirrored(MorphStep.Subtract(sourceNew,
+            sourcePrior), 0, 1, -1, 0, 1, out rawStep))
+            throw new Exception("Quarter roll must map");
+        MorphStep next = MorphStep.Add(receiverPrior, rawStep);
+        if (!FaceMorphStepCore.TryMirrorInclinationStep(sourcePrior, sourceNew,
+            receiverPrior, next, 1, 1, 1, 1, 1, 1,
+            0, 1, -1, 0, 1, out corrected))
+            throw new Exception("Quarter-roll slope map failed");
+        Equal(corrected.Width, receiverPrior.Width, "receiver width preserved");
+        Equal(corrected.Depth, receiverPrior.Depth, "receiver depth preserved");
+        Equal(corrected.TiltX / 1.4, -.20 / 1.4 + .03,
+            "quarter roll maps Z-slope increment onto X", 1e-8);
+        Equal(corrected.TiltZ / 1.6, .12 / 1.6 + .15,
+            "quarter roll maps X-slope increment onto Z", 1e-8);
+        MorphStep revert;
+        if (!FaceMorphStepCore.TryMirrorInclinationStep(sourceNew, sourcePrior,
+            corrected, MorphStep.Add(corrected,
+            MorphStep.Subtract(receiverPrior, next)),
+            1, 1, 1, 1, 1, 1,
+            0, 1, -1, 0, 1, out revert))
+            throw new Exception("Reverse slope map failed");
+        Equal(revert.TiltX, receiverPrior.TiltX, "reverse tilt X exact", 1e-8);
+        Equal(revert.TiltZ, receiverPrior.TiltZ, "reverse tilt Z exact", 1e-8);
+
+        // Different Y/X/Z stretches use the actual face angle, not raw tilt.
+        MorphStep stretched = new MorphStep(1, 1, 0, 0, 0, 0);
+        if (!FaceMorphStepCore.TryMirrorInclinationStep(flat, source,
+            stretched, MorphStep.Add(stretched, mirrored),
+            1, 1, 1, 2, 2, 2,
+            1, 0, 0, 1, 1, out corrected))
+            throw new Exception("Uniformly stretched face must accept slope copy");
+        child = FaceMorphCore.GetTiltDegrees(corrected.Width,
+            corrected.Depth, corrected.TiltX, corrected.TiltZ, 2, 2, 2);
+        Equal(child.Total, 39.6, "stretched receiving face has matching angle", 1e-8);
+    }
+
+    private static void FaceTiltDegreeReadout()
+    {
+        FaceTiltAngles flat = FaceMorphCore.GetTiltDegrees(1, 1, 0, 0, 1, 1, 1);
+        Equal(flat.Total, 0, "flat end face has zero total tilt");
+        Equal(flat.X, 0, "flat end face has zero X tilt");
+        Equal(flat.Z, 0, "flat end face has zero Z tilt");
+
+        FaceTiltAngles x = FaceMorphCore.GetTiltDegrees(1, 1, 1, 0, 1, 1, 1);
+        Equal(x.X, 45, "unit rise per unit span is 45 degrees");
+        Equal(x.Total, 45, "single axis total equals component");
+
+        x = FaceMorphCore.GetTiltDegrees(2, 1, 1, 0, 1, 1, 1);
+        Equal(x.X, Math.Atan(0.5) * 180 / Math.PI,
+            "widening a tilted face decreases its angle");
+        x = FaceMorphCore.GetTiltDegrees(1, 1, -1, 0, 2, 1, 1);
+        Equal(x.X, -Math.Atan(0.5) * 180 / Math.PI,
+            "signed X angle includes nonuniform horizontal stretch");
+        x = FaceMorphCore.GetTiltDegrees(1, 1, 1, 0, 1, 2, 1);
+        Equal(x.X, Math.Atan(2) * 180 / Math.PI,
+            "Y stretch increases angle at a fixed morph slope");
+        x = FaceMorphCore.GetTiltDegrees(1, 2, .3, -.6, 1, 1, 1);
+        Equal(x.X, Math.Atan(.3) * 180 / Math.PI,
+            "signed X component of compound face tilt");
+        Equal(x.Z, -Math.Atan(.3) * 180 / Math.PI,
+            "signed Z component of compound face tilt");
+        Equal(x.Total, Math.Atan(Math.Sqrt(.18)) * 180 / Math.PI,
+            "compound angle is the normal's deviation from flat");
+        FaceTiltAngles bottom = FaceMorphCore.GetTiltDegrees(1, 1, -.2, 0, 1, 1, 1);
+        FaceTiltAngles top = FaceMorphCore.GetTiltDegrees(1, 1, .2, 0, 1, 1, 1);
+        Equal(bottom.X, -top.X, "opposing end-face tilts retain signed direction");
+        Equal(bottom.Total, top.Total, "opposing tilt directions have same magnitude");
+    }
+
     private static int Main()
     {
         try
@@ -674,7 +1144,15 @@ internal static class Program
             B9VolumeScaling();
             CrewCapacity();
             FaceMorph();
+            FaceTiltDegreeReadout();
+            CopyAttachedInclination();
             MorphEdgeHandles();
+            AttachedFaceFitting();
+            ConfigurableFaceTiltFitting();
+        LiveAttachedFaceFitting();
+            CopyAttachedMorphSteps();
+            ConfigurableCopyTiltLimit();
+            MirroredAttachedMorphSteps();
         ProjectedMidpointDrag();
             Console.WriteLine("PASS: " + checks + " production math regression checks");
             return 0;

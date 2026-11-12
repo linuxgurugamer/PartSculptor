@@ -31,7 +31,7 @@ class MorphTool453(unittest.TestCase):
         self.assertIn('FaceMorphGizmo.Show(selectedModule)', selection)
         self.assertIn('ScaleGizmo.Show(selectedModule)', selection)
         self.assertIn('module.SetMorphFaces(b, top)', MORPH)
-        self.assertIn('m.faceMorph.Apply(bottom, top, true);', MAIN)
+        self.assertIn('m.faceMorph.Apply(bottom, top, true,', MAIN)
 
     def test_sixth_icon_position_and_selected_highlight(self):
         self.assertIn('morphToolRect.position = toolRect.position + right.normalized', TOOL)

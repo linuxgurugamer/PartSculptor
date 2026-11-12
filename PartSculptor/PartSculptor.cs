@@ -46,6 +46,11 @@ namespace PartSculptor
         // "Stretch children" is one switch shared by every part, like TweakScale's.
         public static bool ScaleChildrenGlobal;
         public static bool MatchNodeSizesGlobal;
+        public static bool MatchAttachedFacesGlobal;
+        // Independent LIVE update option: copy face parameter changes.
+        // If matching is also enabled, copying takes precedence for live edits;
+        // ordinary new-part placement still uses geometry matching.
+        public static bool CopyAttachedMorphStepsGlobal;
         static bool globalInit;
 
         [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Scale X (width)", guiFormat = "F3",
@@ -87,6 +92,18 @@ namespace PartSculptor
             affectSymCounterparts = UI_Scene.None, suppressEditorShipModified = true)]
         public bool matchNodeSizes = false;
 
+        [KSPField(isPersistant = false, guiActiveEditor = true, guiName = "Match attached faces",
+            groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        [UI_Toggle(scene = UI_Scene.Editor, enabledText = "On", disabledText = "Off",
+            affectSymCounterparts = UI_Scene.None, suppressEditorShipModified = true)]
+        public bool matchAttachedFaces = false;
+
+        [KSPField(isPersistant = false, guiActiveEditor = true, guiName = "Copy attached morph steps",
+            groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        [UI_Toggle(scene = UI_Scene.Editor, enabledText = "On", disabledText = "Off",
+            affectSymCounterparts = UI_Scene.None, suppressEditorShipModified = true)]
+        public bool copyAttachedMorphSteps = false;
+
         // Per-part face-morph control: ordinary corner drags preserve the
         // selected face's X/Z aspect ratio when enabled. Does not affect
         // the three-axis Stretch gizmo or Alt-modified morph operations.
@@ -120,6 +137,17 @@ namespace PartSculptor
 
         [KSPField(isPersistant = true)]
         public string inheritBehavior = "";
+
+        // Read-only actual angle of each end face. Morph TiltX/TiltZ are
+        // dimensionless slopes; these readouts convert them to degrees after
+        // face X/Z resize and independent part X/Y/Z stretch are included.
+        [KSPField(guiActiveEditor = true, guiName = "Bottom face tilt",
+            groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        public string displayBottomFaceTilt = "0.0° (X 0.0°, Z 0.0°)";
+
+        [KSPField(guiActiveEditor = true, guiName = "Top face tilt",
+            groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        public string displayTopFaceTilt = "0.0° (X 0.0°, Z 0.0°)";
 
         // Read-only, calculated editor values (not saved with the craft).
         [KSPField(guiActiveEditor = true, guiName = "Volume multiplier",
@@ -256,11 +284,17 @@ namespace PartSculptor
             {
                 OnAnyEditorShipModified(ship);
             }
+
+            public void OnPartPlaced(Part placed)
+            {
+                OnAnyEditorPartPlaced(placed);
+            }
         }
 
         static readonly EditorShipModifiedListener editorShipModifiedListener =
             new EditorShipModifiedListener();
         static bool editorShipListenerRegistered;
+        static bool editorPlacedListenerRegistered;
 
         // Legacy saves store the total multiplier, not just nonuniform stretch.
         // Saved explicitly in OnSave/OnLoad; double is not a reliable KSPField.
@@ -425,6 +459,16 @@ namespace PartSculptor
             MatchNodeSizesGlobal = matchNodeSizes;
         }
 
+        void OnMatchAttachedFacesModified(object value)
+        {
+            MatchAttachedFacesGlobal = matchAttachedFaces;
+        }
+
+        void OnCopyAttachedMorphStepsModified(object value)
+        {
+            CopyAttachedMorphStepsGlobal = copyAttachedMorphSteps;
+        }
+
         void OnScaleChildrenModified(object value)
         {
             ScaleDebug.Change(part, "ui", "Stretch children", ScaleChildrenGlobal, scaleChildren);
@@ -473,6 +517,10 @@ namespace PartSculptor
             if (f != null) f.OnValueModified -= OnScaleChildrenModified;
             f = Fields != null ? Fields["matchNodeSizes"] : null;
             if (f != null) f.OnValueModified -= OnMatchNodeSizesModified;
+            f = Fields != null ? Fields["matchAttachedFaces"] : null;
+            if (f != null) f.OnValueModified -= OnMatchAttachedFacesModified;
+            f = Fields != null ? Fields["copyAttachedMorphSteps"] : null;
+            if (f != null) f.OnValueModified -= OnCopyAttachedMorphStepsModified;
             editorModules.Remove(this);
             dynamicEditorModules.Remove(this);
             // Unsubscribe only after the last PartSculptor part goes away.
@@ -484,6 +532,12 @@ namespace PartSculptor
                     if (GameEvents.onEditorShipModified != null)
                         GameEvents.onEditorShipModified.Remove(editorShipModifiedListener.OnShipModified);
                     editorShipListenerRegistered = false;
+                }
+                if (editorPlacedListenerRegistered)
+                {
+                    if (GameEvents.onEditorPartPlaced != null)
+                        GameEvents.onEditorPartPlaced.Remove(editorShipModifiedListener.OnPartPlaced);
+                    editorPlacedListenerRegistered = false;
                 }
                 shipNotificationPending = false;
             }
@@ -716,17 +770,50 @@ namespace PartSculptor
                     module.resourceCheckPending = true;
         }
 
+        // Unlike a parent-reference transition, KSP's placed event also fires
+        // when a newly created part's parent was assigned before OnStart.
+        // The module may not have completed OnStart yet; NodeAttachWatcher
+        // preserves the event across Seed() and handles the join in Update.
+        static void OnAnyEditorPartPlaced(Part placed)
+        {
+            if (!HighLogic.LoadedSceneIsEditor || placed == null) return;
+            ModulePartSculptor module = placed.FindModuleImplementing<ModulePartSculptor>();
+            if (module != null)
+            {
+                // A newly placed/re-attached part may have a different roll
+                // than the previous joint.  Never reuse its old side map.
+                module.connectedSideMaps.Clear();
+                if (placed.parent != null)
+                {
+                    ModulePartSculptor parentModule =
+                        placed.parent.FindModuleImplementing<ModulePartSculptor>();
+                    if (parentModule != null && placed.parent.attachNodes != null)
+                        foreach (AttachNode node in placed.parent.attachNodes)
+                            if (node != null && node.attachedPart == placed)
+                                parentModule.connectedSideMaps.Remove(node);
+                }
+                module.nodeAttachWatcher.Placed(placed.parent);
+                ScaleDebug.Info(placed, "face match", "editor placement queued");
+            }
+        }
+
         // Called once on editor part startup, and retried in Update only if
-        // KSP has not initialized this event yet. Multiple parts share one
+        // KSP has not initialized these events yet. Multiple parts share one
         // registered callback; nobody subscribes per-part.
         static void EnsureEditorListener()
         {
-            if (editorShipListenerRegistered || editorModules.Count == 0 ||
-                !HighLogic.LoadedSceneIsEditor || GameEvents.onEditorShipModified == null)
+            if (editorModules.Count == 0 || !HighLogic.LoadedSceneIsEditor)
                 return;
-
-            GameEvents.onEditorShipModified.Add(editorShipModifiedListener.OnShipModified);
-            editorShipListenerRegistered = true;
+            if (!editorShipListenerRegistered && GameEvents.onEditorShipModified != null)
+            {
+                GameEvents.onEditorShipModified.Add(editorShipModifiedListener.OnShipModified);
+                editorShipListenerRegistered = true;
+            }
+            if (!editorPlacedListenerRegistered && GameEvents.onEditorPartPlaced != null)
+            {
+                GameEvents.onEditorPartPlaced.Add(editorShipModifiedListener.OnPartPlaced);
+                editorPlacedListenerRegistered = true;
+            }
         }
 
         void RegisterEditorListener()
@@ -800,15 +887,20 @@ namespace PartSculptor
                 globalInit = true;
                 ScaleChildrenGlobal = Settings.ScaleChildrenDefault;
                 MatchNodeSizesGlobal = Settings.MatchNodeSizesDefault;
+                MatchAttachedFacesGlobal = Settings.MatchAttachedFacesDefault;
+                CopyAttachedMorphStepsGlobal = Settings.CopyAttachedMorphStepsDefault;
             }
             scaleChildren = ScaleChildrenGlobal;
             matchNodeSizes = MatchNodeSizesGlobal;
+            matchAttachedFaces = MatchAttachedFacesGlobal;
+            copyAttachedMorphSteps = CopyAttachedMorphStepsGlobal;
             if (!hasSavedLockAxes)
                 lockAxes = Settings.LockProportionsDefault;
             if (!hasSavedLockMorphXZ)
                 lockMorphXZ = Settings.LockMorphXZDefault;
-            // Capturing the initial parent prevents changing any previously
-            // saved craft just because it was loaded into an editor scene.
+            // Saved craft are seeded as already joined. OnEditorPartPlaced
+            // is the separate authority for newly placed parts, even if KSP
+            // connected them before OnStart; Seed preserves that notification.
             nodeAttachWatcher.Seed(part.parent);
             foreach (string f in new[] { "scaleX", "scaleY", "scaleZ" })
             {
@@ -884,6 +976,8 @@ namespace PartSculptor
                 Fields["scaleZ"].uiControlEditor.onSymmetryFieldChanged = OnSymAxisChanged;
                 Fields["scaleChildren"].OnValueModified += OnScaleChildrenModified;
                 Fields["matchNodeSizes"].OnValueModified += OnMatchNodeSizesModified;
+                Fields["matchAttachedFaces"].OnValueModified += OnMatchAttachedFacesModified;
+                Fields["copyAttachedMorphSteps"].OnValueModified += OnCopyAttachedMorphStepsModified;
                 Fields["scalePreset"].uiControlEditor.onFieldChanged = OnPresetChanged;
                 RegisterEditorListener();
                 RefreshPresetOptions();
@@ -1322,6 +1416,24 @@ namespace PartSculptor
                     morphTopTiltZ, morphTopOffsetX, morphTopOffsetZ);
         }
 
+        // In local part coordinates: total normal deviation and its signed
+        // X/Z inclinations. The report excludes whole-part rotation, which
+        // would otherwise make a flat face appear to have a morph angle.
+        internal FaceTiltAngles GetFaceTiltDegrees(int face)
+        {
+            MorphFace values = GetMorphFace(face);
+            return FaceMorphCore.GetTiltDegrees(values.Width, values.Depth,
+                values.TiltX, values.TiltZ, scaleX, scaleY, scaleZ);
+        }
+
+        internal string GetFaceTiltDisplay(int face)
+        {
+            FaceTiltAngles degrees = GetFaceTiltDegrees(face);
+            return degrees.Total.ToString("0.0", CultureInfo.InvariantCulture) + "°" +
+                " (X " + degrees.X.ToString("+0.0;-0.0;0.0", CultureInfo.InvariantCulture) + "°" +
+                ", Z " + degrees.Z.ToString("+0.0;-0.0;0.0", CultureInfo.InvariantCulture) + "°)";
+        }
+
         internal bool EnsureFaceMorph()
         {
             if (faceMorph != null) return faceMorph.Valid;
@@ -1377,7 +1489,9 @@ namespace PartSculptor
 
         // Editor manipulation only; never mutate flight parts. One source
         // shape is shared by all symmetry counterparts, without sharing meshes.
-        internal void SetMorphFaces(MorphFace bottom, MorphFace top)
+        internal void SetMorphFaces(MorphFace bottom, MorphFace top,
+            bool updateConnectedFaces = true, bool notifyEditor = true,
+            bool updateSymmetry = true, Part stationaryConnectedChild = null)
         {
             if (!CanUseScaleGizmo) return;
             bottom = FaceMorphMath.Clamp(bottom);
@@ -1408,12 +1522,29 @@ namespace PartSculptor
             }
             if (!EnsureFaceMorph()) return;
             var targets = new List<ModulePartSculptor> { this };
-            foreach (Part counterpart in part.symmetryCounterparts)
+            if (updateSymmetry)
+                foreach (Part counterpart in part.symmetryCounterparts)
+                {
+                    ModulePartSculptor m = counterpart != null ?
+                        counterpart.FindModuleImplementing<ModulePartSculptor>() : null;
+                    if (m == null || !m.EnsureFaceMorph()) return; // all-or-nothing
+                    targets.Add(m);
+                }
+            // Snapshot the morph parameters and relative axes BEFORE any part
+            // moves. In Copy mode mirror each incremental edit across the
+            // stack joint: the same visible X/Z side receives the step, but
+            // its Y (face-tilt) movement is reversed. This is deliberately
+            // different from Match, which reproduces the driver's geometry.
+            var changedFaces = new List<int>(targets.Count);
+            var mirroredConnections = new List<List<ConnectedFaceSnapshot>>(targets.Count);
+            foreach (ModulePartSculptor m in targets)
             {
-                ModulePartSculptor m = counterpart != null ?
-                    counterpart.FindModuleImplementing<ModulePartSculptor>() : null;
-                if (m == null || !m.EnsureFaceMorph()) return; // all-or-nothing
-                targets.Add(m);
+                int changed = (MorphFacesDiffer(m.GetMorphFace(0), bottom) ? 1 : 0) |
+                    (MorphFacesDiffer(m.GetMorphFace(1), top) ? 2 : 0);
+                changedFaces.Add(changed);
+                mirroredConnections.Add(updateConnectedFaces && CopyAttachedMorphStepsGlobal &&
+                    HighLogic.LoadedSceneIsEditor && changed != 0 ?
+                    m.CaptureConnectedFaceSnapshots(changed) : null);
             }
             foreach (ModulePartSculptor m in targets)
             {
@@ -1429,7 +1560,8 @@ namespace PartSculptor
                 m.morphTopTiltZ = top.TiltZ;
                 m.morphTopOffsetX = top.OffsetX;
                 m.morphTopOffsetZ = top.OffsetZ;
-                m.faceMorph.Apply(bottom, top, true);
+                m.faceMorph.Apply(bottom, top, true,
+                    m == this ? stationaryConnectedChild : null);
                 m.SetPresetDisplay("Custom");
                 if (m.b9Support != null)
                     m.b9Support.ApplyBaseVolumes(m.part, m.StretchVolumeFactor, true);
@@ -1438,7 +1570,423 @@ namespace PartSculptor
                     m.exponentScaler.Apply(m.scaleX, m.scaleY, m.scaleZ);
                 m.UpdateCalculatedValues();
             }
-            FireEditorShipModified();
+            // Run only after the source mesh and its attachment nodes (and
+            // the attached subtrees) have reached their final positions. The
+            // neighbor update explicitly disables another propagation pass.
+            // This is also used by PAW reset and morph-gizmo Esc cancellation.
+            if (updateConnectedFaces &&
+                (MatchAttachedFacesGlobal || CopyAttachedMorphStepsGlobal) &&
+                HighLogic.LoadedSceneIsEditor)
+            {
+                var updated = new HashSet<Part>();
+                for (int i = 0; i < targets.Count; ++i)
+                    if (changedFaces[i] != 0)
+                        targets[i].MatchConnectedFaces(changedFaces[i], updated,
+                            mirroredConnections[i]);
+            }
+            if (notifyEditor) FireEditorShipModified();
+        }
+
+        private static bool MorphFacesDiffer(MorphFace a, MorphFace b)
+        {
+            const float tolerance = 0.00001f;
+            return Mathf.Abs(a.Width - b.Width) > tolerance ||
+                Mathf.Abs(a.Depth - b.Depth) > tolerance ||
+                Mathf.Abs(a.TiltX - b.TiltX) > tolerance ||
+                Mathf.Abs(a.TiltZ - b.TiltZ) > tolerance ||
+                Mathf.Abs(a.OffsetX - b.OffsetX) > tolerance ||
+                Mathf.Abs(a.OffsetZ - b.OffsetZ) > tolerance;
+        }
+
+        // The child's BODY rotates during Copy, so computing the source-X/Z
+        // to recipient-X/Z mapping anew on EVERY mouse-motion frame eventually
+        // treats a valid tilted stack joint as a bad/skewed connection.  A
+        // two-times child body rotation crosses the old .70 Y-dot cutoff at
+        // about 22.8 degrees of source tilt.  Cache the original SIDE mapping
+        // for this exact pair of attached nodes until their joint changes.
+        // This cache does not persist in craft files or affect Match mode.
+        private sealed class ConnectedSideMap
+        {
+            internal Part Other;
+            internal AttachNode OtherNode;
+            internal float XFromX, XFromZ, ZFromX, ZFromZ, YFromY;
+        }
+
+        private readonly Dictionary<AttachNode, ConnectedSideMap> connectedSideMaps =
+            new Dictionary<AttachNode, ConnectedSideMap>();
+
+        private ConnectedSideMap GetOrRememberConnectedSideMap(AttachNode node,
+            Part neighbor, AttachNode neighborNode, ModulePartSculptor other)
+        {
+            ConnectedSideMap cached;
+            if (connectedSideMaps.TryGetValue(node, out cached) &&
+                cached.Other == neighbor && cached.OtherNode == neighborNode &&
+                node.attachedPart == neighbor && neighborNode.attachedPart == part)
+                return cached;
+            connectedSideMaps.Remove(node);
+
+            Vector3 sx = part.transform.right, sy = part.transform.up,
+                sz = part.transform.forward;
+            Vector3 rx = neighbor.transform.right, ry = neighbor.transform.up,
+                rz = neighbor.transform.forward;
+            cached = new ConnectedSideMap {
+                Other = neighbor, OtherNode = neighborNode,
+                XFromX = Vector3.Dot(rx, sx), XFromZ = Vector3.Dot(rx, sz),
+                ZFromX = Vector3.Dot(rz, sx), ZFromZ = Vector3.Dot(rz, sz),
+                YFromY = Vector3.Dot(ry, sy)
+            };
+            // Only preserve a mapping with a recognized 0/90/180/270-degree
+            // side relationship.  Do not make an unsafe arbitrary attachment
+            // look supported by caching a failed mapping.
+            MorphStep check;
+            if (!FaceMorphStepCore.TryMapMirrored(new MorphStep(0, 0, 0, 0, 0, 0),
+                cached.XFromX, cached.XFromZ, cached.ZFromX,
+                cached.ZFromZ, cached.YFromY, out check))
+                return cached;
+
+            connectedSideMaps[node] = cached;
+            // Register the reciprocal direction too: the next drag may begin
+            // on the CHILD rather than the original source.  Dot products
+            // transpose when source and recipient are exchanged.
+            if (other != null)
+                other.connectedSideMaps[neighborNode] = new ConnectedSideMap {
+                    Other = part, OtherNode = node,
+                    XFromX = cached.XFromX, XFromZ = cached.ZFromX,
+                    ZFromX = cached.XFromZ, ZFromZ = cached.ZFromZ,
+                    YFromY = cached.YFromY
+                };
+            return cached;
+        }
+
+        // Both face values AND orientation are recorded before the driver
+        // morphs. KSP may rotate a connected child as the source node tilts;
+        // using its *new* axes would misidentify the same visible side.
+        private sealed class ConnectedFaceSnapshot
+        {
+            internal AttachNode SourceNode, NeighborNode;
+            internal Part Neighbor;
+            internal int SourceFace, NeighborFace;
+            internal MorphStep SourceBefore, NeighborBefore;
+            internal float RecipientXSourceX, RecipientXSourceZ;
+            internal float RecipientZSourceX, RecipientZSourceZ;
+            internal float RecipientYSourceY;
+            // Snapshot the reciprocal physical joint BEFORE any geometry or
+            // automatic editor attachment rotation changes its world pose.
+            internal Part JointParent, JointChild;
+            internal AttachNode ParentNode, ChildNode;
+            internal Vector3 ParentNormalBefore, ChildNormalBefore;
+            internal Vector3 ParentAnchorBefore, ChildAnchorBefore;
+        }
+
+        private static MorphStep ToMorphStep(MorphFace face)
+        {
+            return new MorphStep(face.Width, face.Depth,
+                face.TiltX, face.TiltZ, face.OffsetX, face.OffsetZ);
+        }
+
+        private List<ConnectedFaceSnapshot> CaptureConnectedFaceSnapshots(int changedFaces)
+        {
+            var result = new List<ConnectedFaceSnapshot>();
+            if (part == null || part.attachNodes == null || !EnsureFaceMorph())
+                return result;
+            foreach (AttachNode sourceNode in part.attachNodes)
+            {
+                Part neighbor = sourceNode != null ? sourceNode.attachedPart : null;
+                if (neighbor == null ||
+                    (neighbor != part.parent && neighbor.parent != part)) continue;
+                int sourceFace;
+                if (!faceMorph.TryGetEndFace(sourceNode, out sourceFace) ||
+                    (changedFaces & (1 << sourceFace)) == 0) continue;
+                ModulePartSculptor other = neighbor.FindModuleImplementing<ModulePartSculptor>();
+                if (other == null || !other.initialized || !other.EnsureFaceMorph()) continue;
+                AttachNode neighborNode = FindReciprocalStackNode(part, sourceNode, neighbor);
+                int neighborFace;
+                if (neighborNode == null ||
+                    !other.faceMorph.TryGetEndFace(neighborNode, out neighborFace)) continue;
+                // Use the original side correspondence for this exact stack
+                // joint.  Recomputing these dot products after each child
+                // rigid rotation causes Copy to stop at roughly 22 degrees.
+                ConnectedSideMap axes = GetOrRememberConnectedSideMap(
+                    sourceNode, neighbor, neighborNode, other);
+                bool sourceIsParent = neighbor.parent == part;
+                Part jointParent = sourceIsParent ? part : neighbor;
+                Part jointChild = sourceIsParent ? neighbor : part;
+                AttachNode parentNode = sourceIsParent ? sourceNode : neighborNode;
+                AttachNode childNode = sourceIsParent ? neighborNode : sourceNode;
+                result.Add(new ConnectedFaceSnapshot {
+                    JointParent = jointParent, JointChild = jointChild,
+                    ParentNode = parentNode, ChildNode = childNode,
+                    ParentNormalBefore = jointParent.transform.TransformDirection(parentNode.orientation),
+                    ChildNormalBefore = jointChild.transform.TransformDirection(childNode.orientation),
+                    ParentAnchorBefore = jointParent.transform.TransformPoint(parentNode.position),
+                    ChildAnchorBefore = jointChild.transform.TransformPoint(childNode.position),
+                    SourceNode = sourceNode, NeighborNode = neighborNode,
+                    Neighbor = neighbor, SourceFace = sourceFace,
+                    NeighborFace = neighborFace,
+                    SourceBefore = ToMorphStep(GetMorphFace(sourceFace)),
+                    NeighborBefore = ToMorphStep(other.GetMorphFace(neighborFace)),
+                    RecipientXSourceX = axes.XFromX,
+                    RecipientXSourceZ = axes.XFromZ,
+                    RecipientZSourceX = axes.ZFromX,
+                    RecipientZSourceZ = axes.ZFromZ,
+                    RecipientYSourceY = axes.YFromY
+                });
+            }
+            return result;
+        }
+
+        // Called after a morph edit, not on loading an existing craft. Find
+        // only stack nodes belonging to the end(s) actually edited. This
+        // works from parent to child AND child to parent.
+        private void MatchConnectedFaces(int changedFaces, HashSet<Part> updated,
+            List<ConnectedFaceSnapshot> mirroredConnections)
+        {
+            if (part == null || part.attachNodes == null || !EnsureFaceMorph()) return;
+            foreach (AttachNode joint in part.attachNodes)
+            {
+                Part neighbor = joint != null ? joint.attachedPart : null;
+                if (neighbor == null || updated.Contains(neighbor) ||
+                    (neighbor != part.parent && neighbor.parent != part)) continue;
+                int sourceFace;
+                if (!faceMorph.TryGetEndFace(joint, out sourceFace) ||
+                    (changedFaces & (1 << sourceFace)) == 0) continue;
+                ModulePartSculptor other =
+                    neighbor.FindModuleImplementing<ModulePartSculptor>();
+                if (other == null || !other.initialized) continue;
+                AttachNode neighborNode = FindReciprocalStackNode(part, joint, neighbor);
+                if (neighborNode == null) continue;
+                try
+                {
+                    string reason;
+                    bool succeeded;
+                    if (CopyAttachedMorphStepsGlobal)
+                    {
+                        ConnectedFaceSnapshot old = null;
+                        if (mirroredConnections != null)
+                            foreach (ConnectedFaceSnapshot entry in mirroredConnections)
+                                if (entry.SourceNode == joint && entry.NeighborNode == neighborNode &&
+                                    entry.Neighbor == neighbor) { old = entry; break; }
+                        if (old == null)
+                        {
+                            reason = "Could not snapshot touching faces before the morph";
+                            succeeded = false;
+                        }
+                        else
+                            succeeded = other.MirrorFaceStepFromNeighbor(this, old, out reason);
+                    }
+                    else
+                        succeeded = other.MatchFaceFromNeighbor(this, neighborNode, joint,
+                            out reason, false);
+                    if (succeeded)
+                    {
+                        updated.Add(neighbor);
+                        ScaleDebug.Info(part, "linked face morph",
+                            neighbor.name + ": " + reason);
+                    }
+                    else
+                        ScaleDebug.Info(part, "linked face morph",
+                            "skipped " + neighbor.name + ": " + reason);
+                }
+                catch (Exception e)
+                {
+                    Log.Warning("[PartSculptor] Mirrored attached face failed for " +
+                        neighbor.name + ": " + e);
+                }
+            }
+        }
+
+        // Duplicate an INCREMENTAL morph step onto the neighbor's touching
+        // face, mirrored through the attachment plane. An X-side moved down
+        // on the edited face moves UP on the same visible X-side of the other
+        // part. Unlike Match, this preserves the neighbor's previous shape
+        // differences and does NOT morph its far end.
+        private bool MirrorFaceStepFromNeighbor(ModulePartSculptor driver,
+            ConnectedFaceSnapshot before, out string status)
+        {
+            status = "Mirrored morph step unavailable";
+            if (driver == null || before == null || !driver.initialized ||
+                !initialized || !CanUseScaleGizmo ||
+                !driver.EnsureFaceMorph() || !EnsureFaceMorph())
+            {
+                status = "One of the connected parts cannot be morphed";
+                return false;
+            }
+            int driverFace, receiverFace;
+            if (!driver.faceMorph.TryGetEndFace(before.SourceNode, out driverFace) ||
+                !faceMorph.TryGetEndFace(before.NeighborNode, out receiverFace) ||
+                driverFace != before.SourceFace || receiverFace != before.NeighborFace ||
+                before.Neighbor != part || before.SourceNode.attachedPart != part ||
+                before.NeighborNode.attachedPart != driver.part)
+            {
+                status = "Stack joint changed during the morph";
+                return false;
+            }
+            // Map the relative step, NOT the finished source face dimensions.
+            // Width and radial offsets follow the same world side. The Y tilt
+            // component is sign-reversed across the seam so a right-edge down
+            // drag on the primary is a right-edge up drag on its neighbor.
+            MorphStep delta = MorphStep.Subtract(
+                ToMorphStep(driver.GetMorphFace(driverFace)), before.SourceBefore);
+            MorphStep mirrored;
+            if (!FaceMorphStepCore.TryMapMirrored(delta,
+                before.RecipientXSourceX, before.RecipientXSourceZ,
+                before.RecipientZSourceX, before.RecipientZSourceZ,
+                before.RecipientYSourceY, out mirrored))
+            {
+                status = "Connected faces have an unsupported relative orientation";
+                return false;
+            }
+            MorphStep proposed = MorphStep.Add(before.NeighborBefore, mirrored);
+            // The copied raw tilt parameter is not a physical angle.  A
+            // wider receiving face or a different local stretch makes its
+            // actual inclination shallower for the same TiltX/TiltZ.  Copy
+            // the driver's CHANGE IN SLOPE instead, preserving the old
+            // difference between the two touching faces and their side signs.
+            MorphStep corrected;
+            if (!FaceMorphStepCore.TryMirrorInclinationStep(
+                before.SourceBefore, ToMorphStep(driver.GetMorphFace(driverFace)),
+                before.NeighborBefore, proposed,
+                driver.scaleX, driver.scaleY, driver.scaleZ,
+                scaleX, scaleY, scaleZ,
+                before.RecipientXSourceX, before.RecipientXSourceZ,
+                before.RecipientZSourceX, before.RecipientZSourceZ,
+                before.RecipientYSourceY, out corrected))
+            {
+                status = "Cannot map connected face inclinations";
+                return false;
+            }
+            proposed = corrected;
+            if (!MorphStep.Valid(proposed, Settings.MaxFaceTilt))
+            {
+                status = "Mirrored step exceeds face morph limits";
+                return false;
+            }
+            MorphFace replacement = new MorphFace((float)proposed.Width,
+                (float)proposed.Depth, (float)proposed.TiltX,
+                (float)proposed.TiltZ, (float)proposed.OffsetX,
+                (float)proposed.OffsetZ);
+            MorphFace bottom = GetMorphFace(0), top = GetMorphFace(1);
+            if (receiverFace == 0) bottom = replacement;
+            else top = replacement;
+            if (!MorphFacesDiffer(GetMorphFace(receiverFace), replacement))
+            {
+                // The primary may already have rotated the child's body;
+                // still reconcile its final joint if the recipient parameters
+                // were unchanged (e.g. a loaded/stale copy).
+                bool existingJointUpdated = ApplyMirroredChildEditorRotation(before);
+                status = existingJointUpdated ? "Attached face already has the mirrored step; child joint updated" :
+                    "Attached face already has the mirrored step";
+                return true;
+            }
+            // If a child is the driver, keep it stationary while its parent
+            // processes the attached-face change (avoid moving it twice).
+            Part keepChildStationary = driver.part.parent == part ? driver.part : null;
+            SetMorphFaces(bottom, top, false, false, false, keepChildStationary);
+            if (MorphFacesDiffer(GetMorphFace(receiverFace), replacement))
+            {
+                status = "Mirrored step rejected by Career, volume or geometry limits";
+                return false;
+            }
+            // Applying a morph to the neighboring face changes its node normal
+            // a SECOND time. FaceMorphSupport has already performed the first
+            // rotation while the driver's node was moving. Complete the joint
+            // rotation through the editor rotation path, not by changing the
+            // face parameters (which must remain exactly the v0.0.4.113 copy).
+            FaceTiltAngles childTiltBeforeRotation = GetFaceTiltDegrees(receiverFace);
+            bool followed = ApplyMirroredChildEditorRotation(before);
+            if (ScaleDebug.Enabled)
+            {
+                FaceTiltAngles parentTilt = driver.GetFaceTiltDegrees(driverFace);
+                FaceTiltAngles childTiltAfterRotation = GetFaceTiltDegrees(receiverFace);
+                ScaleDebug.Info(part, "mirrored face inclination",
+                    "source=" + parentTilt.Total.ToString("0.0", CultureInfo.InvariantCulture) +
+                    " deg; receiver before rotation=" +
+                    childTiltBeforeRotation.Total.ToString("0.0", CultureInfo.InvariantCulture) +
+                    " deg; receiver after rotation=" +
+                    childTiltAfterRotation.Total.ToString("0.0", CultureInfo.InvariantCulture) +
+                    " deg; source scales=" +
+                    ScaleDebug.Format(new Vector3(driver.scaleX, driver.scaleY, driver.scaleZ)) +
+                    "; receiver scales=" +
+                    ScaleDebug.Format(new Vector3(scaleX, scaleY, scaleZ)) +
+                    "; source face width/depth=" +
+                    driver.GetMorphFace(driverFace).Width.ToString("0.000", CultureInfo.InvariantCulture) +
+                    "/" + driver.GetMorphFace(driverFace).Depth.ToString("0.000", CultureInfo.InvariantCulture) +
+                    "; receiver width/depth=" +
+                    GetMorphFace(receiverFace).Width.ToString("0.000", CultureInfo.InvariantCulture) +
+                    "/" + GetMorphFace(receiverFace).Depth.ToString("0.000", CultureInfo.InvariantCulture));
+            }
+            status = "Mirrored incremental morph on attached " +
+                (receiverFace == 0 ? "bottom" : "top") + " face" +
+                (followed ? "; child body rotated to follow the joint" :
+                    "; child joint rotation unavailable");
+            return true;
+        }
+
+        // Copy mode only: bring the child body's rotation into agreement with
+        // BOTH deformed stack normals while preserving their pre-edit relative
+        // angle. In particular, the child's own mirrored local face tilt must
+        // not simply be ignored after KSP automatically turns the child for
+        // the parent's tilted node. The parent is never rigidly rotated here.
+        private static bool ApplyMirroredChildEditorRotation(ConnectedFaceSnapshot before)
+        {
+            if (before == null || before.JointParent == null || before.JointChild == null ||
+                before.ParentNode == null || before.ChildNode == null ||
+                before.JointChild.parent != before.JointParent ||
+                before.ParentNode.attachedPart != before.JointChild ||
+                before.ChildNode.attachedPart != before.JointParent)
+                return false;
+
+            Vector3 parentOld = before.ParentNormalBefore;
+            Vector3 childOld = before.ChildNormalBefore;
+            Vector3 parentNow = before.JointParent.transform.TransformDirection(
+                before.ParentNode.orientation);
+            Vector3 childNow = before.JointChild.transform.TransformDirection(
+                before.ChildNode.orientation);
+            if (parentOld.sqrMagnitude < 1e-8f || childOld.sqrMagnitude < 1e-8f ||
+                parentNow.sqrMagnitude < 1e-8f || childNow.sqrMagnitude < 1e-8f)
+                return false;
+
+            Quaternion parentTurn = Quaternion.FromToRotation(parentOld, parentNow);
+            Vector3 childDesiredNormal = parentTurn * childOld;
+            Quaternion additionalTurn = Quaternion.FromToRotation(childNow, childDesiredNormal);
+            if (Quaternion.Angle(Quaternion.identity, additionalTurn) > 150f)
+                return false; // Degenerate joint orientation: do not flip a subtree.
+
+            Vector3 parentAnchor = before.JointParent.transform.TransformPoint(
+                before.ParentNode.position);
+            Vector3 childAnchor = before.JointChild.transform.TransformPoint(
+                before.ChildNode.position);
+            // Preserve deliberate node offsets, including joints in parts
+            // whose visible mesh face does not pass through the attach node.
+            Vector3 oldOffset = before.ChildAnchorBefore - before.ParentAnchorBefore;
+            Vector3 desiredChildAnchor = parentAnchor + parentTurn * oldOffset;
+
+            // The editor already owns the undo checkpoint for the current
+            // Morph drag; another SetBackup here would create an undo entry
+            // on every frame. KSP will receive PartRotated events, and normal
+            // symmetry passes through SetMorphFaces process each pair once.
+            return EditorPartMorphRotation.RotateJointSubtree(before.JointChild,
+                additionalTurn, childAnchor, desiredChildAnchor);
+        }
+
+        // A connected stack pair has reciprocal attachedPart references.
+        // Choose the closest candidate when parts have multiple stack nodes.
+        private static AttachNode FindReciprocalStackNode(Part owner,
+            AttachNode ownerNode, Part neighbor)
+        {
+            if (owner == null || ownerNode == null || neighbor == null ||
+                neighbor.attachNodes == null) return null;
+            Vector3 anchor = owner.transform.TransformPoint(ownerNode.position);
+            AttachNode closest = null;
+            float best = float.MaxValue;
+            foreach (AttachNode candidate in neighbor.attachNodes)
+            {
+                if (candidate == null || candidate.attachedPart != owner) continue;
+                float delta = (neighbor.transform.TransformPoint(candidate.position) -
+                    anchor).sqrMagnitude;
+                if (delta < best) { best = delta; closest = candidate; }
+            }
+            return closest;
         }
 
         [KSPEvent(guiActiveEditor = true, guiName = "Show face morph handles",
@@ -1899,7 +2447,7 @@ namespace PartSculptor
 
             // OnStart can precede KSP's editor-event initialization.
             // Retry only until the single shared listener is registered.
-            if (!editorShipListenerRegistered) EnsureEditorListener();
+            if (!editorShipListenerRegistered || !editorPlacedListenerRegistered) EnsureEditorListener();
 
             if (resourceDisplayDirty)
             {
@@ -1914,6 +2462,20 @@ namespace PartSculptor
                 UI_Control matchControl = Fields["matchNodeSizes"].uiControlEditor;
                 if (matchControl != null && matchControl.partActionItem != null)
                     matchControl.partActionItem.UpdateItem();
+            }
+            if (matchAttachedFaces != MatchAttachedFacesGlobal)
+            {
+                matchAttachedFaces = MatchAttachedFacesGlobal;
+                UI_Control faceControl = Fields["matchAttachedFaces"].uiControlEditor;
+                if (faceControl != null && faceControl.partActionItem != null)
+                    faceControl.partActionItem.UpdateItem();
+            }
+            if (copyAttachedMorphSteps != CopyAttachedMorphStepsGlobal)
+            {
+                copyAttachedMorphSteps = CopyAttachedMorphStepsGlobal;
+                UI_Control copyControl = Fields["copyAttachedMorphSteps"].uiControlEditor;
+                if (copyControl != null && copyControl.partActionItem != null)
+                    copyControl.partActionItem.UpdateItem();
             }
             CheckForNewStackAttachment();
             if (scaleChildren != ScaleChildrenGlobal)
@@ -1974,19 +2536,30 @@ namespace PartSculptor
             }
         }
 
-        // Match the newly attached child to its parent stack node. Never run
-        // this when loading an existing craft, or when an already attached
-        // part merely gets resized: only a parent transition arms matching.
-        // Poll briefly because KSP can assign parent before filling the node
-        // attachment references on the following editor frame.
+        // A single new-parent transition handles BOTH independent connection
+        // helpers. Loaded craft are seeded as already attached in OnStart;
+        // node references may require several editor frames to become valid.
         void CheckForNewStackAttachment()
         {
             if (!HighLogic.LoadedSceneIsEditor || part == null) return;
             if (!nodeAttachWatcher.Observe(part.parent) || !initialized) return;
-            if (!MatchNodeSizesGlobal || !string.IsNullOrEmpty(restrictedReason))
+            if ((!MatchNodeSizesGlobal && !MatchAttachedFacesGlobal) ||
+                !string.IsNullOrEmpty(restrictedReason))
             {
                 nodeAttachWatcher.Complete();
                 return;
+            }
+            // On the placed event KSP may not have finished starting the
+            // parent module or filling attachment-node references yet.
+            if (MatchAttachedFacesGlobal && part.parent != null)
+            {
+                ModulePartSculptor parentMorph =
+                    part.parent.FindModuleImplementing<ModulePartSculptor>();
+                if (parentMorph != null && !parentMorph.initialized)
+                {
+                    nodeAttachWatcher.Retry();
+                    return;
+                }
             }
             AttachNode source, destination;
             if (!FindConnectionNodes(part.parent, out source, out destination))
@@ -1994,7 +2567,15 @@ namespace PartSculptor
                 nodeAttachWatcher.Retry();
                 return;
             }
-            nodeAttachWatcher.Complete();  // One attempt per NEW attachment only.
+            nodeAttachWatcher.Complete(); // Never repeatedly reshape this join.
+            if (MatchNodeSizesGlobal)
+                MatchNewStackNodeSize(source, destination);
+            if (MatchAttachedFacesGlobal)
+                MatchNewStackFace(source, destination);
+        }
+
+        void MatchNewStackNodeSize(AttachNode source, AttachNode destination)
+        {
             float desiredDiameter = (float)EffectiveNodeDiameter(part.parent, destination);
             float currentDiameter = (float)EffectiveNodeDiameter(part, source);
             if (!(desiredDiameter > 0f && currentDiameter > 0f)) return;
@@ -2013,9 +2594,161 @@ namespace PartSculptor
                 "; target diameter=" + ScaleDebug.Format(desiredDiameter) +
                 "; original diameter=" + ScaleDebug.Format(currentDiameter) +
                 "; requested axes=" + ScaleDebug.Format(Target));
-            // Uses the same Career/safety/behavior validation and symmetry
-            // propagation as a PAW edit. No direct writes to mass/resources.
+            // Same Career/safety validation and symmetry propagation as PAW.
             CommitChange(before, null);
+        }
+
+        // Use the same safe implementation for automatic placement and the
+        // explicit PAW retry. An unmatched part should not require being
+        // picked up and placed again after its parent has finished loading.
+        [KSPEvent(guiActiveEditor = true, guiName = "Match face to parent now",
+            groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        public void MatchFaceToParentNow()
+        {
+            if (!HighLogic.LoadedSceneIsEditor || part == null) return;
+            AttachNode source, destination;
+            string reason;
+            if (!FindConnectionNodes(part.parent, out source, out destination))
+                reason = "No stack-node attachment to a parent";
+            else
+                MatchNewStackFace(source, destination, out reason);
+            ScreenMessages.PostScreenMessage("PartSculptor: " + reason,
+                4f, ScreenMessageStyle.UPPER_CENTER);
+        }
+
+        void MatchNewStackFace(AttachNode source, AttachNode destination)
+        {
+            string status;
+            MatchNewStackFace(source, destination, out status);
+        }
+
+        // Placement and the manual PAW action match the child to its parent.
+        // Live face drags use the same fitter with either member as the source.
+        bool MatchNewStackFace(AttachNode source, AttachNode destination,
+            out string status)
+        {
+            ModulePartSculptor parentMorph = part.parent != null ?
+                part.parent.FindModuleImplementing<ModulePartSculptor>() : null;
+            bool matched = MatchFaceFromNeighbor(parentMorph, source, destination,
+                out status, true);
+            if (matched && status != "Attached face already matches")
+                FireEditorShipModified();
+            return matched;
+        }
+
+        // Match just THIS part's connected end to one of the neighboring
+        // part's ends. Do not reshape the source or our opposite face. During
+        // live edits, allow the source face to return to identity (undo/reset).
+        // All actual mesh, node, and collider updates go through SetMorphFaces.
+        private bool MatchFaceFromNeighbor(ModulePartSculptor parentMorph,
+            AttachNode source, AttachNode destination, out string status,
+            bool requireMorphedSource)
+        {
+            status = "Face matching unavailable";
+            if (parentMorph == null || !parentMorph.initialized)
+            {
+                status = "Connected part has no initialized PartSculptor module";
+                return false;
+            }
+            if (requireMorphedSource && !parentMorph.HasFaceMorph)
+            {
+                status = "Parent has no morphed face";
+                return false;
+            }
+            if (!CanUseScaleGizmo)
+            {
+                status = "This part cannot be edited here";
+                return false;
+            }
+            if (!parentMorph.EnsureFaceMorph())
+            {
+                status = "Parent geometry: " + parentMorph.FaceMorphFailure;
+                return false;
+            }
+            if (!EnsureFaceMorph())
+            {
+                status = "Child geometry: " + FaceMorphFailure;
+                return false;
+            }
+            int parentFace, childFace;
+            Vector3 nativeNode;
+            if (!parentMorph.faceMorph.TryGetEndFace(destination, out parentFace) ||
+                !faceMorph.TryGetEndFace(source, out childFace) ||
+                !faceMorph.TryGetNativeNodePosition(source, out nativeNode))
+            {
+                status = "Connection is not between compatible end-face stack nodes";
+                return false;
+            }
+
+            MorphFace parentBottom = parentMorph.GetMorphFace(0);
+            MorphFace parentTop = parentMorph.GetMorphFace(1);
+            MorphPoint[] corners = new MorphPoint[4];
+            for (int i = 0; i < 4; ++i)
+            {
+                Vector3 parentCorner = parentMorph.faceMorph.Corner(parentFace, i,
+                    parentBottom, parentTop);
+                Vector3 world = parentMorph.part.transform.TransformPoint(parentCorner);
+                Vector3 local = part.transform.InverseTransformPoint(world) - source.position;
+                corners[i] = new MorphPoint(local.x, local.y, local.z);
+            }
+            MorphFace low = GetMorphFace(0), high = GetMorphFace(1);
+            Vector3 min = faceMorph.Min, max = faceMorph.Max;
+            AttachmentFaceShape fitted;
+            double error;
+            if (!FaceAttachmentMatchCore.TryFit(corners,
+                new MorphPoint(min.x, min.y, min.z),
+                new MorphPoint(max.x, max.y, max.z),
+                new MorphPoint(nativeNode.x, nativeNode.y, nativeNode.z),
+                childFace, ToMatchShape(low), ToMatchShape(high),
+                out fitted, out error, true, Settings.MaxFaceTilt))
+            {
+                status = "Face shape cannot safely fit this join";
+                if (error != double.MaxValue)
+                    status += " (corner error " +
+                        error.ToString("0.###", CultureInfo.InvariantCulture) + " m)";
+                ScaleDebug.Info(part, "face match", "skipped " + parentMorph.part.name +
+                    ": " + status);
+                return false;
+            }
+            MorphFace matched = new MorphFace((float)fitted.Width, (float)fitted.Depth,
+                (float)fitted.TiltX, (float)fitted.TiltZ,
+                (float)fitted.OffsetX, (float)fitted.OffsetZ);
+            MorphFace old = childFace == 0 ? low : high;
+            if (!MorphFacesDiffer(old, matched))
+            {
+                status = "Attached face already matches";
+                return true;
+            }
+            if (childFace == 0) low = matched;
+            else high = matched;
+            // SetMorphFaces validates Career and volume limits, and updates
+            // symmetry, attachment nodes, meshes, colliders and resources.
+            // Never propagate this connected update a second time: it would
+            // bounce between the two parts (or through their symmetry copies).
+            // Live updates touch only this neighbor: each of the source's
+            // symmetry copies will fit its own neighbor separately, preserving
+            // their independently morphed opposite faces.
+            SetMorphFaces(low, high, false, false, requireMorphedSource);
+            MorphFace actual = GetMorphFace(childFace);
+            if (MorphFacesDiffer(actual, matched))
+            {
+                status = "Face match rejected by size limits or symmetry";
+                ScaleDebug.Info(part, "face match", status);
+                return false;
+            }
+            status = "Attached " + (childFace == 0 ? "bottom" : "top") +
+                " face matched";
+            if (error > 0.001d)
+                status += " (closest fit; " +
+                    error.ToString("0.###", CultureInfo.InvariantCulture) + " m corner error)";
+            ScaleDebug.Info(part, "face match", status + " to " + parentMorph.part.name);
+            return true;
+        }
+
+        private static AttachmentFaceShape ToMatchShape(MorphFace face)
+        {
+            return new AttachmentFaceShape(face.Width, face.Depth,
+                face.TiltX, face.TiltZ, face.OffsetX, face.OffsetZ);
         }
 
         // Prefer actual node connection references rather than guessing based
@@ -2814,7 +3547,10 @@ namespace PartSculptor
         {
             string previous = displayVolume + "|" + displayDryMass + "|" +
                 displayDryCost + "|" + displayCapacity + "|" + displayScaleSafety + "|" +
-                displayCareerLimits;
+                displayCareerLimits + "|" + displayBottomFaceTilt + "|" +
+                displayTopFaceTilt;
+            displayBottomFaceTilt = GetFaceTiltDisplay(0);
+            displayTopFaceTilt = GetFaceTiltDisplay(1);
             displayVolume = StretchVolumeFactor.ToString("0.###", CultureInfo.InvariantCulture) + "x";
             if (part == null) return;
             float nativeMass = NativeDryMass(part.mass);
@@ -2867,7 +3603,8 @@ namespace PartSculptor
             if (initialized && HighLogic.LoadedSceneIsEditor &&
                 previous != displayVolume + "|" + displayDryMass + "|" +
                     displayDryCost + "|" + displayCapacity + "|" + displayScaleSafety + "|" +
-                    displayCareerLimits)
+                    displayCareerLimits + "|" + displayBottomFaceTilt + "|" +
+                    displayTopFaceTilt)
                 resourceDisplayDirty = true;
         }
 

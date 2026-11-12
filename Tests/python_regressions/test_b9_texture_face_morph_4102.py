@@ -81,8 +81,8 @@ class B9TextureFaceMorph4102(unittest.TestCase):
         self.assertEqual((ROOT/'README.md').read_bytes(),
                          (ROOT/'GameData/PartSculptor/README.md').read_bytes())
         for name in ['PartSculptor.version','GameData/PartSculptor/PartSculptor.version']:
-            self.assertIn('"BUILD": 106', (ROOT/name).read_text())
-        self.assertIn('AssemblyVersion("0.0.4.106")',
+            self.assertIn('"BUILD": 130', (ROOT/name).read_text())
+        self.assertIn('AssemblyVersion("0.0.4.130")',
                       (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 

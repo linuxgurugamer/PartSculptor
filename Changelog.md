@@ -1,3 +1,93 @@
+## 0.0.4.130 — Increase default maximum face tilt to 2.5
+
+- Change the distributed `PluginData/Settings.cfg` default from `maxFaceTilt = 0.75` to `maxFaceTilt = 2.5`.
+- Change `Settings.DefaultMaxFaceTilt` to `2.5f` so a missing or invalid setting uses the same new default. Update the optional face-fitting method default to 2.5 for consistency.
+- Keep the permitted setting range (>0 and <=4), the user-configured override, and all existing face morphing, Copy/Match, child rotation, and attachment logic unchanged.
+
+## 0.0.4.129 — Fix configured tilt limit in Copy attached morph steps
+
+- Fix the remaining hard-coded ±0.75 tilt check in `MorphStep.Valid()`, which rejected mirrored child-face edits above the original limit even when `maxFaceTilt = 4` allowed the parent to continue morphing.
+- Pass the configured `Settings.MaxFaceTilt` explicitly from `MirrorFaceStepFromNeighbor` to the pure-math step validator. Apply the same bound independently to both copied tilt axes, while retaining width/depth/offset and finite-number safety limits.
+- Preserve existing mirrored inclination calculations, child rigid-body rotation, attachment mapping, degree readouts and Match behavior. Add focused regression cases for low/high limits and two FL-T400s.
+
+## 0.0.4.128 — Configurable maximum face tilt
+
+- Add `maxFaceTilt = 0.75` to `GameData/PartSculptor/PluginData/Settings.cfg`. The value limits the absolute X/Z face-tilt slope (rather than degrees); valid values are greater than zero and no more than 4.0. Invalid or missing values fall back to the historical 0.75 default. Settings load on KSP startup.
+- Use the same configured tilt limit for Morph tool drags, `SetMorphFaces` updates, and the attached-face geometry fitter; the old 0.75 hard-code no longer blocks matching a steeper face. No change to stored face shapes, mirrored copy math, child rotation or degree displays.
+- Add focused regressions and a manual test plan for higher face tilt, invalid settings, and attached-face fitting.
+
+## 0.0.4.127 — Preserve attached-face inclination during mirrored Copy
+
+- Fix a specific 22.3° stall: after the child has rigidly turned approximately twice the source tilt, the source/child Y-axis dot product crosses the old 0.70 orientation limit at roughly 22.8°. Live Copy had recalculated and rejected the side mapping on every frame. Preserve the initial valid side mapping for each reciprocal stack joint, including reverse-direction edits; clear it when a part is placed/re-attached.
+- Correct **Copy attached morph steps** to mirror the signed physical face *slope changes* (rise/run) rather than raw TiltX/TiltZ parameters.  The degree display depends on width, depth, and X/Y/Z stretching, so equivalent raw tilts could appear unequal after the editor rotates an attached child.
+- Preserve existing differences between touching faces: the slope change is incremental, mirrored onto the same visible sides.  Update only the connected face's tilt values *before* child rigid rotation.  Keep v126 editor child rotation, node movement, symmetry behavior, face-angle readouts, Match mode, and undo behavior.
+- Add optional debug diagnostics reporting both face inclinations before/after child rigid rotation, scale values, and face dimensions.  Enable `debugLogChanges = true` in `PluginData/Settings.cfg`.
+- Add numerical regression coverage, including two FL-T400 faces with one source at 39.6 degrees and a receiver with differing scale or face width, reversed/quarter-rolled joints, existing tilt, and reverse drag.  KSP in-game verification is still required.
+
+## 0.0.4.126 — Correct C# local variable scope in mirrored child rotation
+
+- Fix CS0136 in `MirrorFaceStepFromNeighbor()` by renaming the branch-local `followed` flag to `existingJointUpdated` rather than redeclaring `followed` later in its enclosing method.
+- Preserve all face-morph and child editor-rotation behavior from 0.0.4.125; this is a compile-time fix only.
+- Keep both `.version` files and `AssemblyVersion.cs` synchronized and add a regression check for variable shadowing.
+
+## 0.0.4.125 — Rotate attached children through the KSP editor rotation path
+
+- Based directly on 0.0.4.124 (itself rebased on 0.0.4.113); retain the PAW/Morph degree displays and unchanged same-visible-side mirrored incremental face morphing.
+- After the source and touching child end faces have morphed in **Copy attached morph steps** mode, calculate the additional rigid child rotation using the reciprocal stack node normals before and after both edits. Do not multiply a guessed Euler angle by two. Preserve the initial normal relationship and intentional stack-node separation.
+- Apply the correction to the KSP child subtree with `Transform.Rotate` in world space, move it about the attachment pivot, notify `ConstructionEventType.PartRotated`, and refresh PartSculptor editor gizmos. The actual face morph values, opposite face, and separate Match mode stay unchanged.
+- Provide a general editor Rotate helper incorporating the supplied mirror/radial symmetry mapping; copied face joints handle each symmetrical physical pair independently to prevent double rotations. Native Morph gizmo already registers **one SetBackup before each drag**, so the per-frame correction does not create additional undo entries.
+- Add focused tests and manual editor checks for two FL-T400s, both tilt directions, child-driven edits, symmetry and undo. Requires KSP editor validation.
+
+## 0.0.4.124 — Display face morph tilt angles in degrees
+
+- Based **directly on 0.0.4.113**, without any of the later joint-follow/PartFaceSnap changes.
+- Add read-only **Bottom face tilt** and **Top face tilt** rows to the editor PAW, and live angle readouts in the Morph help panel and drag tooltip.
+- Convert stored morph slopes to **actual degrees** using each face's width/depth and the part's independent X/Y/Z scales. Show the total inclination from the original flat end face, along with signed X and Z inclinations.
+- Keep face deformation, attachment behavior, copy/match modes, persistence, and safety logic unchanged. Angles are computed from existing persisted morph values; no save migration needed.
+- Add pure C# math and regression coverage, plus a manual editor validation guide.
+
+## 0.0.4.113 — Revert to 0.0.4.111; mirror matching sides with reversed Y tilt
+
+- Start from the **0.0.4.111** source (discard the 0.0.4.112 opposite-end copying change). Copy alters only the neighbor's touching face; its far end stays untouched.
+- Stop using the world-corner coincidence fitting in **Copy attached morph steps**, which made Copy act like Match. Instead snapshot each side's **morph parameters and orientation before the driver changes**, map source X/Z to the same *visible sides* of the attached part, and mirror the **Y/tilt delta** so a right-side-down motion on the source produces right-side-up on the neighbor.
+- Preserve the neighbor's pre-existing shape differences; Copy adds deltas rather than overwriting the face. Handle 90-degree rolls, reversed orientations, tilt, offsets, cancel/reset and safe face bounds. Keep the absolute geometry matcher unchanged for **Match attached faces** and new placement.
+- Face copies are mirrored, not geometrically fitted. Maintaining a completely flush joint for every mirrored tilt is not guaranteed because those are distinct geometric goals; in-game verification remains required.
+
+## 0.0.4.111 — Mirror live attached-face motion (flush joint fix)
+
+- Fix **Copy attached morph steps** generating gaps or double-tilted connecting faces. Snapshot the four world-space corners on both parts before morphing; after the driver changes, map each driver's corner movement to its matching neighbor corner. This accounts for any rigid rotation/translation that KSP has already applied to the attached child, instead of duplicating its local tilt, offset or width controls.
+- Support either direction (parent → child and child → parent), rolled/opposed stack connections, resize/tilt/offset combinations, drag cancellation, reset and symmetry; preserve existing physical differences where a safe supported fit exists. On child → parent propagation, do not rotate the driving child a second time while the receiver parent updates its node. Keep the neighbor's other end unchanged and avoid recursive updates.
+- Tighten the accepted mirror fit to a worst-corner error of 0.5% of the recipient native face span (minimum 1 mm); skip unsupported skew rather than allowing an obvious open joint. This remains a **differential** mirror mode, not an automatic absolute correction of faces that started with mismatched sizes. Use Match for initial alignment.
+- Update offline pure-C# math tests, source regression checks, mirrored READMEs and the KSP manual validation plan. Needs in-game testing.
+
+## 0.0.4.110 — Duplicate live morph steps on an attached face
+
+- Add a session-wide PAW **Copy attached morph steps** toggle (off by default), available in Vessel Inspector → Settings and persisted in UserSettings.cfg with Settings.cfg fallback. This is a second live attached-face propagation mode: copy each edit's width/depth, tilt, or offset **delta** to the receiver's connecting end, preserving existing shape differences rather than fitting identical physical corners.
+- Account for opposite node directions, local X/Z sign flips and 90-degree rolls (including modest tilts). Reject ambiguous axis mappings and full steps that exceed face bounds or Career/volume safety limits; never silently clamp repeated drag steps. Only directly connected supported stack Y end faces update; preserve opposite faces, avoid recursive propagation, and process individual symmetry connections independently.
+- Copy mode works independently of **Match attached faces**; it takes precedence for live Morph changes when both toggles are enabled. New part placement and the manual face match action still use geometric matching. Existing crafts do not change on load. Add pure-C# morph-step math, regression tests and a manual in-game test plan. Actual KSP editor integration remains unverified.
+
+## 0.0.4.109 — Live matching of connected faces during morph edits
+
+- Extend the existing **Match attached faces** session toggle to direct, already-attached stack neighbors during face morph edits. Both directions are supported: editing a parent's connected face changes its child's touching face; editing a child's connected face changes the parent's touching face. No new setting is required; default remains off.
+- Fit the connected end using the same four-corner, closest-supported-shape geometry from 0.0.4.108. Keep the other end of the receiving part untouched. Handle both face widths/depths and tilts, resets, drag cancellation, and symmetrical source parts. Skip unsupported meshes, recessed/surface connections, and unsafe fits.
+- Detect changed faces only after applying source geometry and moving its connected attachment subtrees. No propagation for unchanged/unconnected ends, no transitive changes to grandchildren, and no bounce-back recursion. A neighbor fit is applied without modifying its symmetry counterparts; each source symmetry copy fits its own actual joint.
+- The normal new-part/manual retry matching remains available; do not remorph existing craft on load. Add regression guards and an in-game validation plan. Editor behavior requires in-game KSP testing.
+
+## 0.0.4.108 — Reliable new-part face matching and manual retry
+
+- Listen for KSP's `onEditorPartPlaced` event instead of depending only on a change in `part.parent`. KSP can populate the parent before a new module's `OnStart`, which previously made the placement indistinguishable from loading a craft. Preserve explicit placement notifications even when they precede `OnStart`; old craft still do not get automatic re-morphing.
+- Wait longer for stack-node references and the parent's PartSculptor module to initialize. Continue to process a join only once after placement.
+- Permit a small bounded closest-corner fit (at most 7.5% of the smaller face span) when a tilted parent's stack-node normal rotates the new part slightly away from an exactly axis-aligned connection. Continue rejecting incompatible nodes, large skew, invalid/missing meshes, and unsafe dimension/volume limits.
+- Add **Match face to parent now** to the child's editor PAW for one-click retry when the original placement was missed or failed. It reports success or a specific reason for skipping instead of silently doing nothing; it works even if the automatic toggle is off.
+- Update documentation and offline regression coverage. In-game verification with KSP's editor event lifecycle and real models is required.
+
+## 0.0.4.107 — Match a new stack part's attaching face to a morphed parent
+
+- Add **Match attached faces** as an independent, session-wide PAW toggle (off by default); configure its startup default in Vessel Inspector → Settings, persisted in `UserSettings.cfg` and with a `matchAttachedFacesDefault` fallback in `Settings.cfg`.
+- When a new part is stack-attached to the end face of an already-morphed part, fit only the new part's connecting face to the four actual world-space corners of the parent face. Support unequal native sizes, reversed end-node orientation, and quarter-turn rotations when a geometrically exact, safe fit exists. Preserve the opposite end and existing face offsets.
+- Reuse the one-time attachment watcher. Never remorph previously loaded craft, move the parent, or attempt surface, side, recessed, unsupported, arbitrarily rotated, or out-of-range connections. Keep existing career limits, collider compatibility, symmetry and volume validation, and optional **Match node sizes** unchanged.
+- Add production-math regression cases, source-level checks, and an editor test guide. In-game attachment and stock editor lifecycle validation are still required.
+
 ## 0.0.4.106 — Allow face morphing on parts with animation modules
 
 - Remove the unconditional module-name `"Animate"` exclusion from `EnsureFaceMorph()`. Parts with `ModuleAnimateGeneric` or another animation-named module can now try morphing when their meshes and colliders pass existing validation.

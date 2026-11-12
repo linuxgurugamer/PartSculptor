@@ -35,8 +35,8 @@ class UniversalPatch469(unittest.TestCase):
     def test_project_source_and_versions_untouched_except_metadata(self):
         from json import loads
         for file in (ROOT / 'PartSculptor.version', GAMEDATA / 'PartSculptor.version'):
-            self.assertEqual(loads(file.read_text())['VERSION']['BUILD'], 106)
-        self.assertIn('AssemblyVersion("0.0.4.106")',
+            self.assertEqual(loads(file.read_text())['VERSION']['BUILD'], 130)
+        self.assertIn('AssemblyVersion("0.0.4.130")',
                       (ROOT / 'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__':
