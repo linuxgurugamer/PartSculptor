@@ -53,7 +53,7 @@ class TestMatchAttachedFaces107(unittest.TestCase):
 
     def test_version_and_documentation(self):
         for name in ('PartSculptor.version','GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'],130)
+            self.assertEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'],137)
         self.assertEqual((ROOT/'README.md').read_bytes(),
                          (ROOT/'GameData/PartSculptor/README.md').read_bytes())
         self.assertIn('Match attached faces', (ROOT/'README.md').read_text())

@@ -1,3 +1,63 @@
+## 0.0.4.137 — User Controls window layout and centered preset name
+
+- Replace the editor Controls window source with the user-supplied version, preserving its fixed-width scale and numeric tilt entry fields and 120-pixel preset-name field.
+- Center the currently selected scale preset label horizontally within its existing field, using the active GUI skin for text styling.
+- No change to the window's behavior, selected-part handling, morphing, symmetry, or attachment logic.
+
+## 0.0.4.136 — Whole-window dragging and bold selected part name
+
+- Allow the PartSculptor All Controls editor window to be moved by dragging its title, labels, or other unoccupied interior areas instead of only the top 25-pixel strip. The drag registration follows the interactive controls, leaving buttons, numeric text fields, toggles, scrolling, and scrollbars usable. The no-selection placeholder window behaves the same way.
+- Render the current part's name in **bold** using the active UI skin, while keeping the "Part:" prefix and Close button separate.
+- No changes to selected-part tracking, PAW visibility, morphing, symmetry, attached-face behavior, or settings persistence.
+
+## 0.0.4.135 — Follow selected editor part; compact PAW mode
+
+- Keep the All Controls window open while changing editor selection. A single editor-scene host follows KSP's selected/held part, newly opened stock PAWs, the native Stretch/Morph tool, and the Vessel Inspector's part selector. A part without PartSculptor displays a placeholder rather than silently retaining the old part's controls. Changing target resets pending window inputs and refreshes the new part's live values.
+- Add a **Hide PartSculptor PAW controls (keep window button)** option to Vessel Inspector → Settings and the All Controls window. The preference is stored in `PluginData/UserSettings.cfg`; `hidePartSculptorPAWControls = false` is the initial default in `Settings.cfg`.
+- When enabled, preserve only the **Show/Hide PartSculptor controls window** PAW button. Track and restore the previous per-part visibility of fields/events, respecting existing scale restrictions and the career-only readout. Apply changes immediately without changing editor morph/attachment, symmetry or craft data.
+- Add selected-part and PAW-visibility regression checks and a VAB/SPH manual validation plan. KSP in-game behavior and C# compilation remain unverified.
+
+## 0.0.4.134 — All PAW controls in a separate editor window
+
+- Add **Show PartSculptor controls window** to the editor PAW. It toggles a movable,
+  scrollable, click-through-blocked IMGUI window for the selected part, with a Close
+  button. One window is active at a time; switching parts redirects it.
+- Mirror all PartSculptor PAW controls: X/Y/Z scaling with per-axis Set actions;
+  lock proportions; shared Stretch children, Match node sizes, Match attached
+  faces and Copy attached morph steps; Lock X/Z; read-only Bottom/Top tilt;
+  Top/Bottom selection, numeric X/Z tilt and Apply; volume, dry mass, dry cost,
+  tank capacity, scale safety and Career limits; scale preset selection, Browse,
+  Repeat, Reset and Swap; morph/scaling gizmos, Reset face morph, Show scaled
+  values, and Match face to parent now.
+- Use existing SetGizmoAxis, ApplyNumericFaceTilt, ApplyPreset and PAW event
+  methods, preserving morph/attachment/symmetry behavior. Text edits remain
+  pending until Set/Apply; one native editor backup is recorded for each action.
+  Global toggles stay synchronized with PAW and other parts. The window closes
+  when its part is removed or the editor is exited.
+- No changes to deformation math, the Morph handle controls, configuration
+  defaults, or the craft save format.
+
+## 0.0.4.133 — Numeric face tilt input
+
+- Add editor PAW Top/Bottom face selector, signed X and Z degree inputs, and **Apply face tilt**. Inputs are staged and not persisted independently of morph geometry.
+- Invert the existing stretch-aware face angle display formula to convert degrees to TiltX/TiltZ. Reject angles beyond `maxFaceTilt` rather than silently clamping; preserve face size, offsets, and the other end.
+- Apply both degrees together via existing `SetMorphFaces`, preserving attached-face Copy/Match, symmetry, resource/collider updates, and one editor undo checkpoint per Apply. Keep the existing Morph handles unchanged.
+- Sync numeric fields from actual face shape after a successful edit or a new selection, without overwriting an un-applied numeric entry.
+
+## 0.0.4.132 — Morph handles use the part's rotated drag frame
+
+- When an attached part has already rotated after a previous mirrored morph, capture the **current full local-to-world and world-to-local matrices** at mouse-down. Convert further resize, offset and linked/radial movement using that rotated frame instead of reading a transform that can turn again while the drag is active.
+- For Alt-tilt, project a small, actual deformation of the **selected corner or edge midpoint** through the current captured pose. The resulting screen-space tangent follows the rotated part/face rather than assuming the screen's original vertical orientation. Keep the 0.0.4.131 child-parent Copy sign correction.
+- Freeze midpoint screen projections in the same start-of-drag frame so a Copy-induced child-body rotation cannot redirect or accelerate the control mid-gesture. The displayed 3D and screen-space handles continue to update from the live part transform.
+- Preserve existing morph parameters, limits, child rotation/Copy and Match modes, face degree readouts and one-undo-per-drag behavior. Add specific rotated-pose/continued-drag regressions and manual VAB test guidance. Runtime KSP validation is still required.
+
+## 0.0.4.131 — Correct inverted tilt-handle dragging on attached child faces
+
+- Correct Alt-drag direction when the selected end face is the child's parent-facing stack connection and **Copy attached morph steps** is enabled. In that situation the child rotates rigidly after both faces morph, making an uncorrected local tilt move the visible handle opposite the pointer. Reverse only the direct drag input for that connected child end; do not invert the actual mirrored morph or change attachment rotation.
+- Capture the projected local Y drag direction once at mouse-down. The child's world rotation can change while dragging, so recalculating the drag axis from its current transform each frame can flip or distort the gesture.
+- Free faces, parent-driven edits, resize/translate modes, Match mode and disabled Copy retain their existing behavior. Keep the current undo-per-drag and symmetry processing.
+- Add focused source/math regression checks and a manual two-FL-T400 editor test plan. No in-game verification performed.
+
 ## 0.0.4.130 — Increase default maximum face tilt to 2.5
 
 - Change the distributed `PluginData/Settings.cfg` default from `maxFaceTilt = 0.75` to `maxFaceTilt = 2.5`.

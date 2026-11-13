@@ -38,8 +38,8 @@ class FaceAttachmentReliability108(unittest.TestCase):
 
     def test_versions_and_documentation(self):
         for path in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT / path).read_text())['VERSION']['BUILD'], 130)
-        self.assertIn('AssemblyVersion("0.0.4.130")',
+            self.assertEqual(json.loads((ROOT / path).read_text())['VERSION']['BUILD'], 137)
+        self.assertIn('AssemblyVersion("0.0.4.137")',
                       (ROOT / 'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT / 'README.md').read_bytes(),
                          (ROOT / 'GameData/PartSculptor/README.md').read_bytes())

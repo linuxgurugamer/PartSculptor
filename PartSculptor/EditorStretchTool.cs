@@ -144,6 +144,7 @@ namespace PartSculptor
                 return;
             Part clicked = PickPart(mouse);
             if (clicked == null) return;
+            ModulePartSculptor.RequestControlsWindowPart(clicked);
             ModulePartSculptor module = clicked.FindModuleImplementing<ModulePartSculptor>();
             string partTitle = clicked.partInfo != null ? clicked.partInfo.title : clicked.name;
             if (module == null || !module.CanUseScaleGizmo)

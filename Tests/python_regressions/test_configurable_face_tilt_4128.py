@@ -49,7 +49,7 @@ class ConfigurableFaceTilt128(unittest.TestCase):
 
     def test_version(self):
         for name in ['PartSculptor.version','GameData/PartSculptor/PartSculptor.version']:
-            self.assertEqual(json.loads(self.source(name))['VERSION']['BUILD'],130)
-        self.assertIn('AssemblyVersion("0.0.4.130")',self.source('PartSculptor/AssemblyVersion.cs'))
+            self.assertEqual(json.loads(self.source(name))['VERSION']['BUILD'],137)
+        self.assertIn('AssemblyVersion("0.0.4.137")',self.source('PartSculptor/AssemblyVersion.cs'))
 
 if __name__ == '__main__': unittest.main()

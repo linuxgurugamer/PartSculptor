@@ -16,7 +16,7 @@ class MidpointScreenSpeed473(unittest.TestCase):
         self.assertIn('ResizeMidpointFromScreen(face, edge, mouse, ref f)', GIZMO)
 
     def test_uses_mouse_down_anchor_and_perspective_correction(self):
-        self.assertIn('clickHandleScreen = new Vector2(', GIZMO)
+        self.assertIn('clickHandleScreen = ProjectAtDragStart(', GIZMO)
         self.assertIn('Vector2 pointerDelta = mouse - clickMouse;', GIZMO)
         self.assertIn('currentScreen - clickHandleScreen', GIZMO)
         self.assertIn('for (int iteration = 0; iteration < 4; ++iteration)', GIZMO)
@@ -38,7 +38,7 @@ class MidpointScreenSpeed473(unittest.TestCase):
 
     def test_release(self):
         for path in (ROOT/'PartSculptor.version', ROOT/'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads(path.read_text())['VERSION']['BUILD'], 130)
-        self.assertIn('AssemblyVersion("0.0.4.130")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads(path.read_text())['VERSION']['BUILD'], 137)
+        self.assertIn('AssemblyVersion("0.0.4.137")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__': unittest.main()

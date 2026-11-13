@@ -526,6 +526,8 @@ namespace PartSculptor
         {
             if (selectedPart == part) return;
             selectedPart = part;
+            if (HighLogic.LoadedSceneIsEditor)
+                ModulePartSculptor.RequestControlsWindowPart(part);
             // Keep the inspector's Show unchanged values choice while resetting
             // report scroll, tooltips and caches for the newly selected part.
             // The independent PAW scaled-value windows are unaffected.

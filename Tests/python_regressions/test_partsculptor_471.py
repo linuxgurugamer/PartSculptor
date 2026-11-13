@@ -26,13 +26,13 @@ class PartSculptorRename471(unittest.TestCase):
         for p in [ROOT/'PartSculptor.version', GAME/'PartSculptor.version']:
             data = json.loads(p.read_text())
             self.assertEqual(data['NAME'], 'PartSculptor')
-            self.assertEqual(data['VERSION']['BUILD'], 130)
+            self.assertEqual(data['VERSION']['BUILD'], 137)
             self.assertEqual(data['GITHUB']['REPOSITORY'], 'PartSculptor')
-        self.assertIn('AssemblyVersion("0.0.4.130")', (SOURCE/'AssemblyVersion.cs').read_text())
+        self.assertIn('AssemblyVersion("0.0.4.137")', (SOURCE/'AssemblyVersion.cs').read_text())
 
     def test_module_identity_and_saved_data_nodes(self):
         code = (SOURCE/'PartSculptor.cs').read_text()
-        self.assertIn('public class ModulePartSculptor : PartModule', code)
+        self.assertIn('public partial class ModulePartSculptor : PartModule', code)
         self.assertIn('const string RESOURCE_NODE = "PARTSCULPTOR_RESOURCE";', code)
         self.assertIn('const string EXPONENT_BASE_NODE = "PARTSCULPTOR_EXPONENT_BASE";', code)
         exponents = (SOURCE/'ScaleExponents.cs').read_text()

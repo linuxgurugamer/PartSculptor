@@ -231,6 +231,14 @@ internal static class Program
             Equal(Math.Abs(xs) + Math.Abs(zs), 1,
                 "each midpoint controls exactly one axis " + edge);
         }
+        Equal(FaceMorphCore.TiltDragSign(false, false), 1,
+            "standalone face tilt tracks pointer");
+        Equal(FaceMorphCore.TiltDragSign(true, false), 1,
+            "parent-driven or unattached face tilt tracks pointer");
+        Equal(FaceMorphCore.TiltDragSign(false, true), 1,
+            "child face tilt without Copy remains unchanged");
+        Equal(FaceMorphCore.TiltDragSign(true, true), -1,
+            "child parent-facing tilt compensates two-face joint rotation");
         Equal(FaceMorphCore.EdgeWidthSign(0), -1, "left midpoint shrinks from X-");
         Equal(FaceMorphCore.EdgeWidthSign(1), 1, "right midpoint grows from X+");
         Equal(FaceMorphCore.EdgeWidthSign(2), 0, "Z- midpoint doesn't change width");
@@ -1093,6 +1101,38 @@ internal static class Program
         Equal(child.Total, 39.6, "stretched receiving face has matching angle", 1e-8);
     }
 
+    private static void NumericFaceTiltInput()
+    {
+        double tx, tz;
+        if (!FaceMorphCore.TryTiltFromDegrees(1, 1, 1, 1, 1,
+            39.6, 0, 2.5, out tx, out tz))
+            throw new Exception("39.6 degree X tilt should be accepted");
+        FaceTiltAngles result = FaceMorphCore.GetTiltDegrees(1, 1, tx, tz, 1, 1, 1);
+        Equal(result.X, 39.6, "numeric X 39.6 roundtrip", 1e-9);
+        Equal(result.Z, 0, "numeric Z unchanged");
+        Equal(result.Total, 39.6, "single-axis total inclination", 1e-9);
+
+        if (!FaceMorphCore.TryTiltFromDegrees(1.7, 0.8, 1.5, 2, 0.75,
+            -21.4, 16.8, 2.5, out tx, out tz))
+            throw new Exception("stretched X and Z angles should be accepted");
+        result = FaceMorphCore.GetTiltDegrees(1.7, 0.8, tx, tz, 1.5, 2, 0.75);
+        Equal(result.X, -21.4, "nonuniform-stretch signed X roundtrip", 1e-9);
+        Equal(result.Z, 16.8, "nonuniform-stretch signed Z roundtrip", 1e-9);
+        Equal(result.Total, Math.Atan(Math.Sqrt(Math.Pow(Math.Tan(-21.4*Math.PI/180),2)+
+            Math.Pow(Math.Tan(16.8*Math.PI/180),2)))*180/Math.PI,
+            "combined total inclination", 1e-9);
+
+        if (FaceMorphCore.TryTiltFromDegrees(1, 1, 1, 1, 1,
+            60, 0, 0.75, out tx, out tz))
+            throw new Exception("configured max tilt must reject out-of-range angles");
+        if (FaceMorphCore.TryTiltFromDegrees(1, 1, 1, 1, 1,
+            double.NaN, 0, 2.5, out tx, out tz))
+            throw new Exception("non-finite numeric angle must be rejected");
+        if (FaceMorphCore.TryTiltFromDegrees(1, 1, 1, 1, 1,
+            89, 0, 4, out tx, out tz))
+            throw new Exception("input outside supported angle bound must be rejected");
+    }
+
     private static void FaceTiltDegreeReadout()
     {
         FaceTiltAngles flat = FaceMorphCore.GetTiltDegrees(1, 1, 0, 0, 1, 1, 1);
@@ -1145,6 +1185,7 @@ internal static class Program
             CrewCapacity();
             FaceMorph();
             FaceTiltDegreeReadout();
+            NumericFaceTiltInput();
             CopyAttachedInclination();
             MorphEdgeHandles();
             AttachedFaceFitting();

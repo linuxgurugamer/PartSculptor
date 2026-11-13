@@ -21,9 +21,9 @@ class ReadmeLimitations494(unittest.TestCase):
     def test_version_metadata(self):
         for name in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
             version = __import__('json').loads((ROOT/name).read_text())
-            self.assertEqual(version['VERSION']['BUILD'], 130)
+            self.assertEqual(version['VERSION']['BUILD'], 137)
         assembly = (ROOT/'PartSculptor/AssemblyVersion.cs').read_text()
-        self.assertIn('AssemblyVersion("0.0.4.130")', assembly)
+        self.assertIn('AssemblyVersion("0.0.4.137")', assembly)
 
 if __name__ == '__main__':
     unittest.main()

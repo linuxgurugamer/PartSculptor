@@ -1,4 +1,4 @@
-"""0.0.4.130: distributed and runtime maximum face-tilt defaults agree."""
+"""0.0.4.131: distributed and runtime maximum face-tilt defaults agree."""
 import json
 import re
 import unittest
@@ -32,8 +32,8 @@ class FaceTiltDefault130(unittest.TestCase):
 
     def test_version_and_mirrored_docs(self):
         for relative in ['PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version']:
-            self.assertEqual(json.loads(self.read(relative))['VERSION']['BUILD'], 130)
-        self.assertIn('AssemblyVersion("0.0.4.130")', self.read('PartSculptor/AssemblyVersion.cs'))
+            self.assertEqual(json.loads(self.read(relative))['VERSION']['BUILD'], 137)
+        self.assertIn('AssemblyVersion("0.0.4.137")', self.read('PartSculptor/AssemblyVersion.cs'))
         self.assertEqual(self.read('README.md'), self.read('GameData/PartSculptor/README.md'))
         self.assertIn('maxFaceTilt = 2.5', self.read('README.md'))
 

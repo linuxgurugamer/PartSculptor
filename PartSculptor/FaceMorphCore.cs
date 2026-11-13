@@ -42,6 +42,46 @@ namespace PartSculptor
                 Math.Atan(Math.Sqrt(slopeX * slopeX + slopeZ * slopeZ)) * radToDeg);
         }
 
+        // Inverse of GetTiltDegrees: an absolute face angle sets the local
+        // slope, not the rigid rotation of the Part. Preserve resized face
+        // dimensions and independent X/Y/Z scaling. Reject impossible limits
+        // rather than silently clamp to a different degree value.
+        internal static bool TryTiltFromDegrees(double width, double depth,
+            double scaleX, double scaleY, double scaleZ,
+            double degreesX, double degreesZ, double maxFaceTilt,
+            out double tiltX, out double tiltZ)
+        {
+            tiltX = tiltZ = 0d;
+            if (!Finite(width) || !Finite(depth) ||
+                !Finite(scaleX) || !Finite(scaleY) || !Finite(scaleZ) ||
+                !Finite(degreesX) || !Finite(degreesZ) || !Finite(maxFaceTilt) ||
+                width <= 0d || depth <= 0d || scaleX <= 0d ||
+                scaleY <= 0d || scaleZ <= 0d || maxFaceTilt <= 0d ||
+                Math.Abs(degreesX) >= 89d || Math.Abs(degreesZ) >= 89d)
+                return false;
+            double x = Math.Tan(degreesX * Math.PI / 180d) * width * scaleX / scaleY;
+            double z = Math.Tan(degreesZ * Math.PI / 180d) * depth * scaleZ / scaleY;
+            if (!Finite(x) || !Finite(z) || Math.Abs(x) > maxFaceTilt + 1e-8d ||
+                Math.Abs(z) > maxFaceTilt + 1e-8d) return false;
+            tiltX = x;
+            tiltZ = z;
+            return true;
+        }
+
+        private static bool Finite(double value)
+        { return !Double.IsNaN(value) && !Double.IsInfinity(value); }
+
+        // Copy mode may rigidly rotate an edited child by twice the local
+        // face tilt to follow its newly mirrored parent joint.  The visible
+        // motion at that child's touching edge then has the opposite sign
+        // from its local morph.  Correct the *pointer* sign only in that case.
+        // No effect on actual mirrored step/attachment rotation calculations.
+        internal static int TiltDragSign(bool copyAttachedSteps,
+            bool childParentConnectionFace)
+        {
+            return copyAttachedSteps && childParentConnectionFace ? -1 : 1;
+        }
+
         // Edge midpoint handles on either face follow the same X-/X+/Z-/Z+
         // ordering. The axis perpendicular to a selected edge is the only
         // axis changed by a regular unlocked drag (or Alt tilt).

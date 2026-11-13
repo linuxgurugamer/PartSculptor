@@ -43,8 +43,8 @@ class MirroredSameSide113(unittest.TestCase):
         self.assertIn('other.MatchFaceFromNeighbor(this, neighborNode, joint,', MAIN)
     def test_exact_111_rebase_and_versions(self):
         for f in ['PartSculptor.version','GameData/PartSculptor/PartSculptor.version']:
-            self.assertEqual(json.loads((ROOT/f).read_text())['VERSION']['BUILD'],130)
-        self.assertIn('AssemblyVersion("0.0.4.130")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads((ROOT/f).read_text())['VERSION']['BUILD'],137)
+        self.assertIn('AssemblyVersion("0.0.4.137")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT/'README.md').read_bytes(),(ROOT/'GameData/PartSculptor/README.md').read_bytes())
         self.assertIn('0.0.4.111', (ROOT/'Changelog.md').read_text().split('## 0.0.4.111')[0])
 if __name__=='__main__': unittest.main()

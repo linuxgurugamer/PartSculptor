@@ -51,7 +51,21 @@ namespace PartSculptor
         private Vector3 clickWorld;
         private Vector2 clickHandleScreen;
         private Plane dragPlane;
+        // One gesture uses the part's ACTUAL pose at mouse-down. A previously
+        // morphed attachment may already have rotated this transform, and Copy
+        // mode can rotate it again while the same drag is in progress.
+        // Screen-to-morph mapping must use neither world-vertical nor the
+        // changing mid-drag pose; those make the handles drift or reverse.
+        private Matrix4x4 dragLocalToWorld = Matrix4x4.identity;
+        private Matrix4x4 dragWorldToLocal = Matrix4x4.identity;
+        private Camera dragCamera;
         private float dragHalfX, dragHalfZ;
+        // Freeze the projected local longitudinal direction for one gesture.
+        // A connected child can rotate while its own face is being morphed;
+        // recomputing this vector on every frame reverses the drag direction.
+        private Vector2 dragTiltScreenUp = Vector2.up;
+        private float dragTiltPixelsPerUnit = 12f;
+        private int dragTiltSign = 1;
 
         internal static bool IsDragging { get { return active != null && active.dragging >= 0; } }
 
@@ -368,6 +382,62 @@ namespace PartSculptor
         // motion rather than measuring mouse movement on the part's X/Z
         // plane: at an oblique camera angle the latter can make an edge
         // handle visibly lag behind the cursor.
+        // Work in the frozen start-of-drag transform, rather than following
+        // the child's subsequent rigid editor rotations. The visual handles
+        // still follow the current live part transform in UpdateGeometry().
+        private Vector2 ProjectAtDragStart(Vector3 local)
+        {
+            Vector3 projected = dragCamera.WorldToScreenPoint(
+                dragLocalToWorld.MultiplyPoint3x4(local));
+            return new Vector2(projected.x, projected.y);
+        }
+
+        private Vector3 LocalHandlePosition(int handleIndex,
+            MorphFace bottom, MorphFace top)
+        {
+            FaceMorphSupport morph = module.FaceMorph;
+            if (handleIndex < CornerCount)
+                return morph.Corner(handleIndex / 4, handleIndex % 4,
+                    bottom, top);
+            int index = handleIndex - CornerCount;
+            int a = MidpointPairs[index, 0];
+            int b = MidpointPairs[index, 1];
+            return (morph.Corner(a / 4, a % 4, bottom, top) +
+                morph.Corner(b / 4, b % 4, bottom, top)) * 0.5f;
+        }
+
+        // Probe the actual selected handle's LOCAL deformation, then project
+        // it through the part's current (captured) orientation. This supports
+        // a child already tilted by a prior attached-face morph, including
+        // nonuniformly stretched/tilted faces and edge midpoints. Using only
+        // the screen's vertical axis incorrectly assumes an upright part.
+        private Vector2 ProjectTiltMotion(int handleIndex)
+        {
+            int face = handleIndex < CornerCount ? handleIndex / 4 :
+                (handleIndex - CornerCount) / 4;
+            int corner = handleIndex % 4;
+            int edge = handleIndex < CornerCount ? -1 :
+                (handleIndex - CornerCount) % 4;
+            float xSign = edge < 0 ? ((corner & 1) == 0 ? -1f : 1f) :
+                FaceMorphCore.EdgeWidthSign(edge);
+            float zSign = edge < 0 ? ((corner & 2) == 0 ? -1f : 1f) :
+                FaceMorphCore.EdgeDepthSign(edge);
+            MorphFace initial = face == 0 ? dragBottom : dragTop;
+            MorphFace probe = initial;
+            const float probeDistance = 0.25f;
+            probe.TiltX += probeDistance * xSign /
+                Mathf.Max(0.01f, dragHalfX) * 0.5f;
+            probe.TiltZ += probeDistance * zSign /
+                Mathf.Max(0.01f, dragHalfZ) * 0.5f;
+            MorphFace b = face == 0 ? probe : dragBottom;
+            MorphFace t = face == 0 ? dragTop : probe;
+            Vector2 projected = ProjectAtDragStart(
+                LocalHandlePosition(handleIndex, b, t));
+            Vector2 initialScreen = ProjectAtDragStart(
+                LocalHandlePosition(handleIndex, dragBottom, dragTop));
+            return (projected - initialScreen) / probeDistance;
+        }
+
         private Vector2 ProjectMidpoint(int face, int edge, MorphFace candidate)
         {
             FaceMorphSupport morph = module.FaceMorph;
@@ -378,9 +448,7 @@ namespace PartSculptor
             MorphFace top = face == 0 ? dragTop : candidate;
             Vector3 local = (morph.Corner(a / 4, a % 4, bottom, top) +
                 morph.Corner(b / 4, b % 4, bottom, top)) * 0.5f;
-            Vector3 projected = camera.WorldToScreenPoint(
-                module.part.transform.TransformPoint(local));
-            return new Vector2(projected.x, projected.y);
+            return ProjectAtDragStart(local);
         }
 
         private Vector2 ProjectMidpointParameter(int face, int edge,
@@ -472,6 +540,31 @@ namespace PartSculptor
                    Mathf.Abs(a.OffsetZ - b.OffsetZ) > epsilon;
         }
 
+        // In Copy mode, editing the CHILD'S parent-facing end morphs the
+        // parent's end in the opposite local direction, and then rotates the
+        // child to keep the stack joint connected.  For a matching pair, that
+        // rigid-body rotation reverses the visible movement of the child's
+        // dragged edge.  Invert only this drag input, not the morph values or
+        // the mirroring/rotation code.  Free ends and parent-driven edits
+        // retain the usual drag sense.
+        private bool IsParentAttachedFace(int face)
+        {
+            Part part = module.part;
+            if (part == null || part.parent == null || part.attachNodes == null ||
+                module.FaceMorph == null ||
+                part.parent.FindModuleImplementing<ModulePartSculptor>() == null)
+                return false;
+            foreach (AttachNode node in part.attachNodes)
+            {
+                int attachedFace;
+                if (node != null && node.attachedPart == part.parent &&
+                    module.FaceMorph.TryGetEndFace(node, out attachedFace) &&
+                    attachedFace == face)
+                    return true;
+            }
+            return false;
+        }
+
         private void Update()
         {
             if (disposed || !HighLogic.LoadedSceneIsEditor ||
@@ -508,13 +601,12 @@ namespace PartSculptor
                 {
                     // Alt+vertical drag tilts the entire planar face. The
                     // picked quadrant determines the tilt direction.
-                    Vector3 baseline = camera.WorldToScreenPoint(clickWorld);
-                    Vector3 raised = camera.WorldToScreenPoint(clickWorld +
-                        module.part.transform.TransformDirection(Vector3.up));
-                    Vector2 up = new Vector2(raised.x-baseline.x, raised.y-baseline.y);
-                    float pixelsPerUnit = Mathf.Max(12f, up.magnitude);
+                    // The part (and therefore its local +Y axis) can rotate
+                    // during this same drag. Use the direction captured at
+                    // mouse-down, not one that changes or flips mid-gesture.
                     float vertical = Vector2.Dot(mouse - clickMouse,
-                        up.sqrMagnitude > 0.001f ? up.normalized : Vector2.up) / pixelsPerUnit;
+                        dragTiltScreenUp) / dragTiltPixelsPerUnit;
+                    vertical *= dragTiltSign;
                     // A corner tilts in both directions; an edge midpoint
                     // tilts only across the face axis normal to that edge.
                     f.TiltX += vertical * xSign /
@@ -530,10 +622,10 @@ namespace PartSculptor
                 }
                 else
                 {
-                    Ray ray = camera.ScreenPointToRay(mouse);
+                    Ray ray = dragCamera.ScreenPointToRay(mouse);
                     float distance;
                     if (!dragPlane.Raycast(ray, out distance)) return;
-                    Vector3 displacement = module.part.transform.InverseTransformVector(
+                    Vector3 displacement = dragWorldToLocal.MultiplyVector(
                         ray.GetPoint(distance) - clickWorld);
                     if (dragRadial || dragLockXZ)
                     {
@@ -658,12 +750,34 @@ namespace PartSculptor
                 dragTop = module.GetMorphFace(1);
                 clickMouse = mouse;
                 clickWorld = position[hovered];
-                Vector3 projectedClick = camera.WorldToScreenPoint(clickWorld);
-                clickHandleScreen = new Vector2(projectedClick.x, projectedClick.y);
+                dragCamera = camera;
+                dragLocalToWorld = module.part.transform.localToWorldMatrix;
+                dragWorldToLocal = module.part.transform.worldToLocalMatrix;
                 FaceMorphSupport m = module.FaceMorph;
-                dragHalfX = Mathf.Max(0.01f,(m.Max.x-m.Min.x)*0.5f);
-                dragHalfZ = Mathf.Max(0.01f,(m.Max.z-m.Min.z)*0.5f);
-                dragPlane = new Plane(module.part.transform.up, clickWorld);
+                dragHalfX = Mathf.Max(0.01f, (m.Max.x - m.Min.x) * 0.5f);
+                dragHalfZ = Mathf.Max(0.01f, (m.Max.z - m.Min.z) * 0.5f);
+                clickHandleScreen = ProjectAtDragStart(
+                    LocalHandlePosition(hovered, dragBottom, dragTop));
+                if (dragTilt)
+                {
+                    // Projection of the selected handle's REAL tilt response
+                    // in the rotation already applied to this part, not the
+                    // screen/world Y direction or its old flat orientation.
+                    Vector2 projectedUp = ProjectTiltMotion(hovered);
+                    dragTiltScreenUp = projectedUp.sqrMagnitude > 0.001f ?
+                        projectedUp.normalized : Vector2.zero;
+                    dragTiltPixelsPerUnit = Mathf.Max(12f, projectedUp.magnitude);
+                    int editedFace = hovered < CornerCount ? hovered / 4 :
+                        (hovered - CornerCount) / 4;
+                    dragTiltSign = FaceMorphCore.TiltDragSign(
+                        ModulePartSculptor.CopyAttachedMorphStepsGlobal,
+                        IsParentAttachedFace(editedFace));
+                }
+                // The drag plane follows the part's CURRENT local X/Z face
+                // plane at mouse-down, not global horizontal, and remains
+                // stable even if Copy mode rotates the child during this drag.
+                Vector3 planeNormal = dragLocalToWorld.MultiplyVector(Vector3.up);
+                dragPlane = new Plane(planeNormal.normalized, clickWorld);
             }
         }
 

@@ -70,10 +70,10 @@ class B9ResourceOnlyFaceMorph467(unittest.TestCase):
         self.assertIn('B9DisableTransform', MAIN)
 
     def test_versions(self):
-        self.assertIn('"BUILD": 130', (ROOT/'PartSculptor.version').read_text())
-        self.assertIn('"BUILD": 130',
+        self.assertIn('"BUILD": 137', (ROOT/'PartSculptor.version').read_text())
+        self.assertIn('"BUILD": 137',
                       (ROOT/'GameData/PartSculptor/PartSculptor.version').read_text())
-        self.assertIn('AssemblyVersion("0.0.4.130")',
+        self.assertIn('AssemblyVersion("0.0.4.137")',
                       (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__':

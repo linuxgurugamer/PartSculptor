@@ -54,8 +54,8 @@ class FaceTiltDegrees4124(unittest.TestCase):
     def test_version_and_documentation(self):
         for filename in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
             data = json.loads((ROOT/filename).read_text())
-            self.assertEqual(data['VERSION']['BUILD'], 130)
-        self.assertIn('AssemblyVersion("0.0.4.130")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(data['VERSION']['BUILD'], 137)
+        self.assertIn('AssemblyVersion("0.0.4.137")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertIn('## 0.0.4.124 — Display face', (ROOT/'Changelog.md').read_text())
         self.assertIn('**Tilt readout:**', (ROOT/'README.md').read_text())
         self.assertEqual((ROOT/'README.md').read_bytes(),

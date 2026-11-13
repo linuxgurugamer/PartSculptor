@@ -31,8 +31,8 @@ class MorphCompatibility466(unittest.TestCase):
         self.assertIn('Robotic / transform-switching geometry unsupported', MAIN)
 
     def test_versions(self):
-        self.assertIn('"BUILD": 130', (ROOT/'PartSculptor.version').read_text())
-        self.assertIn('"BUILD": 130', (ROOT/'GameData/PartSculptor/PartSculptor.version').read_text())
-        self.assertIn('0.0.4.130', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+        self.assertIn('"BUILD": 137', (ROOT/'PartSculptor.version').read_text())
+        self.assertIn('"BUILD": 137', (ROOT/'GameData/PartSculptor/PartSculptor.version').read_text())
+        self.assertIn('0.0.4.137', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__': unittest.main()

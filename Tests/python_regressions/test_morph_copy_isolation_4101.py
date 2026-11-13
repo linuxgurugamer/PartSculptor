@@ -51,8 +51,8 @@ class MorphCopyIsolation4101(unittest.TestCase):
 
     def test_updated_version_and_readmes(self):
         for path in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT / path).read_text())['VERSION']['BUILD'], 130)
-        self.assertIn('AssemblyVersion("0.0.4.130")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads((ROOT / path).read_text())['VERSION']['BUILD'], 137)
+        self.assertIn('AssemblyVersion("0.0.4.137")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT/'README.md').read_bytes(), (ROOT/'GameData/PartSculptor/README.md').read_bytes())
         self.assertIn('subsequent Morph changes to the original do not alter an Alt-copied part',
                       (ROOT/'README.md').read_text())

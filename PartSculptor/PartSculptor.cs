@@ -27,10 +27,70 @@ namespace PartSculptor
         internal float maxVolume;
     }
 
-    public class ModulePartSculptor : PartModule, IPartMassModifier, IPartCostModifier
+    public partial class ModulePartSculptor : PartModule, IPartMassModifier, IPartCostModifier
     {
         const string GROUP = "PartSculptor";
         const string GROUP_TITLE = "PartSculptor";
+
+        // Preserve each KSP field/event's original runtime visibility so
+        // restrictive modules and non-PAW actions do not become exposed.
+        private readonly Dictionary<BaseField, bool> pawFieldsBeforeHide =
+            new Dictionary<BaseField, bool>();
+        private readonly Dictionary<BaseEvent, bool> pawEventsBeforeHide =
+            new Dictionary<BaseEvent, bool>();
+        private bool pawControlsHidden;
+
+        internal static void SetPAWControlsHidden(bool hidden)
+        {
+            Settings.HidePartSculptorPAWControls = hidden;
+            foreach (ModulePartSculptor module in editorModules)
+                if (module != null) module.ApplyPAWControlsVisibility();
+        }
+
+        private void ApplyPAWControlsVisibility()
+        {
+            if (!initialized || !HighLogic.LoadedSceneIsEditor || Fields == null || Events == null)
+                return;
+            bool hide = Settings.HidePartSculptorPAWControls;
+            if (hide && !pawControlsHidden)
+            {
+                pawFieldsBeforeHide.Clear();
+                pawEventsBeforeHide.Clear();
+                foreach (BaseField field in Fields)
+                {
+                    pawFieldsBeforeHide[field] = field.guiActiveEditor;
+                    field.guiActiveEditor = false;
+                }
+                foreach (BaseEvent action in Events)
+                {
+                    if (action == Events["ToggleControlsWindow"]) continue;
+                    pawEventsBeforeHide[action] = action.guiActiveEditor;
+                    action.guiActiveEditor = false;
+                }
+                pawControlsHidden = true;
+            }
+            else if (!hide && pawControlsHidden)
+            {
+                foreach (KeyValuePair<BaseField, bool> field in pawFieldsBeforeHide)
+                    field.Key.guiActiveEditor = field.Value;
+                foreach (KeyValuePair<BaseEvent, bool> action in pawEventsBeforeHide)
+                    action.Key.guiActiveEditor = action.Value;
+                pawFieldsBeforeHide.Clear();
+                pawEventsBeforeHide.Clear();
+                pawControlsHidden = false;
+                // Career restrictions change dynamically; apply the live state.
+                BaseField career = Fields["displayCareerLimits"];
+                if (career != null)
+                    career.guiActiveEditor = Settings.EnableCareerLimits &&
+                        HighLogic.CurrentGame != null &&
+                        HighLogic.CurrentGame.Mode == Game.Modes.CAREER;
+            }
+            // Never hide the one action which opens the full editor window.
+            BaseEvent opener = Events["ToggleControlsWindow"];
+            if (opener != null) opener.guiActiveEditor = true;
+            if (part != null && part.PartActionWindow != null)
+                part.PartActionWindow.displayDirty = true;
+        }
         // Attribute defaults only; real limits come from Settings at runtime.
         const float MIN = 0.05f;
         const float MAX = 100f;
@@ -148,6 +208,33 @@ namespace PartSculptor
         [KSPField(guiActiveEditor = true, guiName = "Top face tilt",
             groupName = GROUP, groupDisplayName = GROUP_TITLE)]
         public string displayTopFaceTilt = "0.0° (X 0.0°, Z 0.0°)";
+
+        // Numeric tilt editing is deliberately separate from the persisted face
+        // parameters. Changing a PAW input does not deform geometry until Apply.
+        [KSPField(isPersistant = false, guiActiveEditor = true, guiName = "Tilt face",
+            groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        [UI_ChooseOption(scene = UI_Scene.Editor, options = new string[] { "Bottom", "Top" })]
+        public string numericTiltFace = "Top";
+
+        [KSPField(isPersistant = false, guiActiveEditor = true, guiName = "Tilt X (degrees)",
+            guiFormat = "F2", groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        [UI_FloatEdit(scene = UI_Scene.Editor, minValue = -89f, maxValue = 89f,
+            incrementLarge = 5f, incrementSmall = 0.5f, incrementSlide = 0.1f,
+            sigFigs = 3, affectSymCounterparts = UI_Scene.None)]
+        public float numericTiltXDegrees = 0f;
+
+        [KSPField(isPersistant = false, guiActiveEditor = true, guiName = "Tilt Z (degrees)",
+            guiFormat = "F2", groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        [UI_FloatEdit(scene = UI_Scene.Editor, minValue = -89f, maxValue = 89f,
+            incrementLarge = 5f, incrementSmall = 0.5f, incrementSlide = 0.1f,
+            sigFigs = 3, affectSymCounterparts = UI_Scene.None)]
+        public float numericTiltZDegrees = 0f;
+
+        [KSPField(isPersistant = false, guiActiveEditor = true, guiName = "Numeric tilt status",
+            groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        public string numericTiltStatus = "Select a face, enter X/Z angles, then Apply";
+
+        private bool numericTiltPending;
 
         // Read-only, calculated editor values (not saved with the craft).
         [KSPField(guiActiveEditor = true, guiName = "Volume multiplier",
@@ -504,6 +591,7 @@ namespace PartSculptor
             ScalePresetEditor.CloseFor(this);
             ScalePresetsWindow.CloseFor(this);
             scaledValuesWindow.Close();
+            CloseControlsWindowFor(this);
             if (faceMorph != null) { faceMorph.Dispose(); faceMorph = null; }
             // This part is going away, so none of its copied-only meshes can
             // remain referenced by a live PartSculptor owner.
@@ -979,6 +1067,9 @@ namespace PartSculptor
                 Fields["matchAttachedFaces"].OnValueModified += OnMatchAttachedFacesModified;
                 Fields["copyAttachedMorphSteps"].OnValueModified += OnCopyAttachedMorphStepsModified;
                 Fields["scalePreset"].uiControlEditor.onFieldChanged = OnPresetChanged;
+                Fields["numericTiltFace"].uiControlEditor.onFieldChanged = OnNumericTiltFaceChanged;
+                Fields["numericTiltXDegrees"].uiControlEditor.onFieldChanged = OnNumericTiltInputChanged;
+                Fields["numericTiltZDegrees"].uiControlEditor.onFieldChanged = OnNumericTiltInputChanged;
                 RegisterEditorListener();
                 RefreshPresetOptions();
                 if (!string.IsNullOrEmpty(restrictedReason)) HideRestrictedControls();
@@ -1043,6 +1134,7 @@ namespace PartSculptor
             lastAcceptedScale = Target;
             initialized = true;
             UpdateCalculatedValues();
+            ApplyPAWControlsVisibility();
             // A craft launched from the editor can already contain the correct
             // expanded PartResource.maxAmount, so ApplyResourceScaling sees no
             // change. The flight PAW may nevertheless cache the prefab upper
@@ -1432,6 +1524,131 @@ namespace PartSculptor
             return degrees.Total.ToString("0.0", CultureInfo.InvariantCulture) + "°" +
                 " (X " + degrees.X.ToString("+0.0;-0.0;0.0", CultureInfo.InvariantCulture) + "°" +
                 ", Z " + degrees.Z.ToString("+0.0;-0.0;0.0", CultureInfo.InvariantCulture) + "°)";
+        }
+
+        // PAW selector changes load the selected end's CURRENT angles, rather
+        // than reusing values typed for the other end. Edits remain staged.
+        void OnNumericTiltFaceChanged(BaseField field, object oldValue)
+        {
+            numericTiltPending = false;
+            numericTiltStatus = "Select a face, enter X/Z angles, then Apply";
+            LoadNumericTiltFromFace(true);
+        }
+
+        void OnNumericTiltInputChanged(BaseField field, object oldValue)
+        {
+            // Keep the active float-edit control and its keyboard focus alive;
+            // rebuilding the PAW on every keystroke would interrupt typing.
+            numericTiltPending = true;
+            numericTiltStatus = "Pending — click Apply face tilt";
+        }
+
+        private void MarkNumericTiltPAWDirty()
+        {
+            if (part != null && part.PartActionWindow != null)
+                part.PartActionWindow.displayDirty = true;
+        }
+
+        private void LoadNumericTiltFromFace(bool refreshPAW)
+        {
+            FaceTiltAngles actual = GetFaceTiltDegrees(numericTiltFace == "Bottom" ? 0 : 1);
+            float x = (float)actual.X;
+            float z = (float)actual.Z;
+            if (!numericTiltPending &&
+                Mathf.Abs(numericTiltXDegrees - x) < 0.0001f &&
+                Mathf.Abs(numericTiltZDegrees - z) < 0.0001f) return;
+            numericTiltXDegrees = x;
+            numericTiltZDegrees = z;
+            numericTiltPending = false;
+            if (refreshPAW)
+            {
+                // Stock UIPartActionFloatEdit caches its displayed text. The
+                // existing reflection helper refreshes programmatic values.
+                if (!updateDisplayLooked)
+                {
+                    updateDisplayLooked = true;
+                    updateDisplay = typeof(UIPartActionFloatEdit).GetMethod("UpdateDisplay",
+                        BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                }
+                try
+                {
+                    if (updateDisplay != null)
+                    {
+                        RefreshField("numericTiltXDegrees", numericTiltXDegrees);
+                        RefreshField("numericTiltZDegrees", numericTiltZDegrees);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Log.Warning("[PartSculptor] Numeric tilt PAW refresh failed: " + e.Message);
+                }
+                MarkNumericTiltPAWDirty();
+            }
+        }
+
+        [KSPEvent(guiActiveEditor = true, guiName = "Apply face tilt",
+            groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        public void ApplyNumericFaceTilt()
+        {
+            if (!CanUseScaleGizmo || !EnsureFaceMorph())
+            {
+                NumericTiltError("Face morph unavailable: " +
+                    (!string.IsNullOrEmpty(morphFailure) ? morphFailure : MorphSelectionFailure));
+                return;
+            }
+            int faceIndex = numericTiltFace == "Bottom" ? 0 :
+                numericTiltFace == "Top" ? 1 : -1;
+            if (faceIndex < 0)
+            {
+                NumericTiltError("Select Top or Bottom face");
+                return;
+            }
+            MorphFace current = GetMorphFace(faceIndex);
+            double xTilt, zTilt;
+            if (!FaceMorphCore.TryTiltFromDegrees(current.Width, current.Depth,
+                scaleX, scaleY, scaleZ, numericTiltXDegrees, numericTiltZDegrees,
+                Settings.MaxFaceTilt, out xTilt, out zTilt))
+            {
+                NumericTiltError("Angle exceeds maxFaceTilt or has invalid face dimensions");
+                return;
+            }
+            MorphFace requested = current;
+            requested.TiltX = (float)xTilt;
+            requested.TiltZ = (float)zTilt;
+            if (!MorphFacesDiffer(current, requested))
+            {
+                numericTiltStatus = "Face already has those X/Z angles";
+                numericTiltPending = false;
+                LoadNumericTiltFromFace(true);
+                MarkNumericTiltPAWDirty();
+                return;
+            }
+
+            // Record once BEFORE the complete change. SetMorphFaces owns mesh,
+            // node, symmetry, attached-face propagation and editor notification.
+            EditorUndoSupport.RecordBeforeChange();
+            MorphFace bottom = faceIndex == 0 ? requested : GetMorphFace(0);
+            MorphFace top = faceIndex == 1 ? requested : GetMorphFace(1);
+            SetMorphFaces(bottom, top);
+            if (MorphFacesDiffer(GetMorphFace(faceIndex), requested))
+            {
+                NumericTiltError("Change rejected by morph, volume or Career limits");
+                return;
+            }
+            numericTiltPending = false;
+            LoadNumericTiltFromFace(true);
+            numericTiltStatus = "Applied " + (faceIndex == 0 ? "Bottom" : "Top") +
+                " face: X " + numericTiltXDegrees.ToString("0.##", CultureInfo.InvariantCulture) +
+                "°, Z " + numericTiltZDegrees.ToString("0.##", CultureInfo.InvariantCulture) + "°";
+            MarkNumericTiltPAWDirty();
+        }
+
+        private void NumericTiltError(string reason)
+        {
+            numericTiltStatus = reason;
+            MarkNumericTiltPAWDirty();
+            ScreenMessages.PostScreenMessage("PartSculptor: " + reason,
+                Settings.screenMessageTime, ScreenMessageStyle.UPPER_CENTER);
         }
 
         internal bool EnsureFaceMorph()
@@ -2116,6 +2333,7 @@ namespace PartSculptor
             if (!HighLogic.LoadedSceneIsEditor)
             {
                 scaledValuesWindow.Close();
+                CloseControlsWindowFor(this);
                 return;
             }
             if (initialized && part != null)
@@ -2130,6 +2348,7 @@ namespace PartSculptor
             FaceMorphGizmo.HideFor(this);
             // A scene change may disable the part before OnDestroy is called.
             scaledValuesWindow.Close();
+            CloseControlsWindowFor(this);
             ScalePresetsWindow.CloseFor(this);
         }
 
@@ -3551,6 +3770,8 @@ namespace PartSculptor
                 displayTopFaceTilt;
             displayBottomFaceTilt = GetFaceTiltDisplay(0);
             displayTopFaceTilt = GetFaceTiltDisplay(1);
+            if (!numericTiltPending && HighLogic.LoadedSceneIsEditor)
+                LoadNumericTiltFromFace(true);
             displayVolume = StretchVolumeFactor.ToString("0.###", CultureInfo.InvariantCulture) + "x";
             if (part == null) return;
             float nativeMass = NativeDryMass(part.mass);
@@ -3598,7 +3819,8 @@ namespace PartSculptor
                 displayCareerLimits = "Not restricted";
             if (Fields != null && Fields["displayCareerLimits"] != null)
                 Fields["displayCareerLimits"].guiActiveEditor =
-                    Settings.EnableCareerLimits && HighLogic.CurrentGame != null &&
+                    !Settings.HidePartSculptorPAWControls && Settings.EnableCareerLimits &&
+                    HighLogic.CurrentGame != null &&
                     HighLogic.CurrentGame.Mode == Game.Modes.CAREER;
             if (initialized && HighLogic.LoadedSceneIsEditor &&
                 previous != displayVolume + "|" + displayDryMass + "|" +

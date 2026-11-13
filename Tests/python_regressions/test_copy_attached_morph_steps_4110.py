@@ -42,8 +42,8 @@ class CopyAttachedMorphSteps110(unittest.TestCase):
         self.assertIn('FaceMorphStepCore.cs', (ROOT/'Tests/RegressionRunner/RegressionRunner.csproj').read_text())
         self.assertIn('FaceMorphStepCore.cs', (ROOT/'PartSculptor/PartSculptor.csproj').read_text())
         for filename in ['PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version']:
-            self.assertEqual(json.loads((ROOT/filename).read_text())['VERSION']['BUILD'], 130)
-        self.assertIn('AssemblyVersion("0.0.4.130")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads((ROOT/filename).read_text())['VERSION']['BUILD'], 137)
+        self.assertIn('AssemblyVersion("0.0.4.137")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT/'README.md').read_bytes(), (ROOT/'GameData/PartSculptor/README.md').read_bytes())
         self.assertTrue((ROOT/'Tests/COPY_ATTACHED_MORPH_STEPS_0.0.4.110.md').exists())
 

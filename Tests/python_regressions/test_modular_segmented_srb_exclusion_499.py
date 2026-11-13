@@ -37,6 +37,6 @@ class ModularSegmentedSRBExclusion499(unittest.TestCase):
         self.assertEqual(readme,(ROOT/'GameData/PartSculptor/README.md').read_bytes())
         self.assertIn(b'ModularSegmentedSRBs/',readme)
         for version in (ROOT/'PartSculptor.version',ROOT/'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads(version.read_text())['VERSION']['BUILD'],130)
+            self.assertEqual(json.loads(version.read_text())['VERSION']['BUILD'],137)
 
 if __name__=='__main__': unittest.main()

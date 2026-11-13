@@ -18,6 +18,7 @@ namespace PartSculptor
         static bool? matchNodeSizesDefault;
         static bool? matchAttachedFacesDefault;
         static bool? copyAttachedMorphStepsDefault;
+        static bool? hidePartSculptorPAWControls;
         static bool? scaleChildrenDefault;
         static bool? lockProportionsDefault;
         static bool? lockMorphXZDefault;
@@ -81,6 +82,8 @@ namespace PartSculptor
                                     matchAttachedFacesDefault = parsed;
                                 if (bool.TryParse(n.GetValue("copyAttachedMorphStepsDefault"), out parsed))
                                     copyAttachedMorphStepsDefault = parsed;
+                                if (bool.TryParse(n.GetValue("hidePartSculptorPAWControls"), out parsed))
+                                    hidePartSculptorPAWControls = parsed;
                                 if (bool.TryParse(n.GetValue("scaleChildrenDefault"), out parsed))
                                     scaleChildrenDefault = parsed;
                                 if (bool.TryParse(n.GetValue("lockProportionsDefault"), out parsed))
@@ -112,6 +115,8 @@ namespace PartSculptor
                 faceMatchDefault = matchAttachedFacesDefault.Value;
             if (copyAttachedMorphStepsDefault.HasValue)
                 Settings.CopyAttachedMorphStepsDefault = copyAttachedMorphStepsDefault.Value;
+            if (hidePartSculptorPAWControls.HasValue)
+                Settings.HidePartSculptorPAWControls = hidePartSculptorPAWControls.Value;
             if (scaleChildrenDefault.HasValue)
                 childrenDefault = scaleChildrenDefault.Value;
             if (lockProportionsDefault.HasValue)
@@ -129,6 +134,7 @@ namespace PartSculptor
             internal bool? MatchNodeSizesDefault, ScaleChildrenDefault;
             internal bool? MatchAttachedFacesDefault;
             internal bool? CopyAttachedMorphStepsDefault;
+            internal bool? HidePartSculptorPAWControls;
             internal bool? LockProportionsDefault, LockMorphXZDefault;
             internal float MorphSnapIncrement, MorphTipOpacity;
             internal bool UseAlternateSkin;
@@ -150,6 +156,7 @@ namespace PartSculptor
                     MatchNodeSizesDefault = matchNodeSizesDefault,
                     MatchAttachedFacesDefault = matchAttachedFacesDefault,
                     CopyAttachedMorphStepsDefault = copyAttachedMorphStepsDefault,
+                    HidePartSculptorPAWControls = hidePartSculptorPAWControls,
                     ScaleChildrenDefault = scaleChildrenDefault,
                     LockProportionsDefault = lockProportionsDefault,
                     LockMorphXZDefault = lockMorphXZDefault,
@@ -206,6 +213,7 @@ namespace PartSculptor
                 matchNodeSizesDefault = snapshot.MatchNodeSizesDefault;
                 matchAttachedFacesDefault = snapshot.MatchAttachedFacesDefault;
                 copyAttachedMorphStepsDefault = snapshot.CopyAttachedMorphStepsDefault;
+                hidePartSculptorPAWControls = snapshot.HidePartSculptorPAWControls;
                 scaleChildrenDefault = snapshot.ScaleChildrenDefault;
                 lockProportionsDefault = snapshot.LockProportionsDefault;
                 lockMorphXZDefault = snapshot.LockMorphXZDefault;
@@ -269,6 +277,16 @@ namespace PartSculptor
             bool lockValue, bool morphLockValue, float snapValue, float opacityValue,
             bool alternateSkinValue, bool faceMatchValue, bool copyStepsValue, out string error)
         {
+            return SaveDefaults(matchValue, childrenValue, lockValue, morphLockValue,
+                snapValue, opacityValue, alternateSkinValue, faceMatchValue,
+                copyStepsValue, Settings.HidePartSculptorPAWControls, out error);
+        }
+
+        internal static bool SaveDefaults(bool matchValue, bool childrenValue,
+            bool lockValue, bool morphLockValue, float snapValue, float opacityValue,
+            bool alternateSkinValue, bool faceMatchValue, bool copyStepsValue,
+            bool hidePawControls, out string error)
+        {
             error = null;
             if (!IsValidMorphTipOpacity(opacityValue))
             {
@@ -290,6 +308,7 @@ namespace PartSculptor
                 node.AddValue("matchNodeSizesDefault", matchValue);
                 node.AddValue("matchAttachedFacesDefault", faceMatchValue);
                 node.AddValue("copyAttachedMorphStepsDefault", copyStepsValue);
+                node.AddValue("hidePartSculptorPAWControls", hidePawControls);
                 node.AddValue("scaleChildrenDefault", childrenValue);
                 node.AddValue("lockProportionsDefault", lockValue);
                 node.AddValue("lockMorphXZDefault", morphLockValue);
@@ -305,6 +324,7 @@ namespace PartSculptor
                 matchNodeSizesDefault = matchValue;
                 matchAttachedFacesDefault = faceMatchValue;
                 copyAttachedMorphStepsDefault = copyStepsValue;
+                hidePartSculptorPAWControls = hidePawControls;
                 scaleChildrenDefault = childrenValue;
                 lockProportionsDefault = lockValue;
                 lockMorphXZDefault = morphLockValue;
@@ -314,6 +334,7 @@ namespace PartSculptor
                 Settings.MatchNodeSizesDefault = matchValue;
                 Settings.MatchAttachedFacesDefault = faceMatchValue;
                 Settings.CopyAttachedMorphStepsDefault = copyStepsValue;
+                ModulePartSculptor.SetPAWControlsHidden(hidePawControls);
                 Settings.ScaleChildrenDefault = childrenValue;
                 Settings.LockProportionsDefault = lockValue;
                 Settings.LockMorphXZDefault = morphLockValue;
@@ -337,6 +358,46 @@ namespace PartSculptor
                     try { File.Delete(temporary); } catch { }
             }
         }
+
+        // A small, immediate preference write used by the All Controls window.
+        // Preserve all the existing user settings; do not overwrite other
+        // unsaved settings-window choices with stale defaults.
+        internal static bool SaveHidePAWOnly(bool hidden, out string error)
+        {
+            error = null;
+            string temporary = null;
+            try
+            {
+                string path = UserSettingsPath;
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                ConfigNode root = File.Exists(path) ? ConfigNode.Load(path) : null;
+                if (root == null) root = new ConfigNode();
+                ConfigNode node = root.name == NodeName ? root : root.GetNode(NodeName);
+                if (node == null) node = root.AddNode(NodeName);
+                if (node.HasValue("hidePartSculptorPAWControls"))
+                    node.SetValue("hidePartSculptorPAWControls", hidden.ToString(), true);
+                else node.AddValue("hidePartSculptorPAWControls", hidden);
+                temporary = path + ".paw.tmp";
+                root.Save(temporary);
+                if (File.Exists(path)) File.Replace(temporary, path, null);
+                else File.Move(temporary, path);
+                loaded = true;
+                hidePartSculptorPAWControls = hidden;
+                ModulePartSculptor.SetPAWControlsHidden(hidden);
+                return true;
+            }
+            catch (Exception e)
+            {
+                error = "Cannot save PAW visibility: " + e.Message;
+                Log.Warning("[PartSculptor] " + error);
+                return false;
+            }
+            finally
+            {
+                if (temporary != null && File.Exists(temporary))
+                    try { File.Delete(temporary); } catch { }
+            }
+        }
     }
 
     internal sealed class ScaleSettingsWindow
@@ -348,6 +409,7 @@ namespace PartSculptor
         bool matchNodeDefault;
         bool matchFacesDefault;
         bool copyStepsDefault;
+        bool hidePawControls;
         bool childrenDefault;
         bool lockDefault;
         bool morphLockDefault;
@@ -364,6 +426,7 @@ namespace PartSculptor
         struct OpeningSettings
         {
             internal bool MatchNodes, MatchFaces, CopySteps, StretchChildren, LockProportions, LockMorphXZ;
+            internal bool HidePAWControls;
             internal int SnapSelection;
             internal float TipOpacity;
             internal bool AlternateSkin;
@@ -379,6 +442,7 @@ namespace PartSculptor
             opened.MatchNodes = matchNodeDefault;
             opened.MatchFaces = matchFacesDefault;
             opened.CopySteps = copyStepsDefault;
+            opened.HidePAWControls = hidePawControls;
             opened.StretchChildren = childrenDefault;
             opened.LockProportions = lockDefault;
             opened.LockMorphXZ = morphLockDefault;
@@ -396,6 +460,7 @@ namespace PartSculptor
             matchNodeDefault = opened.MatchNodes;
             matchFacesDefault = opened.MatchFaces;
             copyStepsDefault = opened.CopySteps;
+            hidePawControls = opened.HidePAWControls;
             childrenDefault = opened.StretchChildren;
             lockDefault = opened.LockProportions;
             morphLockDefault = opened.LockMorphXZ;
@@ -408,6 +473,7 @@ namespace PartSculptor
             Settings.MatchNodeSizesDefault = opened.MatchNodes;
             Settings.MatchAttachedFacesDefault = opened.MatchFaces;
             Settings.CopyAttachedMorphStepsDefault = opened.CopySteps;
+            ModulePartSculptor.SetPAWControlsHidden(opened.HidePAWControls);
             Settings.ScaleChildrenDefault = opened.StretchChildren;
             Settings.LockProportionsDefault = opened.LockProportions;
             Settings.LockMorphXZDefault = opened.LockMorphXZ;
@@ -429,6 +495,7 @@ namespace PartSculptor
             matchNodeDefault = Settings.MatchNodeSizesDefault;
             matchFacesDefault = Settings.MatchAttachedFacesDefault;
             copyStepsDefault = Settings.CopyAttachedMorphStepsDefault;
+            hidePawControls = Settings.HidePartSculptorPAWControls;
             childrenDefault = Settings.ScaleChildrenDefault;
             lockDefault = Settings.LockProportionsDefault;
             morphLockDefault = Settings.LockMorphXZDefault;
@@ -489,7 +556,8 @@ namespace PartSculptor
             string error;
             if (ScaleUserSettings.SaveDefaults(matchNodeDefault, childrenDefault, lockDefault,
                 morphLockDefault, ScaleUserSettings.MorphSnapChoices[snapSelection],
-                tipOpacity, alternateSkin, matchFacesDefault, copyStepsDefault, out error))
+                tipOpacity, alternateSkin, matchFacesDefault, copyStepsDefault,
+                hidePawControls, out error))
             {
                 appliedSinceOpening = true;
                 if (closeAfterSaving) Close();
@@ -543,6 +611,10 @@ namespace PartSculptor
                     "the tilted node. Prior face differences are preserved when safe. " +
                     "This works on its own and takes precedence over Match attached faces for live edits. " +
                     "New part placement uses Match attached faces as before."));
+            hidePawControls = GUILayout.Toggle(hidePawControls,
+                new GUIContent("Hide PartSculptor PAW controls (keep window button)",
+                    "When enabled, the PAW shows only the control-window button. " +
+                    "The all-controls window follows the selected editor part."));
             childrenDefault = GUILayout.Toggle(childrenDefault,
                 new GUIContent("Stretch children by default",
                     "Sets the shared Stretch children option when editing begins."));

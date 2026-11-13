@@ -53,7 +53,7 @@ class LiveAttachedFaceMorph109(unittest.TestCase):
     def test_versions_and_documentation(self):
         for filename in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
             self.assertGreaterEqual(json.loads((ROOT / filename).read_text())['VERSION']['BUILD'], 109)
-        self.assertIn('AssemblyVersion("0.0.4.130")',
+        self.assertIn('AssemblyVersion("0.0.4.137")',
                       (ROOT / 'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT / 'README.md').read_bytes(),
                          (ROOT / 'GameData/PartSculptor/README.md').read_bytes())

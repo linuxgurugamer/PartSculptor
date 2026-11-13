@@ -25,7 +25,6 @@ Forum page is located here:  https://forum.kerbalspaceprogram.com/topic/232076-1
 - **Career Mode scale limits** based on VAB/SPH upgrade level, plus configurable safety limits.
 - **Crewed parts included by default**, with crew-capacity increases limited by the seats actually available in the part's IVA.
 
-
 **Maximum face tilt:** Edit `maxFaceTilt = 2.5` in
 `GameData/PartSculptor/PluginData/Settings.cfg` and restart KSP to change
 the maximum magnitude of **each** tilt-axis slope. The new default is `2.5`;
@@ -59,6 +58,8 @@ The single ModuleManager patch adds `ModulePartSculptor` to **eligible parts**, 
 
 Test crewed parts carefully, especially IVAs, hatches, EVA, and crew assignment. 
 
+**Morph tool on rotated parts:** After an attached part has been rotated by face morphing, its Morph handles use its current orientation when a new drag starts. During one drag, the starting frame stays fixed so automatic child rotations cannot change the control direction.
+
 ## Quick start: stretching a part
 
 1. Open the **VAB** or **SPH** and place a part that has PartSculptor (for example, a stock fuel tank).
@@ -84,6 +85,10 @@ To leave the Stretch tool, select another editor tool, press **Esc** (when not d
 **Undo / redo:** In the editor, **Ctrl+Z** undoes a Stretch or Morph handle drag, and **Ctrl+Y** redoes it. Each gesture is recorded as a single editor undo step. Undo or redo exits the active Stretch/Morph tool and hides its handles so they cannot remain attached to a part KSP has restored or replaced; choose the tool and part again to keep editing.
 
 Gizmo handles are always drawn on top, so neighboring parts never hide them.
+
+**All-controls window:** Click **Show PartSculptor controls window** in a part's PAW for a movable, scrollable window mirroring its complete PartSculptor control group. Drag the window from its title or unused interior areas (including text labels); buttons, fields, and scrollbars continue working normally. The selected part name is displayed in **bold**. It includes X/Y/Z scaling (enter a number, then click **Set**), session-wide attachment toggles, per-part locks, readouts, and numeric face tilt (**Top/Bottom**, X/Z degrees, **Apply face tilt**). It also has presets, gizmos, reset actions, and manual attachment matching. Close it using the window's **Close** button or the PAW toggle. The window follows the **selected editor part**, including the Vessel Inspector or another part's PAW. Parts without PartSculptor show an informational message. Staged inputs reset on selection.
+
+**Compact PAW option:** Enable **Hide PartSculptor PAW controls (keep window button)** in **Vessel Inspector → Settings**, or toggle it directly at the top of the All Controls window. This keeps only the **Show/Hide PartSculptor controls window** PAW button; the other controls remain available in the window. Saved in `PluginData/UserSettings.cfg`, default `hidePartSculptorPAWControls = false` in `Settings.cfg`. Other modules are unaffected.
 
 The PAW also offers **Show scaling gizmo** and **Show scaled values**. The scaled-values window compares original and current values, including resources and attachment data.
 
@@ -117,6 +122,8 @@ The **Match attached faces** option is a **geometry match**, not generic mesh we
 
 ## Face morphing
 
+**Numeric face tilt:** Open the part's PAW, choose **Top** or **Bottom** under **Tilt face**, enter signed **Tilt X (degrees)** and **Tilt Z (degrees)**, then click **Apply face tilt**. Both inputs are absolute angles relative to the part's own face plane (not its world/editor rotation). The face's existing width/depth and part X/Y/Z scaling are accounted for; other face dimensions and offsets are preserved. Unapplied entries do not deform the part. The Apply action uses the normal face morph path, so Copy/Match, symmetry, node movement, and Ctrl+Z undo remain available. Values beyond the configured `maxFaceTilt` slope are rejected rather than reduced automatically. Switching Top/Bottom reloads that face's current angles. The original Morph gizmos remain fully supported.
+
 **Tilt readout:** The PartSculptor PAW shows **Bottom face tilt** and **Top face tilt**. The Morph tool's instruction box shows both values, and the tooltip while dragging shows the edited face's value live. The first number is the total angle in degrees from a flat end face; X and Z are signed component angles (for example, `12.6° (X +12.6°, Z 0.0°)`). Values account for face width/depth and independent X/Y/Z stretching. This measures the face relative to the part's own axis, **not** the rotation of the entire part in the editor. A face with no tilt reads `0.0°`.
 
 
@@ -138,6 +145,8 @@ You can also use **Show face morph handles** in the part's PAW. **Reset face mor
 | **M** (while Stretch or Morph is active) | Switch between the Stretch and Morph tools. |
 
 **Hold modifier keys before clicking a handle.** The drag mode is chosen when you press the mouse button and does not change mid-drag.
+
+**Attached-child tilt handle direction:** With **Copy attached morph steps** enabled, Alt-dragging the face of a child that connects to its parent compensates for the child-body rotation so the handle follows the mouse. The projected drag direction is held constant for each gesture, even as the child rotates. Parent faces, free child faces, and non-Copy modes retain their previous behavior.
 
 Midpoint resize handles follow the mouse along their permitted on-screen movement direction, including at oblique camera angles. With **Lock X/Z** enabled they move using the common face scale factor; when Shift snapping is active they move in the configured increments. A handle will not follow mouse motion perpendicular to the axis it controls, or beyond the face size limits.
 
@@ -208,7 +217,7 @@ To find a particular part, type its full or partial name in **Filter by name** a
 
 These preferences are stored in `GameData/PartSculptor/PluginData/UserSettings.cfg`. The Morph tip opacity slider adjusts only the **background transparency** of the help box under the editor toolbar and the tip shown while dragging; its text remains fully opaque. At 100%, tip backgrounds are completely solid even if the selected KSP skin uses translucent box textures. The alternate-skin checkbox changes the appearance of PartSculptor windows without changing KSP's own UI. The Settings window keeps **Save**, **Apply**, and **Cancel** accessible in a fixed footer: Save commits and closes; Apply saves without closing; Cancel restores all settings to their values when the window opened, even if Apply was clicked, and rolls back those changes in `UserSettings.cfg`. The settings list scrolls if necessary on smaller screens.
 
-Advanced options are in `GameData/PartSculptor/PluginData/Settings.cfg`: per-axis limits and UI steps, mass and volume safety caps, compatibility and effects toggles, debug logging, and Career Mode limits. Changes to this file usually require a KSP restart.
+Advanced options are in `GameData/PartSculptor/PluginData/Settings.cfg`: per-axis limits and UI steps, mass and volume safety caps, compatibility and effects toggles, debug logging, and Career Mode limits. Changes to this file usually require a KSP restart. The All Controls window uses the supplied compact input layout and centers its scale-preset label between the preset arrows.
 
 ## Career Mode limits
 

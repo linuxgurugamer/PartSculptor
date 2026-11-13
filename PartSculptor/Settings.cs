@@ -28,6 +28,8 @@ namespace PartSculptor
         public static bool MatchNodeSizesDefault = false;
         public static bool MatchAttachedFacesDefault = false;
         public static bool CopyAttachedMorphStepsDefault = false;
+        // Keep the PAW opener but put all other PartSculptor controls in its window.
+        public static bool HidePartSculptorPAWControls = false;
 
         // These limits apply to the non-uniform mass factor and the final
         // geometric volume (including an optional TweakScale multiplier).
@@ -117,6 +119,7 @@ namespace PartSculptor
                             n.TryGetValue("matchNodeSizesDefault", ref MatchNodeSizesDefault);
                             n.TryGetValue("matchAttachedFacesDefault", ref MatchAttachedFacesDefault);
                             n.TryGetValue("copyAttachedMorphStepsDefault", ref CopyAttachedMorphStepsDefault);
+                            n.TryGetValue("hidePartSculptorPAWControls", ref HidePartSculptorPAWControls);
                             n.TryGetValue("maxMassMultiplier", ref MaxMassMultiplier);
                             n.TryGetValue("maxVolumeMultiplier", ref MaxVolumeMultiplier);
                             n.TryGetValue("warnMassMultiplier", ref WarnMassMultiplier);
