@@ -46,9 +46,10 @@ class B9TextureFaceMorph4102(unittest.TestCase):
             self.assertIn(field, allowed_keys('TextureFields'))
             self.assertIn('transform', allowed_keys('SubtypeFields'))
             self.assertNotIn('baseTransform', allowed_keys('SubtypeFields'))
-        for unsafe in ('TRANSFORM', 'MATERIAL', 'NODE', 'MODULE'):
+        for unsafe in ('TRANSFORM', 'MATERIAL'):
             self.assertNotIn('string.Equals(nested.name, "'+unsafe+'"', HELPER)
         self.assertIn('TRANSFORM position/rotation/scale modifiers', HELPER)
+        self.assertIn('string.Equals(nested.name, "MODULE"', HELPER)
 
     def test_missing_texture_or_unknown_fields_are_rejected(self):
         self.assertIn('AllowedValues(textureNode, TextureFields, location, out reason)', HELPER)
@@ -71,7 +72,7 @@ class B9TextureFaceMorph4102(unittest.TestCase):
 
     def test_switch_event_reapplies_morph_without_new_dependency(self):
         self.assertIn('void OnB9SubtypeChanged()', MAIN)
-        self.assertIn('Apply(false, false, false);', MAIN[MAIN.index('void OnB9SubtypeChanged()'):][:800])
+        self.assertIn('Apply(moveForeign, moveForeign, false, NodeApplyReason.Foreign);', MAIN[MAIN.index('void OnB9SubtypeChanged()'):][:1200])
         self.assertIn('B9FaceMorphCompatibility.AllowsFaceMorph(part, other, out reason)', MAIN)
         self.assertNotIn('using B9PartSwitch', HELPER)
 
@@ -81,8 +82,8 @@ class B9TextureFaceMorph4102(unittest.TestCase):
         self.assertEqual((ROOT/'README.md').read_bytes(),
                          (ROOT/'GameData/PartSculptor/README.md').read_bytes())
         for name in ['PartSculptor.version','GameData/PartSculptor/PartSculptor.version']:
-            self.assertIn('"BUILD": 137', (ROOT/name).read_text())
-        self.assertIn('AssemblyVersion("0.0.4.137")',
+            self.assertIn('"BUILD": 147', (ROOT/name).read_text())
+        self.assertIn('AssemblyVersion("0.0.4.147")',
                       (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 

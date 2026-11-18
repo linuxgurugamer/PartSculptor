@@ -20,7 +20,7 @@ class StretchAltAndMorphReplacement496(unittest.TestCase):
     def test_morph_help_panel_calculates_width_per_line(self):
         code = (CODE / 'FaceMorphGizmo.cs').read_text()
         self.assertIn("StringSplitOptions.RemoveEmptyEntries", code)
-        self.assertIn('style.wordWrap = false;', code)
+        self.assertIn('style.wordWrap = true;', code)
         self.assertIn('style.CalcMinMaxWidth(new GUIContent(lines[i])', code)
         self.assertIn('bounds.width = maxLineWidth + style.padding.left + style.padding.right;', code)
 

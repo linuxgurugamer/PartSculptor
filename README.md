@@ -36,6 +36,10 @@ The same setting applies to attached-face matching **and Copy attached
 morph steps** (including the copied child face). Extreme tilts can
 distort mesh geometry, colliders or attachment behavior.
 
+**Diagnostic logging:** `debugLogChanges` in `GameData/PartSculptor/PluginData/Settings.cfg` controls `ScaleDebug` messages and the logger level selected at startup. Restart KSP after changing it. `ScaleDebug` entries use `Log.Debug`, and enabling diagnostics selects the `DETAIL` logger level so those messages are written.
+
+**Troubleshooting screen messages:** Every PartSculptor message shown on screen is also logged to `KSP.log` as `[ScreenMessage]` with the exact message, code source, part title/name/instance, and its `GameData` asset path (`partUrl`) and exact config filename (`configFileFullName`) where available. These entries are written even when `debugLogChanges = false`, making it easier to identify the mod supplying a problematic part.
+
 ## Requirements
 
 - KSP **1.12.x**
@@ -175,7 +179,7 @@ In **Vessel Inspector → Settings**, choose the **Face morph snap increment**: 
 
 ### Which parts can be morphed
 
-Face morphing works on parts with readable static meshes and supported colliders. A `ModuleAnimateGeneric` module alone no longer blocks morphing: the part still undergoes normal mesh/collider validation. Skinned or dynamically regenerated meshes are not supported, and animation-driven transform movement may produce distorted deployed geometry or misaligned colliders; test animated parts carefully. B9 Part Switch subtypes can change resources, use `TEXTURE` blocks (including `transform` / `baseTransform` texture targets), or use `transform = someModelName` to show/hide **pre-existing static model variants**. PartSculptor captures both active and inactive variant meshes, so they remain morphed when the subtype changes. Nested `TRANSFORM { ... }` blocks that reposition, rotate, or scale transforms, attachment-node switches, and unsupported `MATERIAL` blocks are not supported.
+Face morphing works on parts with readable static meshes and supported colliders. A `ModuleAnimateGeneric` module alone no longer blocks morphing: the part still undergoes normal mesh/collider validation. Skinned or dynamically regenerated meshes are not supported, and animation-driven transform movement may produce distorted deployed geometry or misaligned colliders; test animated parts carefully. B9 Part Switch subtypes can change resources, use `TEXTURE` blocks (including `transform` / `baseTransform` texture targets), or use `transform = someModelName` to show/hide **pre-existing static model variants**. PartSculptor captures both active and inactive variant meshes, so they remain morphed when the subtype changes. Nested `SUBTYPE { NODE { name = ... position = ... } }` stack-node modifiers (including `positionOffset` and `size`) are supported. A subtype without a NODE override returns to the original PART node baseline. B9 still controls node visibility via the separate `node = ...` selector, which PartSculptor does not override. Nested `SUBTYPE { MODULE { ... } }` blocks are ignored by the face-morph compatibility check (B9PartSwitch retains responsibility for applying them). Nested `TRANSFORM { ... }` blocks that reposition, rotate, or scale model transforms, separate node-visibility switches, and unsupported `MATERIAL` blocks are not supported.
 
 Always check collisions, attachments, and flight behavior before relying on a heavily morphed craft.
 
@@ -250,6 +254,23 @@ If in-game angles disagree, set `debugLogChanges = true` in
 `GameData/PartSculptor/PluginData/Settings.cfg` and compare the `mirrored face
 inclination` entries in `KSP.log`.
 
+### B9 mesh-switch attachment node modifiers (0.0.4.145)
+
+When a B9PartSwitch subtype changes a stack attachment node using `SUBTYPE { NODE { name = ... position = ... } }`, PartSculptor reads the selected subtype's immutable `position`, optional `positionOffset`, and `size` as its native node data. Selectors support exact names, `*`/`?` wildcards, and B9 `/regex/` patterns. A subtype without a matching `NODE` override restores the original PART node position and size, instead of inheriting the prior stretched subtype. PartSculptor then applies its X/Y/Z stretch and any face morph without multiplying those changes on repeated switches or craft loads. B9 still owns node visibility (`node = ...`) and mesh selection (`transform = ...`): a `NODE` modifier moves/resizes an existing stack node, it does not create or enable it. Unlike older PartSculptor versions, valid NODE modifiers no longer disqualify otherwise morph-safe static mesh variants. Ambiguous or invalid NODE modifiers, and mesh-repositioning `TRANSFORM { ... }` blocks, remain unsupported for face morphing.
+
+For example, ORANGES `oranges_NLSUS_interstage` has a stock `top` Y of `2.4885` in NLSUS-A and an override of `1.208` in NLSUS-B. With a PartSculptor Y stretch of 1.5 and no TweakScale, the expected positions are Y=3.73275 (A) and Y=1.812 (B). Both nodes should remain visible where B9's active mesh expects them. Test both switch directions, with and without a part attached to `top`.
+
+### External attachment-node updates (0.0.4.138)
+
+PartSculptor now remembers the native positions supplied by other part modules as
+well as its own pre-morph and final deformed attachment-node positions. When a
+compatible stock variant or B9 switch changes a node, it reapplies the current
+stretch and face morph without treating its own previous morph as a new base.
+The history is written into craft files and supports existing craft files that
+pre-date the feature. Normal editor changes and load/flight startup repairs use
+different movement rules to avoid moving a saved craft during initialization.
+See `Tests/EXTERNAL_NODE_RECOVERY_0.0.4.138.md` for an in-game test plan.
+
 ## Troubleshooting
 
 ### Morph handles don't appear
@@ -322,7 +343,7 @@ preserved across subtype switches, undo, symmetry, and craft reloads. B9 remains
 the owner of parent/child tank allocation.
 
 ### Limitations
-- B9PartSwitch resource and `TEXTURE` changes are supported. `transform`/`baseTransform` inside `TEXTURE` select renderers; `transform = ...` directly inside `SUBTYPE` toggles pre-existing static model variants and is also supported. All existing variant meshes, including inactive ones, are morphed. Nested `TRANSFORM` blocks that move/rotate/scale geometry, node switches, `MATERIAL` blocks, and unknown B9 operations remain unsupported. For variant models with different geometry, verify the full set of meshes, collision shapes, attachment placement, and flight behavior in-game.
+- B9PartSwitch resource and `TEXTURE` changes are supported. `transform`/`baseTransform` inside `TEXTURE` select renderers; `transform = ...` directly inside `SUBTYPE` toggles pre-existing static model variants and is also supported. All existing variant meshes, including inactive ones, are morphed. Nested `NODE` modifiers that move/resize existing stack nodes are now supported (position, positionOffset, size, exact/glob/regex node names). Nested `MODULE` blocks under B9 subtypes are ignored by the face-morph safety checker and left to B9. Nested `TRANSFORM` blocks that move/rotate/scale model geometry, separate `node = ...` visibility switches, and `MATERIAL` blocks remain unsupported for face morphing. Unrecognized B9 fields with numeric scalar or numeric-vector values are rejected, while unknown nonnumeric fields are allowed by the compatibility-value filter; unrecognized nested nodes remain rejected. For variant models with different geometry, verify the full set of meshes, collision shapes, attachment placement, and flight behavior in-game.
 - Procedural Parts (`ProceduralPart`) are not supported.  The ModuleManager patch that adds `ModulePartSculptor` skips any part that already has `ModulePartSculptor` or contains `ProceduralPart`.
 - The automatic ModuleManager patch also skips parts containing `WingProcedural`, `SmartTankPart`, `DiameterMatcher`, or `TextureDefaulter`. These parts do not receive `ModulePartSculptor` automatically.
 

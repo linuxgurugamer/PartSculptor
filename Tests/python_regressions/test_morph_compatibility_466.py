@@ -22,7 +22,7 @@ class MorphCompatibility466(unittest.TestCase):
         self.assertIn('module == null ?', TOOL)
         self.assertIn('no PartSculptor module', TOOL)
         self.assertIn('selectedModule.FaceMorphFailure', TOOL)
-        self.assertIn('ScreenMessages.PostScreenMessage(faceStatus', TOOL)
+        self.assertIn('PartSculptorScreenMessages.Post(clicked, faceStatus', TOOL)
 
     def test_camera_hint_and_protected_geometry(self):
         self.assertIn('if (onCamera == 0)', GIZMO)
@@ -31,8 +31,8 @@ class MorphCompatibility466(unittest.TestCase):
         self.assertIn('Robotic / transform-switching geometry unsupported', MAIN)
 
     def test_versions(self):
-        self.assertIn('"BUILD": 137', (ROOT/'PartSculptor.version').read_text())
-        self.assertIn('"BUILD": 137', (ROOT/'GameData/PartSculptor/PartSculptor.version').read_text())
-        self.assertIn('0.0.4.137', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+        self.assertIn('"BUILD": 147', (ROOT/'PartSculptor.version').read_text())
+        self.assertIn('"BUILD": 147', (ROOT/'GameData/PartSculptor/PartSculptor.version').read_text())
+        self.assertIn('0.0.4.147', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__': unittest.main()

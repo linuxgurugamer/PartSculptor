@@ -159,9 +159,9 @@ namespace PartSculptor
                         ": no PartSculptor module" :
                         "Morph unavailable on " + partTitle + ": " +
                         module.MorphSelectionFailure;
-                    Log.Warning("[PartSculptor] " + faceStatus);
-                    ScreenMessages.PostScreenMessage(faceStatus, Settings.screenMessageTime,
-                        ScreenMessageStyle.UPPER_CENTER);
+                    Log.Warning(faceStatus);
+                    PartSculptorScreenMessages.Post(clicked, faceStatus, Settings.screenMessageTime,
+                        ScreenMessageStyle.UPPER_CENTER, "EditorStretchTool.PickPart");
                 }
                 else faceStatus = "";
                 return;
@@ -207,7 +207,7 @@ namespace PartSculptor
             ControlTypes mask = EditorPickLock();
             if (mask == (ControlTypes)0)
             {
-                Log.Warning("[PartSculptor] Stretch tool could not locate an editor pickup lock.");
+                Log.Warning("Stretch tool could not locate an editor pickup lock.");
                 return false;
             }
             InputLockManager.SetControlLock(mask, LockId);
@@ -369,9 +369,9 @@ namespace PartSculptor
                     ": " + selectedModule.FaceMorphFailure;
                 if (!string.IsNullOrEmpty(faceStatus))
                 {
-                    Log.Warning("[PartSculptor] " + faceStatus);
-                    ScreenMessages.PostScreenMessage(faceStatus, Settings.screenMessageTime,
-                        ScreenMessageStyle.UPPER_CENTER);
+                    Log.Warning(faceStatus);
+                    PartSculptorScreenMessages.Post(selectedModule.part, faceStatus, Settings.screenMessageTime,
+                        ScreenMessageStyle.UPPER_CENTER, "EditorStretchTool.SelectGizmo");
                 }
             }
             else
@@ -522,7 +522,7 @@ namespace PartSculptor
             }
             catch (Exception e)
             {
-                Log.Warning("[PartSculptor] Cannot load Stretch tool icon: " + e.Message);
+                Log.Warning("Cannot load Stretch tool icon: " + e.Message);
             }
             if (texture != null)
             {
@@ -577,7 +577,7 @@ namespace PartSculptor
             }
             catch (Exception e)
             {
-                Log.Warning("[PartSculptor] Cannot load Morph tool icon: " + e.Message);
+                Log.Warning("Cannot load Morph tool icon: " + e.Message);
             }
             if (morphTexture != null)
             {

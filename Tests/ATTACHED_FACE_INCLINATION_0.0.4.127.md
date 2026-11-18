@@ -24,7 +24,7 @@
    recognizes the connection; it may need reattachment to seed its map.
 7. For debugging, set `debugLogChanges = true` in
    `GameData/PartSculptor/PluginData/Settings.cfg`, restart KSP, and inspect
-   `[PartSculptor]` / `mirrored face inclination` log entries. They show
+   `mirrored face inclination` log entries. They show
    total source/receiver tilt before/after rigid rotation, scale factors,
    and face dimensions. Record a failing step with the corresponding log.
 

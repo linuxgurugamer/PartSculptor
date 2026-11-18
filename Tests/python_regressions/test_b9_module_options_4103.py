@@ -32,9 +32,9 @@ class B9ModuleOptions4103(unittest.TestCase):
                       'showCurrentSubtype', 'showInfo'):
             self.assertIn(field, allowed('ModuleFields'))
 
-    def test_unknown_values_still_rejected(self):
+    def test_unknown_numeric_values_still_rejected(self):
         self.assertIn('if (!AllowedValues(config, ModuleFields, label, out reason)) return false;', HELPER)
-        self.assertIn('reason = location + " has unsupported field', HELPER)
+        self.assertIn('reason = location + " has unsupported numeric field', HELPER)
         self.assertNotIn('mesh', allowed('ModuleFields'))
 
     def test_geometry_switches_still_rejected(self):
@@ -48,8 +48,8 @@ class B9ModuleOptions4103(unittest.TestCase):
         for token in (b'affectFARVoxels', b'advancedTweakablesOnly'):
             self.assertIn(token, readme)
         for name in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT / name).read_text())['VERSION']['BUILD'], 137)
-        self.assertIn('AssemblyVersion("0.0.4.137")',
+            self.assertEqual(json.loads((ROOT / name).read_text())['VERSION']['BUILD'], 147)
+        self.assertIn('AssemblyVersion("0.0.4.147")',
                       (ROOT / 'PartSculptor/AssemblyVersion.cs').read_text())
 
 

@@ -158,7 +158,7 @@ namespace PartSculptor
             }
             catch (Exception e)
             {
-                Log.Error("[PartSculptor] Post-load attachment alignment failed: " + e);
+                Log.Error("Post-load attachment alignment failed: " + e);
             }
         }
 

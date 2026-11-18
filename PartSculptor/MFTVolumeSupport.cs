@@ -213,7 +213,7 @@ namespace PartSculptor
                 {
                     if (!binding.Warned)
                     {
-                        Log.Warning("[PartSculptor] Cannot read ModuleFuelTanks.volume on " +
+                        Log.Warning("Cannot read ModuleFuelTanks.volume on " +
                             binding.Module.GetType().FullName + "; unable to resize tank.");
                         binding.Warned = true;
                     }
@@ -262,7 +262,7 @@ namespace PartSculptor
                     {
                         if (!binding.Warned)
                         {
-                            Log.Warning("[PartSculptor] ModuleFuelTanks volume update " +
+                            Log.Warning("ModuleFuelTanks volume update " +
                                 "did not take effect on " + binding.Module.GetType().FullName +
                                 " (assembly " + binding.Module.GetType().Assembly.GetName().Name +
                                 "): requested " + wanted.ToString("R", CultureInfo.InvariantCulture) +
@@ -285,7 +285,7 @@ namespace PartSculptor
                 {
                     if (!binding.Warned)
                     {
-                        Log.Warning("[PartSculptor] MFT/RealFuels volume update failed: " +
+                        Log.Warning("MFT/RealFuels volume update failed: " +
                             (e.InnerException ?? e).Message);
                         binding.Warned = true;
                     }

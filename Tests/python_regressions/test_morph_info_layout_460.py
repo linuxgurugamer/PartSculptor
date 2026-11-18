@@ -27,7 +27,7 @@ class MorphInfoLayout460(unittest.TestCase):
         self.assertIn('FaceMorphGizmo.DrawActive(helpRect);', EDITOR)
         self.assertIn('FaceMorphGizmo.DrawHelpBox(helpRect, faceStatus);', EDITOR)
         self.assertIn('private void DrawLabels(Rect helpRect)', MORPH)
-        self.assertIn('style.wordWrap = false;', MORPH)
+        self.assertIn('style.wordWrap = true;', MORPH)
         self.assertIn('style.CalcMinMaxWidth(new GUIContent(lines[i])', MORPH)
         self.assertIn('style.CalcHeight(new GUIContent(lines[i]), bounds.width)', MORPH)
         self.assertIn('DrawHelpBox(helpRect,', MORPH)

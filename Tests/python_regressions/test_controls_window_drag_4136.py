@@ -30,8 +30,8 @@ class ControlsWindowDrag136(unittest.TestCase):
 
     def test_release_metadata_and_documentation(self):
         for rel in ['PartSculptor.version','GameData/PartSculptor/PartSculptor.version']:
-            self.assertEqual(137, json.loads((ROOT/rel).read_text())['VERSION']['BUILD'])
-        self.assertIn('AssemblyVersion("0.0.4.137")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(147, json.loads((ROOT/rel).read_text())['VERSION']['BUILD'])
+        self.assertIn('AssemblyVersion("0.0.4.147")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertIn('## 0.0.4.136', (ROOT/'Changelog.md').read_text())
         a = (ROOT/'README.md').read_text()
         b = (ROOT/'GameData/PartSculptor/README.md').read_text()

@@ -1,5 +1,16 @@
 Changelog
 
+0.0.4.147
+	Improved support for B9partSwitch, now supports NODE and MODULE stanza
+
+0.0.4.142
+	Improved logging support
+	Added logging of all screen messages
+	Added wordwrap to the onscreen messages under the widgets
+
+0.0.4.139
+	Fixed B9 issue with nodes being lost when switching between different B9PS meshes
+
 0.0.4.134
 	Added window containing all controls in the PAW for easier access to all controls.
 	Added ability to hide the PAW window and controls when not needed.

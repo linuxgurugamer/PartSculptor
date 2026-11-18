@@ -122,7 +122,7 @@ namespace PartSculptor
                     try { total += modifier.GetModuleMass(native, sit); }
                     catch (Exception e)
                     {
-                        Log.Warning("[PartSculptor] " + p.Kind +
+                        Log.Warning(p.Kind +
                             " mass modifier: " + e.Message);
                     }
                 }
@@ -145,7 +145,7 @@ namespace PartSculptor
                     try { total += modifier.GetModuleCost(native, sit); }
                     catch (Exception e)
                     {
-                        Log.Warning("[PartSculptor] " + p.Kind +
+                        Log.Warning(p.Kind +
                             " cost modifier: " + e.Message);
                     }
                 }

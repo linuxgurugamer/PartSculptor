@@ -46,7 +46,7 @@ class B9SubtypeTransform4104(unittest.TestCase):
 
     def test_moving_transform_nodes_and_attach_nodes_still_rejected(self):
         nested = HELPER[HELPER.index('foreach (ConfigNode nested in child.nodes)'):]
-        for operation in ('TRANSFORM', 'NODE', 'MODULE', 'MATERIAL'):
+        for operation in ('TRANSFORM', 'MATERIAL'):
             self.assertNotIn('string.Equals(nested.name, "' + operation + '"', nested)
         self.assertIn('contains geometry/unknown node', nested)
         self.assertNotIn('node', keys('SubtypeFields'))
@@ -68,7 +68,7 @@ class B9SubtypeTransform4104(unittest.TestCase):
     def test_b9_changes_reapply_existing_morph(self):
         callback = MAIN[MAIN.index('void OnB9SubtypeChanged()'):]
         callback = callback[:callback.index('void OnFuelSwitchChanged()')]
-        self.assertIn('Apply(false, false, false);', callback)
+        self.assertIn('Apply(moveForeign, moveForeign, false, NodeApplyReason.Foreign);', callback)
         self.assertIn('faceMorph.RebaseNodes();', MAIN)
         self.assertIn('faceMorph.Apply(GetMorphFace(0), GetMorphFace(1), false);', MAIN)
         self.assertIn('B9FaceMorphCompatibility.AllowsFaceMorph(part, other, out reason)', MAIN)
@@ -87,8 +87,8 @@ class B9SubtypeTransform4104(unittest.TestCase):
         self.assertEqual((ROOT/'README.md').read_bytes(),
                          (ROOT/'GameData/PartSculptor/README.md').read_bytes())
         for name in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'], 137)
-        self.assertIn('AssemblyVersion("0.0.4.137")',
+            self.assertEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'], 147)
+        self.assertIn('AssemblyVersion("0.0.4.147")',
                       (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__':

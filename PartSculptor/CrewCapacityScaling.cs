@@ -54,7 +54,7 @@ namespace PartSculptor
             if (next.Requested > next.Applied && next.Status != lastWarning)
             {
                 lastWarning = next.Status;
-                Log.Warning("[PartSculptor] " + part.name +
+                Log.Warning(part.name +
                     ": requested crew capacity " + next.Requested +
                     " but safe capacity is " + next.Applied + ". " + next.Status);
             }
@@ -135,7 +135,7 @@ namespace PartSculptor
             }
             catch (Exception e)
             {
-                Log.Warning("[PartSculptor] IVA seat check failed: " + e.Message);
+                Log.Warning("IVA seat check failed: " + e.Message);
             }
             return verifiedSeatCount;
         }

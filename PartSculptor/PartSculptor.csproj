@@ -66,6 +66,7 @@
     <Compile Include="CrewCapacityMath.cs" />
     <Compile Include="ScaleMath.cs" />
     <Compile Include="AttachmentLoadFix.cs" />
+    <Compile Include="NodeGeometryHistory.cs" />
     <Compile Include="ScalePresetMath.cs" />
     <Compile Include="ScalePresetRegistry.cs" />
     <Compile Include="ScalePresetEditor.cs" />
@@ -89,6 +90,7 @@
     <Compile Include="EngineEffectScaling.cs" />
     <Compile Include="DockingPortScaling.cs" />
     <Compile Include="ScaleDebug.cs" />
+    <Compile Include="PartSculptorScreenMessages.cs" />
     <Compile Include="ScaledValuesWindow.cs" />
     <Compile Include="Settings.cs" />
     <Compile Include="VesselInspector.cs" />

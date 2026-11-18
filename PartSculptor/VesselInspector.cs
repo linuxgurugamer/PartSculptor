@@ -100,7 +100,7 @@ namespace PartSculptor
                 }
                 catch (Exception e)
                 {
-                    Log.Error("[PartSculptor] Unable to create ToolbarController button: " + e);
+                    Log.Error("Unable to create ToolbarController button: " + e);
                 }
             }
         }
@@ -216,7 +216,7 @@ namespace PartSculptor
                 if (!warnedUnavailableLock)
                 {
                     warnedUnavailableLock = true;
-                    Log.Warning("[PartSculptor] Inspect-only: KSP input control mask unavailable in this scene; stock part actions may still occur.");
+                    Log.Warning("Inspect-only: KSP input control mask unavailable in this scene; stock part actions may still occur.");
                 }
                 return;
             }
@@ -338,7 +338,7 @@ namespace PartSculptor
             }
             catch (Exception e)
             {
-                Log.Warning("[PartSculptor] Could not highlight hovered part: " + e.Message);
+                Log.Warning("Could not highlight hovered part: " + e.Message);
                 ClearHoverHighlight();
             }
         }

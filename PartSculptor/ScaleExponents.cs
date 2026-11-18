@@ -164,7 +164,7 @@ namespace PartSculptor
                 string name = node.GetValue("name");
                 if (!string.IsNullOrEmpty(name)) scaleTypes[name] = node;
             }
-            Log.Info("[PartSculptor] Loaded " + rules.Count + " exponent rules, " +
+            Log.Info("Loaded " + rules.Count + " exponent rules, " +
                 behaviors.Count + " behaviors and " + scaleTypes.Count + " scale types from GameData.");
         }
 
@@ -261,12 +261,12 @@ namespace PartSculptor
             ConfigNode node;
             if (!behaviors.TryGetValue(name, out node))
             {
-                Log.Warning("[PartSculptor] Unknown TWEAKSCALEBEHAVIOR '" + name + "'.");
+                Log.Warning("Unknown TWEAKSCALEBEHAVIOR '" + name + "'.");
                 return;
             }
             if (!visiting.Add(name))
             {
-                Log.Warning("[PartSculptor] Circular TWEAKSCALEBEHAVIOR inheritance at '" + name + "'.");
+                Log.Warning("Circular TWEAKSCALEBEHAVIOR inheritance at '" + name + "'.");
                 return;
             }
             // A behavior may inherit from one or more other behavior names.
@@ -298,7 +298,7 @@ namespace PartSculptor
             if (!scaleTypes.TryGetValue(name, out node)) return;
             if (!visiting.Add(name))
             {
-                Log.Warning("[PartSculptor] Circular SCALETYPE inheritance at '" + name + "'.");
+                Log.Warning("Circular SCALETYPE inheritance at '" + name + "'.");
                 return;
             }
             // In a SCALETYPE, 'type' names its parent SCALETYPE.
@@ -680,7 +680,7 @@ namespace PartSculptor
             }
             catch (Exception e)
             {
-                Log.Warning("[PartSculptor] Could not scale " + Description + ": " + e.Message);
+                Log.Warning("Could not scale " + Description + ": " + e.Message);
             }
         }
     }
@@ -747,7 +747,7 @@ namespace PartSculptor
                 foreach (ConfigNode inline in ownModule.GetNodes("TWEAKSCALEEXPONENTS"))
                     MergeInline(inline, partRule, tweakRule, custom);
             if (selected.Applied.Count > 0)
-                Log.Info("[PartSculptor] " + part.name + " uses behavior(s): " + ActiveBehaviors +
+                Log.Info("" + part.name + " uses behavior(s): " + ActiveBehaviors +
                     "; scale type: " + (selected.Get("type") ?? "none") + ".");
             // MassScale and DryCost in the TweakScale config govern our dry
             // IPartMassModifier/IPartCostModifier, never the TweakScale module's

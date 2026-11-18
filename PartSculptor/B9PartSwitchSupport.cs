@@ -6,6 +6,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
+using System.Text;
+using System.Text.RegularExpressions;
 
 using static PartSculptor.RegisterToolbar;
 
@@ -287,6 +289,170 @@ namespace PartSculptor
             return result.switchers.Count != 0 ? result : null;
         }
 
+        // B9's SUBTYPE/NODE modifiers change stack-node geometry, but they do
+        // not toggle nodes: SUBTYPE's separate `node = id` field does that.
+        // For any node controlled by a NODE modifier on ANY subtype, resolve
+        // every subtype from its immutable, post-ModuleManager PART config.
+        // This prevents a previous subtype's stretched/morphed node from
+        // becoming the next subtype's native baseline.
+        //
+        // B9 2.16 supports position, positionOffset, size and exact/glob/regex
+        // selectors. This deliberately does not take ownership of visibility.
+        internal bool TryGetConfiguredStackNode(Part part, string id,
+            out UnityEngine.Vector3 nativePosition, out int nativeSize)
+        {
+            nativePosition = UnityEngine.Vector3.zero;
+            nativeSize = 0;
+            if (part == null || part.partInfo == null ||
+                part.partInfo.partConfig == null || string.IsNullOrEmpty(id)) return false;
+
+            Part prefab = part.partInfo.partPrefab;
+            if (prefab == null) return false;
+            AttachNode prefabNode = null;
+            foreach (AttachNode candidate in prefab.attachNodes)
+                if (candidate != null && string.Equals(candidate.id, id, StringComparison.Ordinal))
+                { prefabNode = candidate; break; }
+            if (prefabNode == null) return false;
+            UnityEngine.Vector3 defaultPosition = prefabNode.position;
+            int defaultSize = prefabNode.size;
+
+            ConfigNode partConfig = part.partInfo.partConfig;
+            // KSP's PART rescaleFactor may already have transformed the prefab
+            // attach-node coordinates; convert the raw NODE config by the same
+            // factor. Prefer a corresponding nonzero config-to-prefab vector.
+            float configToPrefab = 1f;
+            UnityEngine.Vector3 configDefault;
+            if (TryReadNodeVector(partConfig.GetValue("node_stack_" + id), out configDefault) &&
+                configDefault.sqrMagnitude > 1e-10f && defaultPosition.sqrMagnitude > 1e-10f)
+                configToPrefab = defaultPosition.magnitude / configDefault.magnitude;
+
+            bool owned = false;
+            int index = 0;
+            foreach (ConfigNode switchConfig in partConfig.GetNodes("MODULE"))
+            {
+                if (!string.Equals(switchConfig.GetValue("name"), "ModuleB9PartSwitch",
+                    StringComparison.OrdinalIgnoreCase)) continue;
+                if (index >= switchers.Count) break;
+                PartModule module = switchers[index++];
+                string selectedSubtype = SelectedSubtype(module);
+                bool controlsThisNode = false;
+                ConfigNode activeModifier = null;
+                foreach (ConfigNode subtype in switchConfig.GetNodes("SUBTYPE"))
+                {
+                    bool active = string.Equals(subtype.GetValue("name"), selectedSubtype,
+                        StringComparison.Ordinal);
+                    foreach (ConfigNode modifier in subtype.GetNodes("NODE"))
+                    {
+                        string selector = modifier.GetValue("name");
+                        if (!NodeNameMatches(selector, id) ||
+                            (!modifier.HasValue("position") &&
+                             !modifier.HasValue("positionOffset") &&
+                             !modifier.HasValue("size"))) continue;
+                        controlsThisNode = true;
+                        if (active)
+                        {
+                            // Ambiguous matching modifiers cannot be safely
+                            // reconstructed as an immutable native baseline.
+                            if (activeModifier != null) return false;
+                            activeModifier = modifier;
+                        }
+                    }
+                }
+                if (!controlsThisNode) continue;
+                // B9 can be installed with multiple independent switchers.
+                // Two switchers defining the same node are ambiguous here:
+                // let B9 supply the runtime position in that case.
+                if (owned) return false;
+                owned = true;
+                nativePosition = defaultPosition;
+                nativeSize = defaultSize;
+                if (activeModifier == null) continue;  // Original PART defaults.
+
+                UnityEngine.Vector3 vector;
+                if (activeModifier.HasValue("position"))
+                {
+                    if (!TryReadNodeVector(activeModifier.GetValue("position"), out vector))
+                        return false;
+                    nativePosition = vector * configToPrefab;
+                }
+                if (activeModifier.HasValue("positionOffset"))
+                {
+                    if (!TryReadNodeVector(activeModifier.GetValue("positionOffset"), out vector))
+                        return false;
+                    nativePosition += vector * configToPrefab;
+                }
+                if (activeModifier.HasValue("size"))
+                {
+                    int configuredSize;
+                    if (!int.TryParse(activeModifier.GetValue("size"), NumberStyles.Integer,
+                        CultureInfo.InvariantCulture, out configuredSize) || configuredSize < 0)
+                        return false;
+                    nativeSize = configuredSize;
+                }
+            }
+            return owned;
+        }
+
+        // Retain the previously exposed position-only entry point for existing
+        // integrations; production now also reads the configured size.
+        internal bool TryGetConfiguredStackNodePosition(Part part, string id,
+            out UnityEngine.Vector3 nativePosition)
+        {
+            int size;
+            return TryGetConfiguredStackNode(part, id, out nativePosition, out size);
+        }
+
+        // B9 node names may be literal, globs (* and ?) or /regex/. The
+        // escaped leading slash (\/...) denotes a literal slash in B9.
+        internal static bool NodeNameMatches(string selector, string nodeId)
+        {
+            if (string.IsNullOrWhiteSpace(selector) || string.IsNullOrEmpty(nodeId))
+                return false;
+            selector = selector.Trim();
+            if (selector.StartsWith(@"\/", StringComparison.Ordinal) &&
+                selector.EndsWith("/", StringComparison.Ordinal))
+                selector = selector.Substring(1);
+            try
+            {
+                if (selector.Length > 1 && selector[0] == '/' &&
+                    selector[selector.Length - 1] == '/')
+                    return Regex.IsMatch(nodeId, selector.Substring(1, selector.Length - 2),
+                        RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(50));
+                if (selector.IndexOf('*') >= 0 || selector.IndexOf('?') >= 0)
+                {
+                    var pattern = new StringBuilder("^");
+                    foreach (char c in selector)
+                        pattern.Append(c == '*' ? ".*" : c == '?' ? "." : Regex.Escape(c.ToString()));
+                    pattern.Append('$');
+                    return Regex.IsMatch(nodeId, pattern.ToString(),
+                        RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(50));
+                }
+                return string.Equals(selector, nodeId, StringComparison.Ordinal);
+            }
+            catch (ArgumentException) { return false; }
+            catch (RegexMatchTimeoutException) { return false; }
+        }
+
+        internal static bool TryReadNodeVector(string source, out UnityEngine.Vector3 result)
+        {
+            result = UnityEngine.Vector3.zero;
+            if (string.IsNullOrEmpty(source)) return false;
+            string[] fields = source.Split(',');
+            if (fields.Length < 3) return false;
+            float x, y, z;
+            if (!float.TryParse(fields[0].Trim(), NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out x) ||
+                !float.TryParse(fields[1].Trim(), NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out y) ||
+                !float.TryParse(fields[2].Trim(), NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out z) ||
+                float.IsNaN(x) || float.IsNaN(y) || float.IsNaN(z) ||
+                float.IsInfinity(x) || float.IsInfinity(y) || float.IsInfinity(z))
+                return false;
+            result = new UnityEngine.Vector3(x, y, z);
+            return true;
+        }
+
         internal string Signature
         {
             get
@@ -394,7 +560,7 @@ namespace PartSculptor
                 }
                 catch (Exception e)
                 {
-                    Log.Warning("[PartSculptor] B9 resource ownership check failed: " +
+                    Log.Warning("B9 resource ownership check failed: " +
                         e.Message);
                 }
             }
@@ -471,7 +637,7 @@ namespace PartSculptor
                 }
                 catch (Exception e)
                 {
-                    Log.Warning("[PartSculptor] B9 parent volume cache refresh failed: " +
+                    Log.Warning("B9 parent volume cache refresh failed: " +
                         e.Message);
                 }
                 refresh.Add(parent);
@@ -496,7 +662,7 @@ namespace PartSculptor
                 try { binding.UpdateVolumeMethod.Invoke(binding.Module, null); }
                 catch (Exception e)
                 {
-                    Log.Warning("[PartSculptor] B9 UpdateVolume failed on " +
+                    Log.Warning("B9 UpdateVolume failed on " +
                         binding.Key + ": " + e.Message);
                 }
             }
@@ -598,7 +764,7 @@ namespace PartSculptor
                 }
                 catch (Exception e)
                 {
-                    Log.Warning("[PartSculptor] B9 capacity reconciliation failed on " +
+                    Log.Warning("B9 capacity reconciliation failed on " +
                         binding.Key + ": " + e.Message);
                 }
             }
@@ -685,7 +851,7 @@ namespace PartSculptor
                             ExtraForBinding(binding, live, exponentFactor, false);
                     }
                     catch (Exception e)
-                    { Log.Warning("[PartSculptor] B9 mass delta failed: " + e.Message); }
+                    { Log.Warning("B9 mass delta failed: " + e.Message); }
                 }
                 return total;
             }
@@ -713,7 +879,7 @@ namespace PartSculptor
                             ExtraForBinding(binding, live, exponentFactor, true);
                     }
                     catch (Exception e)
-                    { Log.Warning("[PartSculptor] B9 cost delta failed: " + e.Message); }
+                    { Log.Warning("B9 cost delta failed: " + e.Message); }
                 }
                 return total;
             }
@@ -734,7 +900,7 @@ namespace PartSculptor
                     if (modifier == null) continue;
                     try { total += modifier.GetModuleMass(nativeMass, situation); }
                     catch (Exception e)
-                    { Log.Warning("[PartSculptor] B9 mass modifier failed: " + e.Message); }
+                    { Log.Warning("B9 mass modifier failed: " + e.Message); }
                 }
                 return total;
             }
@@ -755,7 +921,7 @@ namespace PartSculptor
                     if (modifier == null) continue;
                     try { total += modifier.GetModuleCost(nativeCost, situation); }
                     catch (Exception e)
-                    { Log.Warning("[PartSculptor] B9 cost modifier failed: " + e.Message); }
+                    { Log.Warning("B9 cost modifier failed: " + e.Message); }
                 }
                 return total;
             }

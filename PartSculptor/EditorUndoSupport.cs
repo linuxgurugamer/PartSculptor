@@ -21,7 +21,7 @@ namespace PartSculptor
             }
             catch (Exception e)
             {
-                Log.Warning("[PartSculptor] Could not register editor undo backup: " + e.Message);
+                Log.Warning("Could not register editor undo backup: " + e.Message);
                 return false;
             }
         }

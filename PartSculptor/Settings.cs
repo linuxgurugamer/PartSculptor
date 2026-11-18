@@ -149,11 +149,11 @@ namespace PartSculptor
                         }
                     }
                 }
-                else Log.Warning("[PartSculptor] Settings file not found: " + path);
+                else Log.Warning("Settings file not found: " + path);
             }
             catch (Exception e)
             {
-                Log.Error("[PartSculptor] Unable to load settings from " + path + ": " + e);
+                Log.Error("Unable to load settings from " + path + ": " + e);
             }
             if (!(MinScale > 0f)) MinScale = 0.001f;
             if (!(MaxScale > MinScale)) MaxScale = MinScale * 10f;
@@ -184,7 +184,7 @@ namespace PartSculptor
                 0.5f, 3f, 27f);
             NormalizeCareerTier(ref CareerLevel3MinScale, ref CareerLevel3MaxScale, ref CareerLevel3MaxVolume,
                 0.25f, 10f, 1000f);
-            Log.Info(string.Format("[PartSculptor] Axes {0} .. {1}; mass factor <= {2}; total volume factor <= {3}",
+            Log.Info(string.Format("Axes {0} .. {1}; mass factor <= {2}; total volume factor <= {3}",
                 MinScale, MaxScale, MaxMassMultiplier, MaxVolumeMultiplier));
         }
 

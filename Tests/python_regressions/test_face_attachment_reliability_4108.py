@@ -30,7 +30,7 @@ class FaceAttachmentReliability108(unittest.TestCase):
         self.assertIn('out fitted, out error, true, Settings.MaxFaceTilt)', SOURCE)
         self.assertIn('"Match face to parent now"', SOURCE)
         self.assertIn('public void MatchFaceToParentNow()', SOURCE)
-        self.assertIn('ScreenMessages.PostScreenMessage("PartSculptor: " + reason', SOURCE)
+        self.assertIn('PartSculptorScreenMessages.Post(part, "PartSculptor: " + reason', SOURCE)
         self.assertIn('"close fit must allow slight skew caused by tilted nodes"', RUNNER)
         self.assertIn('"approximate match must still reject 45-degree roll"', RUNNER)
         self.assertLess(SOURCE.index('MatchNewStackNodeSize(source, destination);'),
@@ -38,8 +38,8 @@ class FaceAttachmentReliability108(unittest.TestCase):
 
     def test_versions_and_documentation(self):
         for path in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT / path).read_text())['VERSION']['BUILD'], 137)
-        self.assertIn('AssemblyVersion("0.0.4.137")',
+            self.assertEqual(json.loads((ROOT / path).read_text())['VERSION']['BUILD'], 147)
+        self.assertIn('AssemblyVersion("0.0.4.147")',
                       (ROOT / 'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT / 'README.md').read_bytes(),
                          (ROOT / 'GameData/PartSculptor/README.md').read_bytes())

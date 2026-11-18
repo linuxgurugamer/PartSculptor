@@ -50,10 +50,11 @@ class B9ResourceOnlyFaceMorph467(unittest.TestCase):
     def test_geometry_child_nodes_blocked(self):
         self.assertIn('string.Equals(nested.name, "RESOURCE"', HELPER)
         self.assertIn('string.Equals(nested.name, "TEXTURE"', HELPER)
-        for node in ('TRANSFORM', 'MATERIAL', 'NODE', 'MODULE'):
+        for node in ('TRANSFORM', 'MATERIAL'):
             self.assertNotIn('string.Equals(nested.name, "' + node + '"',
                              HELPER[HELPER.index('foreach (ConfigNode nested'):])
         self.assertIn('contains geometry/unknown node', HELPER)
+        self.assertIn('string.Equals(nested.name, "MODULE"', HELPER)
 
     def test_matches_switcher_and_blocks_unverified_configuration(self):
         self.assertIn('part.partInfo.partConfig', HELPER)
@@ -70,10 +71,10 @@ class B9ResourceOnlyFaceMorph467(unittest.TestCase):
         self.assertIn('B9DisableTransform', MAIN)
 
     def test_versions(self):
-        self.assertIn('"BUILD": 137', (ROOT/'PartSculptor.version').read_text())
-        self.assertIn('"BUILD": 137',
+        self.assertIn('"BUILD": 147', (ROOT/'PartSculptor.version').read_text())
+        self.assertIn('"BUILD": 147',
                       (ROOT/'GameData/PartSculptor/PartSculptor.version').read_text())
-        self.assertIn('AssemblyVersion("0.0.4.137")',
+        self.assertIn('AssemblyVersion("0.0.4.147")',
                       (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__':

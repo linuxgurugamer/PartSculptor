@@ -11,7 +11,7 @@ PROJECT = (ROOT / 'PartSculptor/PartSculptor.csproj').read_text(encoding='utf-8'
 class TestAttachmentLoad(unittest.TestCase):
     def test_calls_schedule_only_after_initial_scale_is_restored(self):
         start_finished = CODE.split('public override void OnStartFinished(', 1)[1].split('void HideFields()', 1)[0]
-        self.assertLess(start_finished.index('Apply(false, false);'), start_finished.index('AttachmentLoadFix.Schedule();'))
+        self.assertLess(start_finished.index('Apply(false, false, false, NodeApplyReason.Load);'), start_finished.index('AttachmentLoadFix.Schedule();'))
         self.assertIn('if ((HasStretchedGeometry || HasFaceMorph) && HighLogic.LoadedSceneIsEditor)', start_finished)
         self.assertIn('AttachmentLoadFix.Poll();', CODE)
         self.assertIn('if (scheduledFrame < 0 || !HighLogic.LoadedSceneIsEditor', FIX)

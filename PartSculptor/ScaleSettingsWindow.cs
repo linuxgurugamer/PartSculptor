@@ -106,7 +106,7 @@ namespace PartSculptor
                 }
                 catch (Exception e)
                 {
-                    Log.Warning("[PartSculptor] Unable to read user settings: " + e);
+                    Log.Warning("Unable to read user settings: " + e);
                 }
             }
             if (matchNodeSizesDefault.HasValue)
@@ -173,7 +173,7 @@ namespace PartSculptor
             catch (Exception e)
             {
                 error = "Could not capture settings before opening: " + e.Message;
-                Log.Error("[PartSculptor] " + error);
+                Log.Error("" + error);
                 return false;
             }
         }
@@ -225,7 +225,7 @@ namespace PartSculptor
             catch (Exception e)
             {
                 error = "Could not restore settings from when the window opened: " + e.Message;
-                Log.Error("[PartSculptor] " + error);
+                Log.Error("" + error);
                 return false;
             }
             finally
@@ -349,7 +349,7 @@ namespace PartSculptor
             catch (Exception e)
             {
                 error = "Could not save PartSculptor settings: " + e.Message;
-                Log.Error("[PartSculptor] " + error);
+                Log.Error("" + error);
                 return false;
             }
             finally
@@ -389,7 +389,7 @@ namespace PartSculptor
             catch (Exception e)
             {
                 error = "Cannot save PAW visibility: " + e.Message;
-                Log.Warning("[PartSculptor] " + error);
+                Log.Warning(error);
                 return false;
             }
             finally

@@ -61,7 +61,7 @@ namespace PartSculptor
             string oldValue = Format(before);
             string newValue = Format(after);
             if (string.Equals(oldValue, newValue, StringComparison.Ordinal)) return;
-            Log.Info("[PartSculptor][DEBUG] " + PartLabel(part) + " [" + area + "] " +
+            Log.Debug(PartLabel(part) + " [" + area + "] " +
                 name + ": " + oldValue + " -> " + newValue +
                 (string.IsNullOrEmpty(details) ? "" : "; " + details));
         }
@@ -69,7 +69,7 @@ namespace PartSculptor
         internal static void Info(Part part, string area, string message)
         {
             if (!Enabled) return;
-            Log.Info("[PartSculptor][DEBUG] " + PartLabel(part) + " [" + area + "] " + message);
+            Log.Debug(PartLabel(part) + " [" + area + "] " + message);
         }
 
         // KSP queries IPartMassModifier/IPartCostModifier frequently (possibly
@@ -84,7 +84,7 @@ namespace PartSculptor
             string old;
             if (previous.TryGetValue(area + "/" + name, out old) && old == current) return;
             previous[area + "/" + name] = current;
-            Log.Info("[PartSculptor][DEBUG] " + PartLabel(part) + " [" + area +
+            Log.Debug(PartLabel(part) + " [" + area +
                 "] " + name + ": " + (old == null ? "<first>" : old) +
                 " -> " + current);
         }

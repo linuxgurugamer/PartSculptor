@@ -25,7 +25,7 @@ variants, or a small custom part using otherwise morph-safe subtypes.
    except intentional symmetry-value propagation.
 8. Repeat with texture-only B9 subtype blocks and `transform = ...` model
    toggles; geometry-changing `TRANSFORM` and `NODE` blocks must still be refused.
-9. Check KSP.log for `[PartSculptor] B9 UpdateVolume failed` and any B9
+9. Check KSP.log for `B9 UpdateVolume failed` and any B9
    parent/child warnings. If problems appear, record the part config and
    `parentID`/`moduleID` arrangement, plus both selected subtype names.
 

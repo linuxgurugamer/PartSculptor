@@ -1,4 +1,4 @@
-"""v0.0.4.137: user-supplied Controls window with centered preset label."""
+"""v0.0.4.138: user-supplied Controls window with centered preset label."""
 from pathlib import Path
 import re
 import unittest
@@ -27,10 +27,10 @@ class PresetCentered137(unittest.TestCase):
     def test_version_and_docs(self):
         import json
         for rel in ('PartSculptor.version','GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(137,json.loads((ROOT/rel).read_text())['VERSION']['BUILD'])
-        self.assertIn('AssemblyVersion("0.0.4.137")',(ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(147,json.loads((ROOT/rel).read_text())['VERSION']['BUILD'])
+        self.assertIn('AssemblyVersion("0.0.4.147")',(ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT/'README.md').read_text(),(ROOT/'GameData/PartSculptor/README.md').read_text())
-        self.assertIn('## 0.0.4.137', (ROOT/'Changelog.md').read_text())
+        self.assertIn('## 0.0.4.138', (ROOT/'Changelog.md').read_text())
 
 if __name__ == '__main__':
     unittest.main()

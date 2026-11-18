@@ -294,7 +294,19 @@ namespace PartSculptor
         Vector3 prefabSrfOrientation;
         int prefabSrfSize;
         bool hasSrfNode;
+        // Source (pre-stretch), scaled (pre-morph), and final node poses.
+        // Persisted independently from B9 subtype-specific native baselines.
+        readonly NodeGeometryHistory nodeHistory = new NodeGeometryHistory();
+        int geometryInitializedFrame;
         bool initialized;
+
+        enum NodeApplyReason
+        {
+            User,       // explicit scaling or ordinary symmetry/undo change
+            Load,       // initialization and silent model repairs
+            TweakScale, // TweakScale has already rewritten its node positions
+            Foreign     // a third-party module has replaced attachment nodes
+        }
         readonly NodeAttachWatcher nodeAttachWatcher = new NodeAttachWatcher();
         readonly AttachmentLoadFix attachmentFix = new AttachmentLoadFix();
         internal AttachmentLoadFix AttachmentFix { get { return attachmentFix; } }
@@ -406,6 +418,10 @@ namespace PartSculptor
         }
         readonly Dictionary<string, B9NodeData> b9NodeBaselines =
             new Dictionary<string, B9NodeData>(StringComparer.Ordinal);
+        // Stack nodes with immutable NODE positions defined by B9 config.
+        // Their native baselines must not be re-adopted from the other subtype.
+        readonly HashSet<string> b9ConfiguredStackNodes =
+            new HashSet<string>(StringComparer.Ordinal);
         static string B9NodeKey(string signature, string name)
         {
             return B9PartSwitchSupport.ResourceKey(signature, name);
@@ -537,7 +553,7 @@ namespace PartSculptor
             }
             catch (System.Exception e)
             {
-                Log.Error("[PartSculptor] Error handling TweakScale change on " + part.name + ": " + e);
+                Log.Error("Error handling TweakScale change on " + part.name + ": " + e);
             }
         }
 
@@ -638,7 +654,7 @@ namespace PartSculptor
             // TweakScale already scaled children's attach points uniformly about this
             // part, which keeps them on our stretched surfaces; only fix ourselves.
             // TweakScale fires the ship-modified event itself when it's done.
-            Apply(true, false, false);
+            Apply(true, false, false, NodeApplyReason.TweakScale);
         }
 
         // ------------------------------------------------------------------ setup
@@ -649,6 +665,7 @@ namespace PartSculptor
             if (node != null && node.HasValue("lockAxes")) hasSavedLockAxes = true;
             if (node != null && node.HasValue("lockMorphXZ")) hasSavedLockMorphXZ = true;
             attachmentFix.Load(node);
+            nodeHistory.Load(node);
             if (node == null) return;
             double volume;
             if (double.TryParse(node.GetValue("lastAppliedResourceVolume"),
@@ -687,6 +704,7 @@ namespace PartSculptor
                     b9ParentVolumes[B9PartSwitchSupport.ResourceKey(switchKey, subtype)] = native;
             }
             b9NodeBaselines.Clear();
+            b9ConfiguredStackNodes.Clear();
             foreach (ConfigNode entry in node.GetNodes(B9_NODE_BASELINE))
             {
                 string signature = entry.GetValue("signature");
@@ -753,6 +771,11 @@ namespace PartSculptor
             base.OnSave(node);
             if (node == null) return;
             attachmentFix.Save(node, part, initialized);
+            // Preserve the last FINAL morphed node pose, not merely the
+            // conventional stretched node that FaceMorphSupport later offsets.
+            // Do not bless a foreign write as ours merely because KSP saves
+            // the vessel before the next scheduled geometry repair.
+            nodeHistory.Save(node);
             node.SetValue("lastAppliedResourceVolume",
                 lastAppliedResourceVolume.ToString("R", CultureInfo.InvariantCulture), true);
             // When the scaler has started, serialize its immutable source
@@ -935,7 +958,7 @@ namespace PartSculptor
             Part prefab = part.partInfo != null ? part.partInfo.partPrefab : null;
             if (model == null || prefab == null)
             {
-                Log.Warning("[PartSculptor] No 'model' transform or prefab on " + part.name + "; disabling.");
+                Log.Warning("No 'model' transform or prefab on " + part.name + "; disabling.");
                 HideFields();
                 return;
             }
@@ -1102,6 +1125,7 @@ namespace PartSculptor
             // unrelated part-prefab nodes, whenever they differ.
             if (b9Support != null)
                 RefreshB9NodeBaselines(true);
+            InitializeNodeHistory();
             // Capture stock and optional Waterfall effect trees after every
             // PartModule has initialized. Effects under the model are scaled
             // automatically; off-model effect roots get absolute-scale wrappers.
@@ -1112,7 +1136,7 @@ namespace PartSculptor
             // clone already holds the correct part positions.
             // Loaded crafts retain their saved dimensions, even if new limits
             // or restrictions have been enabled since they were saved.
-            Apply(false, false);
+            Apply(false, false, false, NodeApplyReason.Load);
             // Restore saved face shape after ordinary PartSculptor has rebuilt
             // its native geometry and attachment nodes. In flight as well as
             // the editor, the launched part must retain the same collision mesh.
@@ -1127,9 +1151,11 @@ namespace PartSculptor
                 if (EnsureFaceMorph())
                     faceMorph.Apply(GetMorphFace(0), GetMorphFace(1), false);
                 else
-                    Log.Warning("[PartSculptor] Cannot restore copied face morph on " +
+                    Log.Warning("Cannot restore copied face morph on " +
                         part.name + ": " + morphFailure);
             }
+            nodeHistory.RecordFinal(part);
+            geometryInitializedFrame = Time.frameCount;
             FaceMorphSupport.ReleaseDetachedMorphMeshes(part, copiedMorphMeshInstances);
             lastAcceptedScale = Target;
             initialized = true;
@@ -1199,7 +1225,7 @@ namespace PartSculptor
                 BaseEvent action = Events[name];
                 if (action != null) action.guiActiveEditor = false;
             }
-            Log.Warning("[PartSculptor] Editing disabled on " + part.name + ": " + restrictedReason);
+            Log.Warning("Editing disabled on " + part.name + ": " + restrictedReason);
         }
 
         static float Clamp(float v)
@@ -1282,7 +1308,7 @@ namespace PartSculptor
                 }
                 catch (System.Exception e)
                 {
-                    Log.Warning("[PartSculptor] PAW refresh failed, rebuilding window: " + e.Message);
+                    Log.Warning("PAW refresh failed, rebuilding window: " + e.Message);
                     ok = false;
                 }
             }
@@ -1580,7 +1606,7 @@ namespace PartSculptor
                 }
                 catch (Exception e)
                 {
-                    Log.Warning("[PartSculptor] Numeric tilt PAW refresh failed: " + e.Message);
+                    Log.Warning("Numeric tilt PAW refresh failed: " + e.Message);
                 }
                 MarkNumericTiltPAWDirty();
             }
@@ -1647,8 +1673,8 @@ namespace PartSculptor
         {
             numericTiltStatus = reason;
             MarkNumericTiltPAWDirty();
-            ScreenMessages.PostScreenMessage("PartSculptor: " + reason,
-                Settings.screenMessageTime, ScreenMessageStyle.UPPER_CENTER);
+            PartSculptorScreenMessages.Post(part, "PartSculptor: " + reason,
+                Settings.screenMessageTime, ScreenMessageStyle.UPPER_CENTER, "NumericTiltError");
         }
 
         internal bool EnsureFaceMorph()
@@ -1779,6 +1805,9 @@ namespace PartSculptor
                 m.morphTopOffsetZ = top.OffsetZ;
                 m.faceMorph.Apply(bottom, top, true,
                     m == this ? stationaryConnectedChild : null);
+                // Prevent a later poll from mistaking our own morphed node for
+                // a B9/variant overwrite. Keep the pre-morph baseline intact.
+                m.nodeHistory.RecordFinal(m.part);
                 m.SetPresetDisplay("Custom");
                 if (m.b9Support != null)
                     m.b9Support.ApplyBaseVolumes(m.part, m.StretchVolumeFactor, true);
@@ -2006,7 +2035,7 @@ namespace PartSculptor
                 }
                 catch (Exception e)
                 {
-                    Log.Warning("[PartSculptor] Mirrored attached face failed for " +
+                    Log.Warning("Mirrored attached face failed for " +
                         neighbor.name + ": " + e);
                 }
             }
@@ -2216,9 +2245,9 @@ namespace PartSculptor
                 if (EnsureFaceMorph()) FaceMorphGizmo.Show(this);
                 else
                 {
-                    Log.Warning("[PartSculptor] Face morph unavailable: " + morphFailure);
-                    ScreenMessages.PostScreenMessage("Face morph unavailable: " + morphFailure,
-                        Settings.screenMessageTime, ScreenMessageStyle.UPPER_CENTER);
+                    Log.Warning("Face morph unavailable: " + morphFailure);
+                    PartSculptorScreenMessages.Post(part, "Face morph unavailable: " + morphFailure,
+                        Settings.screenMessageTime, ScreenMessageStyle.UPPER_CENTER, "ToggleFaceMorphGizmo");
                 }
             }
         }
@@ -2462,7 +2491,11 @@ namespace PartSculptor
             // Applies the saved face deformation using the existing meshes of
             // every B9 variant, including currently inactive transform groups.
             // FaceMorphSupport never toggles those groups: B9 owns visibility.
-            Apply(false, false, false);
+            // The native B9 baseline may have moved. Update its saved stretch
+            // and morph without treating this as an ordinary user scale edit.
+            bool moveForeign = HighLogic.LoadedSceneIsEditor &&
+                Time.frameCount - geometryInitializedFrame > 30;
+            Apply(moveForeign, moveForeign, false, NodeApplyReason.Foreign);
             if (HighLogic.LoadedSceneIsEditor)
                 FireEditorShipModified();
         }
@@ -2506,6 +2539,41 @@ namespace PartSculptor
                 nativeOriginal = prefabNodeOrigPos[node.id];
                 string key = B9NodeKey(b9Signature, node.id);
                 B9NodeData recorded;
+                Vector3 configuredPosition;
+                int configuredSize;
+                if (b9Support.TryGetConfiguredStackNode(part, node.id,
+                    out configuredPosition, out configuredSize))
+                {
+                    // Source of truth: subtype NODE position, or the prefab
+                    // node when this subtype has no NODE override (NLSUS-A).
+                    // B9 may have reset the live node to unscaled coordinates;
+                    // neither that temporary pose nor the previous subtype's
+                    // stretched pose is an appropriate new native baseline.
+                    b9ConfiguredStackNodes.Add(node.id);
+                    prefabNodePos[node.id] = configuredPosition;
+                    prefabNodeOrigPos[node.id] = configuredPosition;
+                    prefabNodeSize[node.id] = configuredSize;
+                    NodeGeometryHistory.Record history = nodeHistory.Find(node.id);
+                    if (history != null)
+                    {
+                        history.NativePosition = configuredPosition;
+                        history.NativeOriginal = configuredPosition;
+                        history.NativeSize = configuredSize;
+                    }
+                    if (b9NodeBaselines.TryGetValue(key, out recorded))
+                    {
+                        // Reuse the subtype's orientation/size metadata,
+                        // but fix even an older save's incorrect position.
+                        prefabNodeOrientation[node.id] = recorded.orientation;
+                    }
+                    b9NodeBaselines[key] = new B9NodeData {
+                        position = configuredPosition, original = configuredPosition,
+                        orientation = prefabNodeOrientation[node.id],
+                        size = prefabNodeSize[node.id]
+                    };
+                    continue;
+                }
+                b9ConfiguredStackNodes.Remove(node.id);
                 if (onLoad && b9NodeBaselines.TryGetValue(key, out recorded))
                 {
                     // Saved native coordinates always win on craft reload.
@@ -2519,24 +2587,32 @@ namespace PartSculptor
                 Vector3 expectedOriginal = Vector3.Scale(nativeOriginal, total);
                 int expectedSize = ScaledNodeSize(prefabNodeSize[node.id],
                     prefabNodeOrientation[node.id], total);
-                bool b9Changed = (expected - node.position).sqrMagnitude > 1e-6f ||
+                bool ownFinalMorph = nodeHistory.WasWritten(node.id, node);
+                bool b9Changed = !ownFinalMorph &&
+                    ((expected - node.position).sqrMagnitude > 1e-6f ||
                     (expectedOriginal - node.originalPosition).sqrMagnitude > 1e-6f ||
-                    expectedSize != node.size;
+                    expectedSize != node.size);
                 // A legacy scaled craft has no saved B9 baseline. Its current
                 // nodes may already be stretched; never capture them as raw.
                 if (onLoad && alreadyStretched) continue;
                 if (b9Changed)
                 {
-                    prefabNodePos[node.id] = new Vector3(
-                        Div(node.position.x, BaseFactor),
-                        Div(node.position.y, BaseFactor),
-                        Div(node.position.z, BaseFactor));
-                    prefabNodeOrigPos[node.id] = new Vector3(
-                        Div(node.originalPosition.x, BaseFactor),
-                        Div(node.originalPosition.y, BaseFactor),
-                        Div(node.originalPosition.z, BaseFactor));
-                    prefabNodeOrientation[node.id] = node.orientation;
-                    prefabNodeSize[node.id] = node.size;
+                    // B9 may change ONLY originalPosition, node size, or
+                    // orientation. The remaining live values may still be our
+                    // morphed results: never learn those as a fresh B9 base.
+                    NodeGeometryHistory.Record previous = nodeHistory.Find(node.id);
+                    bool hadWritten = previous != null && previous.HasWritten;
+                    prefabNodePos[node.id] = hadWritten &&
+                        NodeGeometryHistory.Near(node.position, previous.WrittenPosition)
+                        ? previous.NativePosition : node.position / BaseFactor;
+                    prefabNodeOrigPos[node.id] = hadWritten &&
+                        NodeGeometryHistory.Near(node.originalPosition, previous.WrittenOriginal)
+                        ? previous.NativeOriginal : node.originalPosition / BaseFactor;
+                    prefabNodeOrientation[node.id] = hadWritten &&
+                        NodeGeometryHistory.Near(node.orientation, previous.WrittenOrientation)
+                        ? previous.NativeOrientation : node.orientation;
+                    prefabNodeSize[node.id] = hadWritten && node.size == previous.WrittenSize
+                        ? previous.NativeSize : node.size;
                 }
                 b9NodeBaselines[key] = new B9NodeData {
                     position = prefabNodePos[node.id],
@@ -2559,14 +2635,21 @@ namespace PartSculptor
                 }
                 if (onLoad && alreadyStretched) return;
                 Vector3 expected = Vector3.Scale(prefabSrfPos, total);
-                if ((expected - surface.position).sqrMagnitude > 1e-6f ||
-                    ScaledNodeSize(prefabSrfSize, prefabSrfOrientation, total) != surface.size)
+                if (!nodeHistory.WasWritten(NodeGeometryHistory.SurfaceId, surface) &&
+                    ((expected - surface.position).sqrMagnitude > 1e-6f ||
+                    ScaledNodeSize(prefabSrfSize, prefabSrfOrientation, total) != surface.size))
                 {
-                    Vector3 pos = surface.position;
-                    prefabSrfPos = new Vector3(Div(pos.x, BaseFactor),
-                        Div(pos.y, BaseFactor), Div(pos.z, BaseFactor));
-                    prefabSrfOrientation = surface.orientation;
-                    prefabSrfSize = surface.size;
+                    NodeGeometryHistory.Record previous = nodeHistory.Find(
+                        NodeGeometryHistory.SurfaceId);
+                    bool hadWritten = previous != null && previous.HasWritten;
+                    prefabSrfPos = hadWritten && NodeGeometryHistory.Near(
+                        surface.position, previous.WrittenPosition)
+                        ? previous.NativePosition : surface.position / BaseFactor;
+                    prefabSrfOrientation = hadWritten && NodeGeometryHistory.Near(
+                        surface.orientation, previous.WrittenOrientation)
+                        ? previous.NativeOrientation : surface.orientation;
+                    prefabSrfSize = hadWritten && surface.size == previous.WrittenSize
+                        ? previous.NativeSize : surface.size;
                 }
                 b9NodeBaselines[key] = new B9NodeData {
                     position = prefabSrfPos, original = prefabSrfPos,
@@ -2654,6 +2737,17 @@ namespace PartSculptor
             if (HighLogic.LoadedSceneIsFlight)
             {
                 RefreshFlightResourceDisplay();
+                // Some modules restore their native nodes AFTER OnStartFinished.
+                // Repair the first 120 frames without moving loaded vessels.
+                if (Time.frameCount - geometryInitializedFrame < 120 &&
+                    Time.frameCount >= nextGeometryCheckFrame)
+                {
+                    nextGeometryCheckFrame = Time.frameCount + 8;
+                    if (nodeHistory.ChangedExternally(part) ||
+                        (((Target - Vector3.one).sqrMagnitude > 1e-10f || HasFaceMorph) &&
+                         (CurrentScale() - Target).sqrMagnitude > 1e-10f))
+                        Apply(false, false, false, NodeApplyReason.Foreign);
+                }
                 return;
             }
             if (!HighLogic.LoadedSceneIsEditor) return;
@@ -2710,8 +2804,22 @@ namespace PartSculptor
                 nextGeometryCheckFrame = Time.frameCount + 12 + (part.GetInstanceID() & 7);
                 if (!Mathf.Approximately(BaseFactor, lastBase))
                     AfterTweakScale();
-                else if ((CurrentScale() - Target).sqrMagnitude > 1e-10f)
-                    Apply(true, true);
+                else if (nodeHistory.ChangedExternally(part))
+                {
+                    // Check foreign nodes BEFORE model-scale recovery: a
+                    // variant may replace the model and nodes together.
+                    bool moveForeign = Time.frameCount - geometryInitializedFrame > 30;
+                    if (b9Support != null) RefreshB9NodeBaselines();
+                    Apply(moveForeign, moveForeign, moveForeign, NodeApplyReason.Foreign);
+                }
+                else if (((Target - Vector3.one).sqrMagnitude > 1e-10f || HasFaceMorph) &&
+                         (CurrentScale() - Target).sqrMagnitude > 1e-10f)
+                {
+                    // Model-only reset: rebuild from the trusted native
+                    // baselines without adopting already-stretched nodes.
+                    bool moveForeign = Time.frameCount - geometryInitializedFrame > 30;
+                    Apply(moveForeign, moveForeign, moveForeign, NodeApplyReason.Load);
+                }
                 else if (exponentScaler != null)
                 {
                     exponentScaler.Apply(scaleX, scaleY, scaleZ);
@@ -2751,7 +2859,7 @@ namespace PartSculptor
             }
             catch (Exception e)
             {
-                Log.Warning("[PartSculptor] Failed to refresh flight resource display: " + e.Message);
+                Log.Warning("Failed to refresh flight resource display: " + e.Message);
             }
         }
 
@@ -2831,8 +2939,8 @@ namespace PartSculptor
                 reason = "No stack-node attachment to a parent";
             else
                 MatchNewStackFace(source, destination, out reason);
-            ScreenMessages.PostScreenMessage("PartSculptor: " + reason,
-                4f, ScreenMessageStyle.UPPER_CENTER);
+            PartSculptorScreenMessages.Post(part, "PartSculptor: " + reason,
+                4f, ScreenMessageStyle.UPPER_CENTER, "MatchFaceToParentNow");
         }
 
         void MatchNewStackFace(AttachNode source, AttachNode destination)
@@ -3067,7 +3175,7 @@ namespace PartSculptor
             }
             catch (Exception ex)
             {
-                Log.Warning("[PartSculptor] TweakScale mass modifier failed on " +
+                Log.Warning("TweakScale mass modifier failed on " +
                     part.name + ": " + ex.Message);
                 return 0f;
             }
@@ -3119,7 +3227,7 @@ namespace PartSculptor
             }
             catch (Exception ex)
             {
-                Log.Warning("[PartSculptor] TweakScale cost modifier failed on " +
+                Log.Warning("TweakScale cost modifier failed on " +
                     part.name + ": " + ex.Message);
                 return 0f;
             }
@@ -3152,7 +3260,7 @@ namespace PartSculptor
                         }
                         catch (Exception ex)
                         {
-                            Log.Warning("[PartSculptor] Mass modifier failed on " +
+                            Log.Warning("Mass modifier failed on " +
                                 module.moduleName + ": " + ex.Message);
                         }
                     }
@@ -3186,7 +3294,7 @@ namespace PartSculptor
                         }
                         catch (Exception ex)
                         {
-                            Log.Warning("[PartSculptor] Cost modifier failed on " +
+                            Log.Warning("Cost modifier failed on " +
                                 module.moduleName + ": " + ex.Message);
                         }
                     }
@@ -3873,7 +3981,7 @@ namespace PartSculptor
             {
                 // Fail conservatively at level 1 rather than silently
                 // allowing an unlimited resize when the API is unavailable.
-                Log.Warning("[PartSculptor] Could not read Career building level: " + e.Message);
+                Log.Warning("Could not read Career building level: " + e.Message);
             }
             limits.level = Math.Max(1, Math.Min(3, level));
             switch (limits.level)
@@ -4053,7 +4161,7 @@ namespace PartSculptor
             if (warning == lastLoggedWarning) return;
             lastLoggedWarning = warning;
             if (!string.IsNullOrEmpty(warning))
-                Log.Warning("[PartSculptor] " + part.name + ": " + warning);
+                Log.Warning(part.name + ": " + warning);
         }
 
         void UpdateSafetyStatus()
@@ -4094,7 +4202,93 @@ namespace PartSculptor
                 totalScale.x, totalScale.y, totalScale.z);
         }
 
-        void Apply(bool moveNeighbours, bool moveChildren, bool fireModified = true)
+        // Keep saved native baselines (including older B9 ones) instead of
+        // learning a loaded craft's already-stretched or morphed node as native.
+        void InitializeNodeHistory()
+        {
+            foreach (AttachNode n in part.attachNodes)
+            {
+                if (n == null || string.IsNullOrEmpty(n.id)) continue;
+                Vector3 pos, orig, direction;
+                int size;
+                if (!prefabNodePos.TryGetValue(n.id, out pos))
+                {
+                    // A part-variant module added this node after prefab
+                    // construction. Treat its startup pose as unstretched.
+                    float factor = BaseFactor;
+                    pos = n.position / factor;
+                    prefabNodePos[n.id] = pos;
+                    prefabNodeOrigPos[n.id] = n.originalPosition / factor;
+                    prefabNodeOrientation[n.id] = n.orientation;
+                    prefabNodeSize[n.id] = n.size;
+                }
+                orig = prefabNodeOrigPos[n.id];
+                direction = prefabNodeOrientation[n.id];
+                size = prefabNodeSize[n.id];
+                NodeGeometryHistory.Record record = nodeHistory.Seed(n.id,
+                    pos, orig, direction, size);
+                // A new-format saved craft has a stronger baseline than the
+                // prefab because B9 or a stock variant may have modified it.
+                if (record.HasWritten)
+                {
+                    prefabNodePos[n.id] = record.NativePosition;
+                    prefabNodeOrigPos[n.id] = record.NativeOriginal;
+                    prefabNodeOrientation[n.id] = record.NativeOrientation;
+                    prefabNodeSize[n.id] = record.NativeSize;
+                }
+            }
+            if (hasSrfNode && part.srfAttachNode != null)
+            {
+                NodeGeometryHistory.Record record = nodeHistory.Seed(
+                    NodeGeometryHistory.SurfaceId, prefabSrfPos, prefabSrfPos,
+                    prefabSrfOrientation, prefabSrfSize);
+                if (record.HasWritten)
+                {
+                    prefabSrfPos = record.NativePosition;
+                    prefabSrfOrientation = record.NativeOrientation;
+                    prefabSrfSize = record.NativeSize;
+                }
+            }
+        }
+
+        // Apply a foreign native baseline to the existing scaling and morph
+        // pipeline. No new mesh deformation or attachment snap code is needed.
+        void AdoptExternalNode(string id, AttachNode node, float baseFactor)
+        {
+            NodeGeometryHistory.Record state = nodeHistory.Adopt(id, node, baseFactor);
+            if (state == null) return;
+            if (id == NodeGeometryHistory.SurfaceId)
+            {
+                prefabSrfPos = state.NativePosition;
+                prefabSrfOrientation = state.NativeOrientation;
+                prefabSrfSize = state.NativeSize;
+            }
+            else
+            {
+                prefabNodePos[id] = state.NativePosition;
+                prefabNodeOrigPos[id] = state.NativeOriginal;
+                prefabNodeOrientation[id] = state.NativeOrientation;
+                prefabNodeSize[id] = state.NativeSize;
+            }
+            ScaleDebug.Info(part, "node", "foreign native node " + id +
+                " updated to " + ScaleDebug.Format(state.NativePosition));
+        }
+
+        // A module sometimes reasserts the SAME native node but does not move
+        // its neighbours. In that case retain our previously written pose as
+        // the movement baseline, not the temporarily reset live node position.
+        Vector3 PreviousNodeAnchor(string id, AttachNode node, float baseFactor,
+            bool foreign)
+        {
+            NodeGeometryHistory.Record state = nodeHistory.Find(id);
+            if (!foreign || state == null || !state.HasWritten) return node.position;
+            Vector3 native = state.NativePosition * baseFactor;
+            return NodeGeometryHistory.Near(node.position, native)
+                ? state.WrittenPosition : node.position;
+        }
+
+        void Apply(bool moveNeighbours, bool moveChildren, bool fireModified = true,
+            NodeApplyReason reason = NodeApplyReason.User)
         {
             if (model == null) return;
 
@@ -4115,6 +4309,10 @@ namespace PartSculptor
                 (newScale - oldScale).sqrMagnitude > 1e-10f)
                 SetPresetDisplay("Custom");
             Vector3 total = newScale * f;   // stretch on top of TweakScale
+            // A 1x part with no face morph does not own the node geometry.
+            // Stock variants, B9 and TweakScale must retain control of it.
+            bool preserveNativeForeignNodes = reason == NodeApplyReason.Foreign &&
+                (newScale - Vector3.one).sqrMagnitude < 1e-10f && !HasFaceMorph;
             Vector3 ratio = new Vector3(Div(newScale.x, oldScale.x), Div(newScale.y, oldScale.y), Div(newScale.z, oldScale.z));
 
             bool editor = HighLogic.LoadedSceneIsEditor && moveNeighbours;
@@ -4134,16 +4332,44 @@ namespace PartSculptor
             Vector3 selfMove = Vector3.zero;
             var childMoves = new List<KeyValuePair<Part, Vector3>>();
 
-            // Stack nodes
+            // Stack nodes: distinguish last-written morphed positions from
+            // writes by stock variants, B9, or another node-owning module.
             foreach (AttachNode node in part.attachNodes)
             {
                 Vector3 basePos, baseOrig;
-                if (node == null || node.id == null || !prefabNodePos.TryGetValue(node.id, out basePos)) continue;
+                if (node == null || string.IsNullOrEmpty(node.id)) continue;
+                if (!prefabNodePos.TryGetValue(node.id, out basePos))
+                {
+                    // New dynamic node, introduced after module startup.
+                    // There is no prefab pose to reconstruct; a foreign write
+                    // is the best available unstretched source.
+                    prefabNodePos[node.id] = node.position / f;
+                    prefabNodeOrigPos[node.id] = node.originalPosition / f;
+                    prefabNodeOrientation[node.id] = node.orientation;
+                    prefabNodeSize[node.id] = node.size;
+                    basePos = prefabNodePos[node.id];
+                }
+                nodeHistory.Seed(node.id, basePos, prefabNodeOrigPos[node.id],
+                    prefabNodeOrientation[node.id], prefabNodeSize[node.id]);
+                bool foreign = reason == NodeApplyReason.Foreign &&
+                    !nodeHistory.WasWritten(node.id, node);
+                Vector3 oldReference = PreviousNodeAnchor(node.id, node, f, foreign);
+                // Subtype NODE definitions are immutable B9-native values.
+                // Re-adopting the currently visible (possibly still stretched)
+                // node here would overwrite the restored subtype baseline.
+                if (foreign && !b9ConfiguredStackNodes.Contains(node.id))
+                    AdoptExternalNode(node.id, node, f);
+                if (preserveNativeForeignNodes)
+                {
+                    nodeHistory.RecordStretched(node.id, node.position);
+                    continue;
+                }
+                basePos = prefabNodePos[node.id];
                 baseOrig = prefabNodeOrigPos[node.id];
 
                 Vector3 newPos = Vector3.Scale(basePos, total);
                 Vector3 oldPos = node.position;
-                Vector3 delta = newPos - oldPos;
+                Vector3 delta = newPos - oldReference;
                 Vector3 oldOriginal = node.originalPosition;
                 int oldSize = node.size;
                 node.position = newPos;
@@ -4154,6 +4380,7 @@ namespace PartSculptor
                 node.orientation = prefabNodeOrientation[node.id];
                 node.size = ScaledNodeSize(prefabNodeSize[node.id],
                     prefabNodeOrientation[node.id], total);
+                nodeHistory.RecordStretched(node.id, node.position);
                 ScaleDebug.Change(part, "attach node", node.id + ".position",
                     oldPos, node.position);
                 ScaleDebug.Change(part, "attach node", node.id + ".originalPosition",
@@ -4169,26 +4396,40 @@ namespace PartSculptor
             }
 
             // Our own surface-attach node
-            if (hasSrfNode)
+            if (hasSrfNode && part.srfAttachNode != null)
             {
-                Vector3 newPos = Vector3.Scale(prefabSrfPos, total);
-                Vector3 oldPos = part.srfAttachNode.position;
-                Vector3 oldOriginal = part.srfAttachNode.originalPosition;
-                int oldSize = part.srfAttachNode.size;
-                Vector3 delta = newPos - oldPos;
-                part.srfAttachNode.position = newPos;
-                part.srfAttachNode.originalPosition = newPos;
-                part.srfAttachNode.orientation = prefabSrfOrientation;
-                part.srfAttachNode.size = ScaledNodeSize(prefabSrfSize, prefabSrfOrientation, total);
-                ScaleDebug.Change(part, "attach node", "surface.position", oldPos, part.srfAttachNode.position);
-                ScaleDebug.Change(part, "attach node", "surface.originalPosition", oldOriginal, part.srfAttachNode.originalPosition);
-                ScaleDebug.Change(part, "attach node", "surface.size", oldSize, part.srfAttachNode.size);
-                if (editor && part.parent != null && part.srfAttachNode.attachedPart == part.parent)
-                    selfMove -= delta;
+                AttachNode surface = part.srfAttachNode;
+                nodeHistory.Seed(NodeGeometryHistory.SurfaceId,
+                    prefabSrfPos, prefabSrfPos, prefabSrfOrientation, prefabSrfSize);
+                bool foreign = reason == NodeApplyReason.Foreign &&
+                    !nodeHistory.WasWritten(NodeGeometryHistory.SurfaceId, surface);
+                Vector3 oldReference = PreviousNodeAnchor(
+                    NodeGeometryHistory.SurfaceId, surface, f, foreign);
+                if (foreign) AdoptExternalNode(NodeGeometryHistory.SurfaceId, surface, f);
+                if (preserveNativeForeignNodes)
+                    nodeHistory.RecordStretched(NodeGeometryHistory.SurfaceId, surface.position);
+                else
+                {
+                    Vector3 newPos = Vector3.Scale(prefabSrfPos, total);
+                    Vector3 oldPos = surface.position;
+                    Vector3 oldOriginal = surface.originalPosition;
+                    int oldSize = surface.size;
+                    Vector3 delta = newPos - oldReference;
+                    part.srfAttachNode.position = newPos;
+                    part.srfAttachNode.originalPosition = newPos;
+                    part.srfAttachNode.orientation = prefabSrfOrientation;
+                    part.srfAttachNode.size = ScaledNodeSize(prefabSrfSize, prefabSrfOrientation, total);
+                    nodeHistory.RecordStretched(NodeGeometryHistory.SurfaceId, surface.position);
+                    ScaleDebug.Change(part, "attach node", "surface.position", oldPos, part.srfAttachNode.position);
+                    ScaleDebug.Change(part, "attach node", "surface.originalPosition", oldOriginal, part.srfAttachNode.originalPosition);
+                    ScaleDebug.Change(part, "attach node", "surface.size", oldSize, part.srfAttachNode.size);
+                    if (editor && part.parent != null && part.srfAttachNode.attachedPart == part.parent)
+                        selfMove -= delta;
+                }
             }
 
             // Children surface-attached to us: scale their attach point with our surface.
-            if (editor && moveChildren)
+            if (editor && moveChildren && !preserveNativeForeignNodes)
             {
                 foreach (Part child in part.children)
                 {
@@ -4203,7 +4444,8 @@ namespace PartSculptor
 
             // Scale the model (meshes + colliders).
             Vector3 priorModelScale = model.localScale;
-            model.localScale = Vector3.Scale(prefabModelScale, total);
+            if (!preserveNativeForeignNodes)
+                model.localScale = Vector3.Scale(prefabModelScale, total);
             ScaleDebug.Change(part, "geometry", "model.localScale", priorModelScale,
                 model.localScale, "prefab=" + ScaleDebug.Format(prefabModelScale));
             lastAcceptedScale = Target;
@@ -4288,6 +4530,9 @@ namespace PartSculptor
                 }
             }
 
+            // The final face morph can change POSITION, ORIGINALPOSITION,
+            // NORMAL and SIZE again. Save all of those as our own last write.
+            nodeHistory.RecordFinal(part);
             if (!editor)
             {
                 if (crewCapacityChanged) FireEditorShipModified();

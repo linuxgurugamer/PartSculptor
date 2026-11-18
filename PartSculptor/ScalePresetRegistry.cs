@@ -52,7 +52,7 @@ namespace PartSculptor
                                 ReadDefinitions(n, builtIns, true);
                     }
                 }
-                else Log.Warning("[PartSculptor] Default presets not found: " + BuiltInPath);
+                else Log.Warning("Default presets not found: " + BuiltInPath);
                 if (File.Exists(CustomPath))
                 {
                     ConfigNode root = ConfigNode.Load(CustomPath);
@@ -71,9 +71,9 @@ namespace PartSculptor
             }
             catch (Exception e)
             {
-                Log.Error("[PartSculptor] Failed to load scale presets: " + e);
+                Log.Error("Failed to load scale presets: " + e);
             }
-            Log.Info("[PartSculptor] Loaded " + builtIns.Count + " default and " +
+            Log.Info("Loaded " + builtIns.Count + " default and " +
                 custom.Count + " custom scale presets");
         }
 
@@ -93,7 +93,7 @@ namespace PartSculptor
                     !double.TryParse(node.GetValue("z"), NumberStyles.Float,
                         CultureInfo.InvariantCulture, out z))
                 {
-                    Log.Warning("[PartSculptor] Invalid preset axes: " + name);
+                    Log.Warning("Invalid preset axes: " + name);
                     continue;
                 }
                 var item = new ScalePresetDefinition(name != null ? name.Trim() : "",
@@ -102,7 +102,7 @@ namespace PartSculptor
                     (isDefault ? Contains(custom, item.Name, item.Relative) :
                         Contains(builtIns, item.Name, item.Relative)))
                 {
-                    Log.Warning("[PartSculptor] Invalid or duplicate preset: " + name);
+                    Log.Warning("Invalid or duplicate preset: " + name);
                     continue;
                 }
                 destination.Add(item);
@@ -299,7 +299,7 @@ namespace PartSculptor
             catch (Exception e)
             {
                 error = "Unable to save custom presets: " + e.Message;
-                Log.Error("[PartSculptor] " + error);
+                Log.Error("" + error);
                 return false;
             }
             finally

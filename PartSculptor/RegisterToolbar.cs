@@ -18,12 +18,18 @@ namespace PartSculptor
         {
             ToolbarControl.RegisterMod(VesselInspectorHost.ModId, "PartSculptor");
 
-#if DEBUG
-            Log = new Log("PartSculptor", Log.LEVEL.INFO);
-#else
+            // Settings.Load may log warnings or errors, so provide a bootstrap logger.
+            // Read Settings.cfg before choosing the final log level.
             Log = new Log("PartSculptor", Log.LEVEL.ERROR);
-#endif
-
+            Settings.Load();
+            if (Settings.DebugLogChanges)
+            {
+                Log = new Log("PartSculptor", Log.LEVEL.DETAIL);
+            }
+            else
+            {
+                Log = new Log("PartSculptor", Log.LEVEL.ERROR);
+            }
         }
     }
 }

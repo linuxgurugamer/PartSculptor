@@ -79,7 +79,7 @@ namespace PartSculptor
                 active = new FaceMorphGizmo(owner);
             }
             else if (owner != null)
-                Log.Warning("[PartSculptor] Face morph is not supported for " +
+                Log.Warning("Face morph is not supported for " +
                     (owner.part != null ? owner.part.name : "unknown part"));
         }
         internal static bool IsFor(ModulePartSculptor owner)
@@ -108,7 +108,7 @@ namespace PartSculptor
 
             var lines = message.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
             GUIStyle style = new GUIStyle(GUI.skin.box);
-            style.wordWrap = false; //  true;
+            style.wordWrap = true;
             style.alignment = TextAnchor.UpperLeft;
             style.padding = new RectOffset(6, 6, 5, 5);
 

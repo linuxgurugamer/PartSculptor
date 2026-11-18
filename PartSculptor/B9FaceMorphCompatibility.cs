@@ -2,17 +2,20 @@
 // PartSculptor can morph these static alternatives because FaceMorphSupport
 // captures BOTH active and inactive model meshes, without changing B9's
 // transform activation state. TEXTURE replaces renderer materials only.
-// Reject geometry *repositioning* (TRANSFORM nodes), attach-node changes, and
-// unknown features. Validate EVERY subtype after ModuleManager patches.
+// B9 NODE stack-attachment moves are supported using subtype-native baselines
+// and are re-applied separately from the face deformation. Reject geometry
+// repositioning TRANSFORM nodes and unverified features. Validate EVERY subtype.
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using static PartSculptor.RegisterToolbar;
 
 namespace PartSculptor
 {
     internal static class B9FaceMorphCompatibility
     {
-        // Valid top-level ModuleB9PartSwitch fields that cannot change the
-        // model geometry. Unknown fields are blocked pending review.
+        // Verified module fields are always allowed. Unknown scalar or vector
+        // numeric values are rejected; unknown nonnumeric values are allowed.
         private static readonly HashSet<string> ModuleFields = Set(
             "name", "moduleID", "baseVolume", "switcherDescription",
             "switcherDescriptionPlural", "switchInFlight", "affectDragCubes",
@@ -25,8 +28,8 @@ namespace PartSculptor
         // on/off). FaceMorphSupport captures all static meshes, including those
         // in inactive GameObjects, so these alternatives are supported. This is
         // NOT the same as SUBTYPE/TRANSFORM { positionOffset, etc. }, which can
-        // reposition model geometry and remains unsupported. Node changes and
-        // unknown subtype fields/child nodes are blocked.
+        // reposition model geometry and remains unsupported. Unknown numeric
+        // subtype values and unknown nested nodes are blocked.
         private static readonly HashSet<string> SubtypeFields = Set(
             "name", "title", "description", "tankType", "addedMass", "addedCost",
             "volumeAdded", "volumeMultiplier", "volumeAddedToParent", "percentFilled",
@@ -43,8 +46,14 @@ namespace PartSculptor
         // B9 SUBTYPE/TEXTURE changes *materials*, not meshes. The optional
         // transform/baseTransform fields identify which renderers get the new
         // texture; unlike a SUBTYPE/TRANSFORM block they do not move, rotate,
-        // scale, hide, or replace those transforms. Reject other fields so a
-        // future B9 geometry-changing extension is not silently accepted.
+        // scale, hide, or replace those transforms. Unknown numeric values
+        // are rejected, while unknown nonnumeric values pass AllowedValues.
+        // Only B9 attach-node position and size modifiers are validated here.
+        // The separate SUBTYPE `node = ...` visibility toggles remain B9-owned
+        // and are not the same as a nested NODE { ... } modifier.
+        private static readonly HashSet<string> NodeFields = Set(
+            "name", "position", "positionOffset", "size");
+
         private static readonly HashSet<string> TextureFields = Set(
             "texture", "currentTexture", "isNormalMap", "shaderProperty",
             "transform", "baseTransform");
@@ -54,13 +63,33 @@ namespace PartSculptor
             return new HashSet<string>(fields, StringComparer.OrdinalIgnoreCase);
         }
 
+        // Unrecognized text and Boolean options cannot directly supply a numeric
+        // transformation, so allow them. Reject unknown numeric scalar values and
+        // comma-separated numeric vectors (such as position/scale coordinates).
+        // Parse using the invariant culture used by KSP config files.
+        private static bool IsNumericValue(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return false;
+            double number;
+            if (double.TryParse(value, NumberStyles.Float,
+                CultureInfo.InvariantCulture, out number)) return true;
+
+            string[] components = value.Split(',');
+            if (components.Length < 2) return false;
+            foreach (string component in components)
+                if (!double.TryParse(component.Trim(), NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out number)) return false;
+            return true;
+        }
+
         private static bool AllowedValues(ConfigNode config, HashSet<string> fields,
             string location, out string reason)
         {
             foreach (ConfigNode.Value entry in config.values)
             {
-                if (fields.Contains(entry.name)) continue;
-                reason = location + " has unsupported field '" + entry.name + "'";
+                if (fields.Contains(entry.name) || !IsNumericValue(entry.value))
+                    continue;
+                reason = location + " has unsupported numeric field '" + entry.name + "'";
                 return false;
             }
             reason = "";
@@ -83,6 +112,63 @@ namespace PartSculptor
             if (string.IsNullOrWhiteSpace(textureNode.GetValue("texture")))
             {
                 reason = location + " is missing a texture path";
+                return false;
+            }
+            reason = "";
+            return true;
+        }
+
+        private static bool AllowsNodeModifier(Part part, ConfigNode node,
+            string location, out string reason)
+        {
+            if (!AllowedValues(node, NodeFields, location, out reason)) return false;
+            if (node.nodes.Count != 0)
+            {
+                reason = location + " contains unsupported nested nodes";
+                return false;
+            }
+            string selector = node.GetValue("name");
+            if (string.IsNullOrWhiteSpace(selector))
+            {
+                reason = location + " is missing an attachment node name";
+                return false;
+            }
+            if (!node.HasValue("position") && !node.HasValue("positionOffset") &&
+                !node.HasValue("size"))
+            {
+                reason = location + " has no position/positionOffset/size modifier";
+                return false;
+            }
+            UnityEngine.Vector3 vector;
+            foreach (string field in new[] { "position", "positionOffset" })
+                if (node.HasValue(field) &&
+                    !B9PartSwitchSupport.TryReadNodeVector(node.GetValue(field), out vector))
+                {
+                    reason = location + " has an invalid " + field + " vector";
+                    return false;
+                }
+            if (node.HasValue("size"))
+            {
+                int size;
+                if (!int.TryParse(node.GetValue("size"),
+                    System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out size) || size < 0)
+                {
+                    reason = location + " has an invalid node size";
+                    return false;
+                }
+            }
+            Part prefab = part != null && part.partInfo != null ?
+                part.partInfo.partPrefab : null;
+            bool matches = false;
+            if (prefab != null && prefab.attachNodes != null)
+                foreach (AttachNode attachNode in prefab.attachNodes)
+                    if (attachNode != null &&
+                        B9PartSwitchSupport.NodeNameMatches(selector, attachNode.id))
+                    { matches = true; break; }
+            if (!matches)
+            {
+                reason = location + " has no matching original stack attachment node";
                 return false;
             }
             reason = "";
@@ -189,6 +275,13 @@ namespace PartSculptor
                 if (!AllowsSubtypeTransformToggles(child, where, out reason)) return false;
                 foreach (ConfigNode nested in child.nodes)
                 {
+                    // SUBTYPE/MODULE blocks update existing part modules; they
+                    // do not select or replace the static model meshes. Leave
+                    // their contents to B9PartSwitch rather than rejecting
+                    // the entire subtype for face morphing.
+                    if (string.Equals(nested.name, "MODULE",
+                        StringComparison.OrdinalIgnoreCase))
+                        continue;
                     if (string.Equals(nested.name, "RESOURCE",
                         StringComparison.OrdinalIgnoreCase))
                     {
@@ -208,8 +301,15 @@ namespace PartSculptor
                             out reason)) return false;
                         continue;
                     }
+                    if (string.Equals(nested.name, "NODE",
+                        StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!AllowsNodeModifier(part, nested, where + " / NODE",
+                            out reason)) return false;
+                        continue;
+                    }
                     // TRANSFORM position/rotation/scale modifiers, MATERIAL,
-                    // NODE and MODULE nodes can invalidate morph assumptions.
+                    // and other unknown nodes still invalidate morph assumptions.
                     // SUBTYPE transform = ... toggles are handled above.
                     reason = where + " contains geometry/unknown node '" +
                         nested.name + "'";

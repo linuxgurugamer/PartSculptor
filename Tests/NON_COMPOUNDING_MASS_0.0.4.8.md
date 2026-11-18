@@ -31,7 +31,7 @@
 8. Repeat with a tank-switching module and check that selecting a new tank
    configuration still updates native capacity but merely resizing does not
    increase the baseline. If it fails, record the specific switcher/version.
-9. Build DEBUG and check KSP.log for `[PartSculptor] ... native mass ... live
+9. Build DEBUG and check KSP.log for `native mass ... live
    Part.mass ... stretch target ... tank capacity multiplier ...` immediately
    after each axis edit. The stretch target must depend on the *current axes*,
    never on the previous click or previous vessel mass.

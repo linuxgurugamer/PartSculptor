@@ -6,7 +6,7 @@
 2. Release build, no explicit `debugLogChanges`: disabled by default.
 3. Add `debugLogChanges = true` in `PARTSCULPTOR_SETTINGS`: enabled in Release too.
 4. Add `debugLogChanges = false`: disabled in Debug too.
-5. Check `KSP.log` for `[PartSculptor][DEBUG]` and part name plus Unity instance ID.
+5. Check `KSP.log` for `[DEBUG]` and part name plus Unity instance ID.
 
 ## Part, resource and mass baseline stability
 
@@ -26,7 +26,7 @@
 4. Attach child parts, select Stretch children and resize; verify descendant movements identify the affected child and parent.
 5. Use symmetry counterparts; verify each actual part has its own distinct part instance ID in the trace.
 6. Exercise presets, Reset, Swap X/Z, lock proportions and Career limit rejection/clamping; check action/accepted/rejected lines.
-7. With logging disabled, confirm none of these emit `[PartSculptor][DEBUG]` lines and scaling continues normally.
+7. With logging disabled, confirm none of these emit `[DEBUG]` lines and scaling continues normally.
 
 ## Notes
 

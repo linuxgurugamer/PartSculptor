@@ -19,6 +19,6 @@ resource `maxAmount` rather than its original prefab limit.
    right-click PAW** with the **stock resource toolbar app** and report which
    one is wrong. They are distinct UI controls.
 10. Enable PartSculptor scale-debug logging if available and check for
-    `[PartSculptor]` / `resource PAW` corrections in KSP.log.
+    `resource PAW` corrections in KSP.log.
 
 This is an in-game test; offline source checks cannot confirm Unity UI timing.

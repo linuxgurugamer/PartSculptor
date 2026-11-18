@@ -72,8 +72,8 @@ class EditorChildRotation125(unittest.TestCase):
     def test_version_and_documentation(self):
         import json
         for file in ('PartSculptor.version','GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT/file).read_text())['VERSION']['BUILD'],137)
-        self.assertIn('AssemblyVersion("0.0.4.137")',(ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads((ROOT/file).read_text())['VERSION']['BUILD'], 147)
+        self.assertIn('AssemblyVersion("0.0.4.147")',(ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT/'README.md').read_bytes(),(ROOT/'GameData/PartSculptor/README.md').read_bytes())
         self.assertIn('## 0.0.4.134', (ROOT/'Changelog.md').read_text())
 

@@ -53,7 +53,7 @@ class TestAttachedChildTiltHandle4131(unittest.TestCase):
         self.assertIn('module.SetMorphFaces(b, top);', GIZMO)
 
     def test_version_and_manual_plan(self):
-        self.assertIn('AssemblyVersion("0.0.4.137")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+        self.assertIn('AssemblyVersion("0.0.4.147")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertTrue((ROOT/'Tests/ATTACHED_CHILD_TILT_HANDLE_0.0.4.131.md').is_file())
 
 

@@ -48,8 +48,8 @@ class RotatedMorphDrag132(unittest.TestCase):
 
     def test_version(self):
         for p in (ROOT/'PartSculptor.version',ROOT/'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads(p.read_text())['VERSION']['BUILD'],137)
-        self.assertIn('AssemblyVersion("0.0.4.137")',(ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads(p.read_text())['VERSION']['BUILD'], 147)
+        self.assertIn('AssemblyVersion("0.0.4.147")',(ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertTrue((ROOT/'Tests/ROTATED_MORPH_DRAG_0.0.4.132.md').exists())
 
 if __name__=='__main__':unittest.main()

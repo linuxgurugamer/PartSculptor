@@ -1,3 +1,65 @@
+## 0.0.4.147 — Ignore B9 SUBTYPE/MODULE blocks and wrap morph help text
+
+- In `B9FaceMorphCompatibility.AllowsFaceMorph`, skip nested `SUBTYPE { MODULE { ... } }` blocks when validating B9 variants for static face morphing; B9PartSwitch continues to own their behavior. Other nested-node checks (RESOURCE, TEXTURE, NODE, TRANSFORM and unknown nodes) are unchanged.
+- Set `style.wordWrap = true` in `FaceMorphGizmo.DrawHelpBox` so the Morph tool's instruction text can wrap.
+- Update the regression expectations, documentation, assembly and both version files. In-game UI layout and B9 switching still need validation.
+
+## 0.0.4.146 — Allow unrecognized nonnumeric B9 configuration fields
+
+- In `B9FaceMorphCompatibility.cs`, replace any `KSP_Log` using directive with `using static PartSculptor.RegisterToolbar;` (the former was already absent in the 0.0.4.145 baseline).
+- `AllowedValues()` now rejects unknown fields only when their values are numeric, including floating-point/scientific scalar values and comma-separated numeric vectors; unrecognized text and Boolean values are allowed. Recognized fields continue to be accepted.
+- Retain the separate validation for B9 node modifiers and TEXTURE required values, and the explicit rejection of unrecognized nested geometry-changing nodes; no part scaling, node history, or morph mechanics are changed.
+- Add a focused offline test and refresh the version metadata and regression assertions. Runtime validation in KSP remains outstanding.
+
+## 0.0.4.145 — B9PartSwitch SUBTYPE/NODE compatibility
+
+- Extend subtype-native B9 node tracking from position-only to `NODE { name, position, positionOffset, size }`; recognize exact, wildcard and regex selectors as supported by B9. A subtype without an override restores the original node position and size, rather than the previous subtype's scaled geometry.
+- Permit valid `SUBTYPE/NODE` modifiers through the face-morph B9 compatibility check, while rejecting malformed vectors, invalid sizes, nonexistent stack-node selectors, nested unknown nodes, and geometry-changing `TRANSFORM` modifiers. The separate `SUBTYPE node = ...` visibility switch remains B9-owned and outside this support.
+- Preserve existing PartSculptor node-history and scaling/morphing paths; update the native node size in saved state during a switch. No new B9 DLL dependency, GUI, morph control, or resource behavior changes.
+- Add manual ORANGES interstage subtype test scenarios and offline regression checks. Requires C# compile and KSP editor testing.
+
+## 0.0.4.144 — Remove redundant empty-string concatenation in warnings
+
+- Simplify seven `Log.Warning("" + ...)` expressions to `Log.Warning(...)` without changing message content, warning severity, or diagnostic context.
+- No changes to morphing, scaling, B9PartSwitch, attachments, or UI.
+
+## 0.0.4.143 — Enable DETAIL logger level for debug messages
+
+- Change `RegisterToolbar.Start()` to select `Log.LEVEL.DETAIL` (rather than `INFO`) when `Settings.DebugLogChanges` is true. This allows the existing `ScaleDebug` `Log.Debug(...)` messages to reach KSP.log.
+- Keep the startup bootstrap and the `Log.LEVEL.ERROR` selection when debugging is disabled. No other logging, morphing, or UI changes.
+
+## 0.0.4.142 — Use debug severity and configuration-based logger level
+
+- Change the three `ScaleDebug` methods (`Change`, `Info`, `Computed`) from `Log.Info("[DEBUG] " + ...)` to `Log.Debug(...)`, preserving the existing `debugLogChanges` guard and diagnostic payloads.
+- Change `RegisterToolbar.Start()` to select the SpaceTuxLibrary logger level based on `Settings.DebugLogChanges` rather than the compile-time `DEBUG` constant. Bootstrap the logger and load `Settings.cfg` first so the configured setting is available when choosing the level.
+- Leave other logging calls, screen-message logging, and PartSculptor geometry/attachment/UI behavior unchanged.
+
+## 0.0.4.141 — Remove redundant logging prefix and standardize screen warning
+
+- Remove the literal `[PartSculptor]` text from all C# logging messages throughout the mod. Retain component markers such as `[ScreenMessage]` and `[DEBUG]`, log levels, and part provenance.
+- Use `Log.Warning` instead of direct `Debug.LogWarning` for screen-message part-context lookup failures; keep the screen-message logger unconditional.
+- Leave gameplay, morph, B9/attachment behavior, and module-manager selectors unchanged.
+
+## 0.0.4.140 — Include source part paths in every screen-message log
+
+- Route all five PartSculptor screen-message sites through `PartSculptorScreenMessages.Post`, retaining exactly the same on-screen text, duration and placement.
+- Always write a matching `[ScreenMessage]` entry to `KSP.log`, independently of `debugLogChanges`. Include the originating code area, screen-message text, part title, internal part name, Unity instance ID, and `GameData` asset path from `part.partInfo.partUrl` and the exact config filename (`configFileFullName`) to identify the supplying mod.
+- Log sensible `<unavailable>` values for parts without a known asset path or null part contexts; escape line breaks/quotes for easily searchable one-line records. All morphing, B9 node handling, rotation and UI behavior remain unchanged.
+
+## 0.0.4.139 — Preserve B9 subtype-specific stack node positions
+
+- Fix B9PartSwitch mesh switches on stretched parts where a node appeared to disappear after returning from a short mesh to a longer one. Read the authoritative `SUBTYPE/NODE/position` values (and prefab defaults for subtypes without an override) rather than reusing the previously stretched node baseline.
+- Treat B9-defined native node positions as authoritative in the external node-history repair path; do not re-adopt the previous subtype's already-stretched node after a switch. Continue to preserve original B9 node visibility and mesh toggling.
+- Add regression tests and a manual two-subtype test plan for `oranges_NLSUS_interstage` (NLSUS-A top Y=2.4885, NLSUS-B top Y=1.208), plus return switching, nonuniform stretch and attached children. No morph gizmo, PAW, resource or independent Copy/Match changes.
+
+## 0.0.4.138 — StretchScale 1.3 external attachment-node recovery
+
+- Adapt StretchScale 1.3's native/last-written node history for PartSculptor: persist per-node **native**, **stretched pre-morph**, and **final morphed** poses (including originalPosition, normal, and size). A node altered by PartSculptor's own morph is never treated as an external native write.
+- Detect external writes from B9PartSwitch, stock variants and other modules even when the model scale is already correct, including dynamic stack nodes; keep default 1x nodes under their original module's control. Preserve B9 subtype-specific baselines while recovering per-node native positions.
+- Distinguish load, TweakScale, user and foreign changes; allow foreign node writes to reposition connected editor parts only after the 30-frame startup grace period. Apply silent flight startup repair only during the first 120 frames, without moving the loaded craft.
+- Reuse the existing PartSculptor scaling, face-morphing, attachment-load-gap and symmetry paths rather than importing StretchScale's simple non-morphing node update directly. Resource, UI and Copy/Match algorithms are unchanged.
+- Add a focused regression test and VAB/flight validation plan. Actual KSP/Unity behavior still requires in-game testing.
+
 ## 0.0.4.137 — User Controls window layout and centered preset name
 
 - Replace the editor Controls window source with the user-supplied version, preserving its fixed-width scale and numeric tilt entry fields and 120-pixel preset-name field.
