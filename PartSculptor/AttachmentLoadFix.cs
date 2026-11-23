@@ -15,10 +15,25 @@ namespace PartSculptor
         const string SaveNode = "PARTSCULPTOR_STACK_GAP";
         const float PositionEpsilon = 0.002f;
         const int StartupDelayFrames = 10;
+        // B9 and other switchers can rewrite nodes after OnStartFinished and
+        // after the first editor placement pass. Watch only during craft load.
+        const int RecoveryWatchFrames = 150;
+        const int ReadyTimeoutFrames = 90;
         static int scheduledFrame = -1;
         static int latestScheduleFrame = -1;
         static int lastPartsCount = -1;
         static int stableSinceFrame = -1;
+        static int lastPollFrame = -1;
+        static bool recoveryStarted;
+        static readonly HashSet<Part> initialParts = new HashSet<Part>();
+        static readonly Dictionary<Part, ObservedJoin> observed =
+            new Dictionary<Part, ObservedJoin>();
+
+        sealed class ObservedJoin
+        {
+            internal AttachNode ChildNode, ParentNode;
+            internal Vector3 ChildPosition, ParentPosition;
+        }
 
         // A gap is saved in the owning module's LOCAL coordinates, rather
         // than in world coordinates, so rotated craft can be reloaded safely.
@@ -77,8 +92,10 @@ namespace PartSculptor
             {
                 Dictionary<string, Vector3> current = new Dictionary<string, Vector3>(StringComparer.Ordinal);
                 AttachNode childNode, parentNode;
-                if (owner.parent != null && TryConnection(owner, owner.parent,
-                    out childNode, out parentNode))
+                if (owner.parent != null &&
+                    (TryConnection(owner, owner.parent, out childNode, out parentNode) ||
+                     TrySavedConnection("parent", owner, owner.parent,
+                         out childNode, out parentNode)))
                 {
                     Vector3 worldGap = owner.transform.TransformPoint(childNode.position) -
                         owner.parent.transform.TransformPoint(parentNode.position);
@@ -87,7 +104,10 @@ namespace PartSculptor
                 }
                 foreach (Part child in owner.children)
                 {
-                    if (child == null || !TryConnection(child, owner, out childNode, out parentNode))
+                    if (child == null ||
+                        !(TryConnection(child, owner, out childNode, out parentNode) ||
+                          TrySavedConnection("child", owner, child,
+                              out parentNode, out childNode)))
                         continue;
                     Vector3 worldGap = child.transform.TransformPoint(childNode.position) -
                         owner.transform.TransformPoint(parentNode.position);
@@ -120,23 +140,70 @@ namespace PartSculptor
             return false;
         }
 
+        // KSP sometimes reconstructs the child->parent relationship before
+        // both AttachNode.attachedPart references are populated. The saved
+        // connection IDs are unambiguous for the owning part, and allow a
+        // post-load recovery without guessing by nearest visual node.
+        internal bool TrySavedConnection(string relation, Part owner, Part peer,
+            out AttachNode ownNode, out AttachNode peerNode)
+        {
+            ownNode = null;
+            peerNode = null;
+            if (owner == null || peer == null) return false;
+            foreach (KeyValuePair<string, Vector3> entry in savedGaps)
+            {
+                string[] ids = entry.Key.Split('\u001f');
+                if (ids.Length != 3 || ids[0] != relation) continue;
+                AttachNode own = FindStackNode(owner, ids[1]);
+                AttachNode other = FindStackNode(peer, ids[2]);
+                if (own == null || other == null ||
+                    (own.attachedPart != null && own.attachedPart != peer) ||
+                    (other.attachedPart != null && other.attachedPart != owner)) continue;
+                if (ownNode != null) return false; // ambiguous saved records
+                ownNode = own;
+                peerNode = other;
+            }
+            return ownNode != null;
+        }
+
+        static AttachNode FindStackNode(Part owner, string id)
+        {
+            if (owner == null || string.IsNullOrEmpty(id)) return null;
+            foreach (AttachNode node in owner.attachNodes)
+                if (node != null && string.Equals(node.id, id, StringComparison.Ordinal))
+                    return node;
+            return null;
+        }
+
         internal static void Schedule()
         {
             if (!HighLogic.LoadedSceneIsEditor) return;
+            // A number of PartModules schedule the same newly loaded craft.
+            // The latest schedule is used, but a completed recovery can never
+            // be restarted by a normal editor scale or B9 subtype change.
             latestScheduleFrame = Time.frameCount;
             scheduledFrame = Time.frameCount + StartupDelayFrames;
             lastPartsCount = -1;
             stableSinceFrame = -1;
+            lastPollFrame = -1;
+            recoveryStarted = false;
+            initialParts.Clear();
+            observed.Clear();
         }
 
         internal static void Poll()
         {
             if (scheduledFrame < 0 || !HighLogic.LoadedSceneIsEditor ||
-                Time.frameCount < scheduledFrame) return;
+                Time.frameCount < scheduledFrame || lastPollFrame == Time.frameCount)
+                return;
+            lastPollFrame = Time.frameCount;
             ShipConstruct ship = EditorLogic.fetch != null ? EditorLogic.fetch.ship : null;
             if (ship == null || ship.parts == null || ship.parts.Count == 0) return;
             if (ship.parts.Count != lastPartsCount)
             {
+                // After recovery begins, a part-count change means the user is
+                // editing the craft, not KSP finishing its initial load.
+                if (recoveryStarted) { StopRecovery(); return; }
                 lastPartsCount = ship.parts.Count;
                 stableSinceFrame = Time.frameCount;
                 return;
@@ -145,12 +212,19 @@ namespace PartSculptor
             foreach (Part p in ship.parts)
             {
                 ModulePartSculptor m = p != null ? p.FindModuleImplementing<ModulePartSculptor>() : null;
-                if (m != null && !m.AttachmentReady && Time.frameCount - latestScheduleFrame < 90)
+                if (m != null && !m.AttachmentReady &&
+                    Time.frameCount - latestScheduleFrame < ReadyTimeoutFrames)
                     return;
             }
-            scheduledFrame = -1; // Do not snap connections again during editor edits.
             try
             {
+                if (!recoveryStarted)
+                {
+                    initialParts.Clear();
+                    foreach (Part p in ship.parts)
+                        if (p != null) initialParts.Add(p);
+                    recoveryStarted = true;
+                }
                 HashSet<Part> visited = new HashSet<Part>();
                 foreach (Part p in ship.parts)
                     if (p != null && p.parent == null)
@@ -159,7 +233,22 @@ namespace PartSculptor
             catch (Exception e)
             {
                 Log.Error("Post-load attachment alignment failed: " + e);
+                StopRecovery();
+                return;
             }
+            // Keep a bounded node-change watcher. It corrects B9's late
+            // subtype/node writes but does not react to changes in part world
+            // position from normal editor movement, and does not run later.
+            if (Time.frameCount - latestScheduleFrame >= RecoveryWatchFrames)
+                StopRecovery();
+        }
+
+        static void StopRecovery()
+        {
+            scheduledFrame = -1;
+            recoveryStarted = false;
+            initialParts.Clear();
+            observed.Clear();
         }
 
         // KSP's node.attachedPart is the authority. Skipping surface attachments
@@ -175,7 +264,33 @@ namespace PartSculptor
                     source = node;
                     break;
                 }
-            if (source == null) return false;
+            if (source == null)
+            {
+                // One-sided parent link: B9 may have recreated the child's
+                // stack-node object without repopulating attachedPart yet.
+                // Only accept an unambiguous opposite-facing child node.
+                AttachNode linkedParent = null;
+                foreach (AttachNode node in parent.attachNodes)
+                    if (node != null && node.attachedPart == child)
+                    {
+                        if (linkedParent != null) return false;
+                        linkedParent = node;
+                    }
+                if (linkedParent == null) return false;
+                AttachNode match = null;
+                foreach (AttachNode node in child.attachNodes)
+                {
+                    if (node == null || node.attachedPart != null ||
+                        string.IsNullOrEmpty(node.id) ||
+                        !OppositeNodeNormals(child, node, parent, linkedParent)) continue;
+                    if (match != null) return false;
+                    match = node;
+                }
+                if (match == null) return false;
+                source = match;
+                destination = linkedParent;
+                return true;
+            }
             float closest = float.MaxValue;
             Vector3 childWorld = child.transform.TransformPoint(source.position);
             foreach (AttachNode node in parent.attachNodes)
@@ -188,7 +303,30 @@ namespace PartSculptor
                     destination = node;
                 }
             }
+            if (destination != null) return true;
+            // One-sided child link: prefer a unique opposite-facing free
+            // parent node. Never guess between multiple compatible nodes.
+            AttachNode unlinked = null;
+            foreach (AttachNode node in parent.attachNodes)
+            {
+                if (node == null || node.attachedPart != null ||
+                    string.IsNullOrEmpty(node.id) ||
+                    !OppositeNodeNormals(child, source, parent, node)) continue;
+                if (unlinked != null) return false;
+                unlinked = node;
+            }
+            destination = unlinked;
             return destination != null;
+        }
+
+        static bool OppositeNodeNormals(Part child, AttachNode childNode,
+            Part parent, AttachNode parentNode)
+        {
+            Vector3 childNormal = child.transform.TransformDirection(childNode.orientation);
+            Vector3 parentNormal = parent.transform.TransformDirection(parentNode.orientation);
+            if (childNormal.sqrMagnitude < 1e-8f || parentNormal.sqrMagnitude < 1e-8f)
+                return false;
+            return Vector3.Dot(childNormal.normalized, parentNormal.normalized) < -0.8f;
         }
 
         static void RestoreSubtree(Part parent, HashSet<Part> visited)
@@ -196,7 +334,7 @@ namespace PartSculptor
             if (parent == null || !visited.Add(parent)) return;
             foreach (Part child in parent.children)
             {
-                if (child == null) continue;
+                if (child == null || !initialParts.Contains(child)) continue;
                 RestoreConnection(child, parent);
                 RestoreSubtree(child, visited); // top-down; child nodes are now final
             }
@@ -210,7 +348,32 @@ namespace PartSculptor
                 (parentModule != null && parentModule.HasStretchedGeometry);
             if (!relevant) return;
             AttachNode childNode, parentNode;
-            if (!TryConnection(child, parent, out childNode, out parentNode)) return;
+            if (!TryConnection(child, parent, out childNode, out parentNode))
+            {
+                // KSP/B9 can restore reciprocal AttachNode.attachedPart links
+                // later than the parent tree. Prefer the persisted IDs over
+                // guessing which node on a multi-node adapter is connected.
+                AttachNode own, peer;
+                if (childModule != null && childModule.AttachmentFix.TrySavedConnection(
+                    "parent", child, parent, out own, out peer))
+                { childNode = own; parentNode = peer; }
+                else if (parentModule != null && parentModule.AttachmentFix.TrySavedConnection(
+                    "child", parent, child, out own, out peer))
+                { childNode = peer; parentNode = own; }
+                else return;
+            }
+
+            ObservedJoin previous;
+            bool wasObserved = observed.TryGetValue(child, out previous);
+            if (wasObserved && previous.ChildNode == childNode &&
+                previous.ParentNode == parentNode &&
+                NodeGeometryHistory.Near(previous.ChildPosition, childNode.position) &&
+                NodeGeometryHistory.Near(previous.ParentPosition, parentNode.position))
+                return;
+            observed[child] = new ObservedJoin {
+                ChildNode = childNode, ParentNode = parentNode,
+                ChildPosition = childNode.position, ParentPosition = parentNode.position
+            };
 
             Vector3 intendedGap = Vector3.zero;
             bool saved = childModule != null && childModule.AttachmentFix.FindSavedGap(

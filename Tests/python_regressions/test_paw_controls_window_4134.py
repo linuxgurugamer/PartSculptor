@@ -67,13 +67,13 @@ class AllPawControlsWindow134(unittest.TestCase):
 
     def test_version_and_docs(self):
         for name in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT / name).read_text())['VERSION']['BUILD'], 147)
-        self.assertIn('AssemblyVersion("0.0.4.147")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads((ROOT / name).read_text())['VERSION']['BUILD'], 148)
+        self.assertIn('AssemblyVersion("0.0.4.148")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         a = (ROOT/'README.md').read_text()
         b = (ROOT/'GameData/PartSculptor/README.md').read_text()
         self.assertEqual(a,b)
         self.assertIn('Show PartSculptor controls window',a)
-        self.assertIn('## 0.0.4.134', (ROOT/'Changelog.md').read_text())
+        self.assertIn('0.0.4.134', (ROOT/'Changelog.md').read_text())
         self.assertTrue((ROOT/'Tests/ALL_PAW_CONTROLS_0.0.4.134.md').exists())
 
 if __name__ == '__main__': unittest.main()

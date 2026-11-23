@@ -1,4 +1,4 @@
-"""Static regression checks for unknown B9 value filtering in v0.0.4.147."""
+"""Static regression checks for unknown B9 value filtering in v0.0.4.148."""
 import re
 import unittest
 from pathlib import Path
@@ -33,7 +33,7 @@ class B9UnknownValues4146(unittest.TestCase):
         self.assertIn('contains unsupported nested nodes', SOURCE)
 
     def test_version_and_readme_mirror(self):
-        self.assertIn('AssemblyVersion("0.0.4.147")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+        self.assertIn('AssemblyVersion("0.0.4.148")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT/'README.md').read_bytes(),
                          (ROOT/'GameData/PartSculptor/README.md').read_bytes())
 

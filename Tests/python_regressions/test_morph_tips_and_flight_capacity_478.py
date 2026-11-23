@@ -66,6 +66,6 @@ class MorphTipsAndFlightCapacity478(unittest.TestCase):
         guide=(ROOT/'README.md').read_text()
         self.assertIn('Morph tip opacity', guide)
         self.assertIn('Alternate skin', guide)
-        self.assertIn('flight', (ROOT/'Changelog.md').read_text().lower())
+        self.assertIn('0.0.4.142', (ROOT/'Changelog.md').read_text().lower())
 
 if __name__ == '__main__': unittest.main()

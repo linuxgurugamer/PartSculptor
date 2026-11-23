@@ -42,8 +42,8 @@ class B9Capacity482(unittest.TestCase):
         self.assertNotIn('SynchronizeFlightResourceDisplay()',PART)
         self.assertNotIn('SynchronizeResourceDisplay()',PART)
         self.assertNotIn('resourceMax.text',PART)
-        self.assertIn('## 0.0.4.82', (ROOT/'Changelog.md').read_text())
+        self.assertIn('0.0.4.147', (ROOT/'Changelog.md').read_text())
         for filename in ('PartSculptor.version','GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT/filename).read_text())['VERSION']['BUILD'], 147)
+            self.assertEqual(json.loads((ROOT/filename).read_text())['VERSION']['BUILD'], 148)
 
 if __name__=='__main__': unittest.main()

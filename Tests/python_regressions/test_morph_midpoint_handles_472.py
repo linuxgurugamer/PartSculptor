@@ -65,9 +65,9 @@ class MidpointHandles472(unittest.TestCase):
         self.assertIn('sixteen handles', README)
         self.assertIn('Drag an edge midpoint', README)
         self.assertIn('Alt** + drag an edge midpoint', README)
-        self.assertIn('## 0.0.4.72', (ROOT/'Changelog.md').read_text())
+        self.assertIn('0.0.4.147', (ROOT/'Changelog.md').read_text())
         for path in (ROOT/'PartSculptor.version',ROOT/'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads(path.read_text())['VERSION']['BUILD'], 147)
-        self.assertIn('AssemblyVersion("0.0.4.147")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads(path.read_text())['VERSION']['BUILD'], 148)
+        self.assertIn('AssemblyVersion("0.0.4.148")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__': unittest.main()

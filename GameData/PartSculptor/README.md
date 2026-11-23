@@ -40,6 +40,8 @@ distort mesh geometry, colliders or attachment behavior.
 
 **Troubleshooting screen messages:** Every PartSculptor message shown on screen is also logged to `KSP.log` as `[ScreenMessage]` with the exact message, code source, part title/name/instance, and its `GameData` asset path (`partUrl`) and exact config filename (`configFileFullName`) where available. These entries are written even when `debugLogChanges = false`, making it easier to identify the mod supplying a problematic part.
 
+**B9 attachment reloads:** When a B9PartSwitch length subtype has been stretched, PartSculptor restores stack-connected parts to the saved attachment location after loading an editor craft. This includes late subtype node updates, and preserves intentional saved connection offsets. The correction is restricted to initial craft loading, not normal editor resizing.
+
 ## Requirements
 
 - KSP **1.12.x**

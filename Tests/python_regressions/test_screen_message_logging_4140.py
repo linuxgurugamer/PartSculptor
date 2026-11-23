@@ -49,8 +49,8 @@ class ScreenMessageLogging4140(unittest.TestCase):
 
     def test_version_and_docs(self):
         for relative in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(147, json.loads((ROOT / relative).read_text())['VERSION']['BUILD'])
-        self.assertIn('AssemblyVersion("0.0.4.147")',
+            self.assertEqual(148, json.loads((ROOT / relative).read_text())['VERSION']['BUILD'])
+        self.assertIn('AssemblyVersion("0.0.4.148")',
                       (SRC / 'AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT / 'README.md').read_bytes(),
                          (ROOT / 'GameData/PartSculptor/README.md').read_bytes())

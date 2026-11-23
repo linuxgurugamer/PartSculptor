@@ -17,8 +17,8 @@ def read(name):
 class NodeHistory4138(unittest.TestCase):
     def test_version_and_project_inclusion(self):
         for name in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(147, json.loads(read(name))['VERSION']['BUILD'])
-        self.assertIn('AssemblyVersion("0.0.4.147")', read('PartSculptor/AssemblyVersion.cs'))
+            self.assertEqual(148, json.loads(read(name))['VERSION']['BUILD'])
+        self.assertIn('AssemblyVersion("0.0.4.148")', read('PartSculptor/AssemblyVersion.cs'))
         self.assertIn('<Compile Include="NodeGeometryHistory.cs" />',read('PartSculptor/PartSculptor.csproj'))
 
     def test_preserves_three_distinct_node_states_and_craft_persistence(self):
@@ -81,7 +81,7 @@ class NodeHistory4138(unittest.TestCase):
         import zipfile
         with zipfile.ZipFile(baseline) as z:
             for name in ('FaceMorphSupport.cs', 'FaceMorphStepCore.cs',
-                         'FaceAttachmentMatchCore.cs', 'AttachmentLoadFix.cs'):
+                         'FaceAttachmentMatchCore.cs'):
                 original=z.read('PartSculptor/PartSculptor/'+name).decode('utf-8-sig')
                 self.assertEqual(original.replace('[PartSculptor] ', '').replace('[PartSculptor]', ''), read('PartSculptor/'+name))
 

@@ -24,7 +24,8 @@ class TestAttachmentLoad(unittest.TestCase):
         self.assertIn('RestoreSubtree(p, visited)', FIX)
         self.assertIn('RestoreConnection(child, parent);', FIX)
         self.assertIn('RestoreSubtree(child, visited);', FIX)
-        self.assertIn('if (!TryConnection(child, parent, out childNode, out parentNode)) return;', FIX)
+        self.assertIn('if (!TryConnection(child, parent, out childNode, out parentNode))', FIX)
+        self.assertIn('TrySavedConnection(', FIX)
         self.assertIn('ScaleMath.AttachmentCorrection(expected.x, actual.x)', FIX)
         self.assertIn('internal static double AttachmentCorrection(', MATH)
     def test_preserves_user_offset_in_save_and_load(self):

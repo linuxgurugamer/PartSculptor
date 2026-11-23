@@ -310,7 +310,18 @@ namespace PartSculptor
         readonly NodeAttachWatcher nodeAttachWatcher = new NodeAttachWatcher();
         readonly AttachmentLoadFix attachmentFix = new AttachmentLoadFix();
         internal AttachmentLoadFix AttachmentFix { get { return attachmentFix; } }
-        internal bool AttachmentReady { get { return initialized || model == null; } }
+        internal bool AttachmentReady
+        {
+            get
+            {
+                if (model == null) return true;
+                if (!initialized || b9SubtypeChangePending) return false;
+                // Do not align children against nodes which B9 has just
+                // replaced but PartSculptor has not yet restored to the
+                // selected subtype's stretched/morphed coordinates.
+                return !nodeHistory.ChangedExternally(part);
+            }
+        }
         internal bool HasStretchedGeometry
         {
             get { return initialized && (Mathf.Abs(scaleX - 1f) > 0.0001f ||

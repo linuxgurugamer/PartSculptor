@@ -48,9 +48,9 @@ class SelectedControlsWindow135(unittest.TestCase):
 
     def test_versions_and_docs(self):
         for name in ('PartSculptor.version','GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(147,json.loads(code(name))['VERSION']['BUILD'])
-        self.assertIn('AssemblyVersion("0.0.4.147")',code('PartSculptor/AssemblyVersion.cs'))
+            self.assertEqual(148,json.loads(code(name))['VERSION']['BUILD'])
+        self.assertIn('AssemblyVersion("0.0.4.148")',code('PartSculptor/AssemblyVersion.cs'))
         self.assertEqual(code('README.md'),code('GameData/PartSculptor/README.md'))
-        self.assertIn('## 0.0.4.136',code('Changelog.md'))
+        self.assertIn('0.0.4.137',code('Changelog.md'))
 
 if __name__ == '__main__': unittest.main()

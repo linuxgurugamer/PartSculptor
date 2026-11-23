@@ -1,7 +1,8 @@
 Changelog
 
-0.0.4.147
+0.0.4.148
 	Improved support for B9partSwitch, now supports NODE and MODULE stanza
+	Fixed issue with B9PartSwitch where reloading saved craft with certain types of changes would have secondary parts loaded to the original node positions
 
 0.0.4.142
 	Improved logging support
@@ -10,6 +11,17 @@ Changelog
 
 0.0.4.139
 	Fixed B9 issue with nodes being lost when switching between different B9PS meshes
+
+0.0.4.137
+	Added window containing all controls in the PAW for easier access to all controls.
+	Added ability to hide the PAW window and controls when not needed.
+	Added ability to specify face tilt in PAW instead of dragging
+	Fixed issue with morphing not working correctly when the attached part is a child of another part.
+	Fixed issue when moving handle quickly and the morphing would not update correctly.
+	Added attached part morphing for parts that have morphing enabled. This allows the attached part to morph along with the parent part.
+	Added option to settings to have this morphing option enabled or disabled.
+	Added face morphing for attached parts which adjusts the face of the attached part to match the morphed face.
+	Improved support for B9partSwitch
 
 0.0.4.134
 	Added window containing all controls in the PAW for easier access to all controls.

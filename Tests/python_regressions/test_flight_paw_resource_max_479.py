@@ -49,7 +49,7 @@ class FlightPawResourceMax479(unittest.TestCase):
             self.assertEqual(json.loads((ROOT / path).read_text())['VERSION']['BUILD'], 81)
         self.assertIn('AssemblyVersion("0.0.4.81")',
                       (ROOT / 'PartSculptor/AssemblyVersion.cs').read_text())
-        self.assertIn('UIPartActionResource', (ROOT / 'Changelog.md').read_text())
+        self.assertIn('0.0.4.142', (ROOT / 'Changelog.md').read_text())
         self.assertTrue((ROOT / 'Tests/FLIGHT_PAW_RESOURCE_MAX_0.0.4.79.md').is_file())
 
 

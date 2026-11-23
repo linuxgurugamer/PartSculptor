@@ -1,4 +1,4 @@
-"""Intentional v0.0.4.147 source-policy changes (requires KSP validation)."""
+"""Intentional v0.0.4.148 source-policy changes (requires KSP validation)."""
 import json
 import re
 import unittest
@@ -34,8 +34,8 @@ class B9ModuleIgnoreAndWrap4147(unittest.TestCase):
 
     def test_version_and_readmes(self):
         for f in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT/f).read_text())['VERSION']['BUILD'],147)
-        self.assertIn('AssemblyVersion("0.0.4.147")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads((ROOT/f).read_text())['VERSION']['BUILD'],148)
+        self.assertIn('AssemblyVersion("0.0.4.148")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT/'README.md').read_bytes(), (ROOT/'GameData/PartSculptor/README.md').read_bytes())
         self.assertIn('Nested `MODULE` blocks under B9 subtypes', (ROOT/'README.md').read_text())
 

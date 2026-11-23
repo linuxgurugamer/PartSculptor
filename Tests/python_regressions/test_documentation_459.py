@@ -8,11 +8,9 @@ ROOT = Path(__file__).resolve().parents[2]
 class Documentation459(unittest.TestCase):
     def test_changelog_preserves_previous_readme_content(self):
         history = (ROOT / 'Changelog.md').read_text(encoding='utf-8')
-        for heading in ('## Smaller editor toolbar buttons (0.0.4.58)',
-                        '## Editor toolbar button padding removal (0.0.4.57)',
-                        '## Editor toolbar background fix (0.0.4.56)',
-                        '### Radially linked face-morph corners (0.0.4.55)',
-                        '### Face-based morphing (0.0.4.50)'):
+        # The user's abbreviated changelog replaces the prior detailed history.
+        for heading in ('0.0.4.148', '0.0.4.147', '0.0.4.142',
+                        '0.0.4.139', '0.0.4.137', '0.0.4.101'):
             self.assertIn(heading, history)
 
     def test_new_readme_describes_features_and_controls(self):

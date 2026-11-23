@@ -48,8 +48,8 @@ class B9ModuleOptions4103(unittest.TestCase):
         for token in (b'affectFARVoxels', b'advancedTweakablesOnly'):
             self.assertIn(token, readme)
         for name in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT / name).read_text())['VERSION']['BUILD'], 147)
-        self.assertIn('AssemblyVersion("0.0.4.147")',
+            self.assertEqual(json.loads((ROOT / name).read_text())['VERSION']['BUILD'], 148)
+        self.assertIn('AssemblyVersion("0.0.4.148")',
                       (ROOT / 'PartSculptor/AssemblyVersion.cs').read_text())
 
 
