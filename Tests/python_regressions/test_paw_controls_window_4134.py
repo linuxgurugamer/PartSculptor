@@ -67,8 +67,8 @@ class AllPawControlsWindow134(unittest.TestCase):
 
     def test_version_and_docs(self):
         for name in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT / name).read_text())['VERSION']['BUILD'], 148)
-        self.assertIn('AssemblyVersion("0.0.4.148")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads((ROOT / name).read_text())['VERSION']['BUILD'], 20)
+        self.assertIn('AssemblyVersion("0.0.5.20")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         a = (ROOT/'README.md').read_text()
         b = (ROOT/'GameData/PartSculptor/README.md').read_text()
         self.assertEqual(a,b)

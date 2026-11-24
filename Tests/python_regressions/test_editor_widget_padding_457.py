@@ -32,10 +32,10 @@ class EditorWidgetPadding457(unittest.TestCase):
     def test_version(self):
         for path in [ROOT / 'PartSculptor.version',
                      ROOT / 'GameData/PartSculptor/PartSculptor.version']:
-            self.assertGreaterEqual(json.loads(path.read_text())['VERSION']['BUILD'], 57)
+            self.assertGreaterEqual(json.loads(path.read_text())['VERSION']['BUILD'], 1)
         assembly = (ROOT / 'PartSculptor/AssemblyVersion.cs').read_text()
-        self.assertRegex(assembly, r'AssemblyVersion\("0\.0\.4\.\d+"\)')
-        self.assertRegex(assembly, r'AssemblyFileVersion\("0\.0\.4\.\d+"\)')
+        self.assertRegex(assembly, r'AssemblyVersion\("0\.0\.5\.\d+"\)')
+        self.assertRegex(assembly, r'AssemblyFileVersion\("0\.0\.5\.\d+"\)')
 
 
 if __name__ == '__main__':

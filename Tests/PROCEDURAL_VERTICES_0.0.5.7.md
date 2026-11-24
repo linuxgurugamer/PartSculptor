@@ -1,0 +1,10 @@
+# PartSculptor 0.0.5.7 — manual KSP validation
+
+1. In VAB select PG and a stock FL-T400. Add a ring. Verify all nine handles still work: red/blue resize, yellow corners resize X/Z, green moves the ring center in Y. Shift should no longer switch modes; Alt on red/blue/yellow tilts the ring, with the center fixed. Verify right Alt too. Numeric ring edits should preserve tilt.
+2. Switch to Vertices with no rings (repeat with one or more rings). Click Add vertex and click inside a visible triangle. Verify exactly one additional visual vertex and one yellow handle, unchanged initial silhouette and UVs. Click another part or empty space while armed; no insertion. Edges/vertices should be rejected rather than forming a crack.
+3. Select a yellow vertex handle, drag in X/Z; verify the preview handle follows the cursor and the mesh updates on release. Repeat holding Alt to move in Y. Check the editor camera at oblique and nearly edge-on views. Check Escape/right-click cancellation and a single Ctrl+Z/redo checkpoint per insertion/drag/removal.
+4. Insert a second point inside one of the newly split triangles; edit the original and new vertex. Remove selected, clear vertices, switch to Rings, and remove/add/reposition/resize rings. A ring edit that hits an anchor edge should fail safely without partial mesh updates. Check that clearing one mode does not clear the other.
+5. Save and reload the craft, duplicate the part, test radial and mirrored symmetry, and launch to flight. Compare the visual shape. Check B9 named variant switching: inactive handles should be hidden and reappear on return. Verify invalid saved mesh anchors are reported and compatible rings remain restored.
+6. Individual vertex deformation is visual only. Verify no unexpected changes in colliders, attach-node positions, or resource capacity after moving individual vertices; ring edits should still update supported colliders and capacity.
+
+No Unity/KSP runtime or full C# compilation was available during packaging.

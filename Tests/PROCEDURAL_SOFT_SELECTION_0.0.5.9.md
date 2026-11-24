@@ -1,0 +1,8 @@
+# Selected vertex gizmo and soft selection — manual KSP checks
+
+1. In the VAB select a supported tank, open PG > Vertices, insert a vertex inside a visible triangle. Verify a yellow center plus red X, green Y and blue Z arrows.
+2. Drag each arrow independently. Rotate the part/camera and repeat. Drag the yellow center in X/Z and Alt-drag in Y. Check one undo per drag, and Escape/right-click cancels.
+3. Enable Soft selection, enter a radius in part-local metres and Apply influence radius. Drag a vertex; inspect nearby visual vertices, collision surface, nearby nodes and resource capacity after mouse release. Start with a radius spanning several existing vertices. At half radius, falloff weight is 0.5. Increase/decrease radius on the same edit; check shape is rebuilt rather than compounded.
+4. Disable Soft selection and apply, or enter zero and apply. Check only the selected vertex's direct offset is applied; later inserted vertices whose triangle depends on it retain existing barycentric dependency behavior. Check negative, NaN and infinite radius entries cannot be applied.
+5. Insert a second vertex and verify separate radius settings, then save/reload, copy, undo and test compatible symmetry counterparts. Check clearing edits restores volume, collider and nodes. Old craft files without radius values use zero. Mesh seams inside one mesh share weights, but separate visual meshes are not soft-selected together. Collider approximation and existing convex limits still apply.
+6. Check short editor windows can scroll the PG vertex controls and Rings mode retains all nine handles and Alt tilt.

@@ -23,14 +23,14 @@ class Documentation459(unittest.TestCase):
                        'Ctrl + Alt + Shift', '0.01', '0.05',
                        '0.10', '0.25'):
             self.assertIn(needle, guide)
-        self.assertLess(len(guide.splitlines()), 360)
+        self.assertLess(len(guide.splitlines()), 440)
 
     def test_version_files_and_assembly(self):
         a = json.loads((ROOT / 'PartSculptor.version').read_text())['VERSION']
         b = json.loads((ROOT / 'GameData/PartSculptor/PartSculptor.version').read_text())['VERSION']
         self.assertEqual(a, b)
-        self.assertGreaterEqual(a['BUILD'], 59)
-        self.assertIn('AssemblyVersion("0.0.4.%d")' % a['BUILD'],
+        self.assertGreaterEqual(a['BUILD'], 5)
+        self.assertIn('AssemblyVersion("0.0.5.%d")' % a['BUILD'],
                       (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__':

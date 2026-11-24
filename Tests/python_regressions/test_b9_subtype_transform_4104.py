@@ -62,7 +62,7 @@ class B9SubtypeTransform4104(unittest.TestCase):
     def test_inactive_variants_colliders_also_included(self):
         self.assertIn('part.GetComponentsInChildren<MeshCollider>(true)', MORPH)
         self.assertIn('part.GetComponentsInChildren<Collider>(true)', MORPH)
-        self.assertIn('r.collider.sharedMesh = r.instance;', MORPH)
+        self.assertIn('r.collider.sharedMesh = r.vertexCollider != null ? r.vertexCollider : r.instance;', MORPH)
         self.assertIn('r.primitive.enabled = identity && r.originalEnabled;', MORPH)
 
     def test_b9_changes_reapply_existing_morph(self):
@@ -87,8 +87,8 @@ class B9SubtypeTransform4104(unittest.TestCase):
         self.assertEqual((ROOT/'README.md').read_bytes(),
                          (ROOT/'GameData/PartSculptor/README.md').read_bytes())
         for name in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'], 148)
-        self.assertIn('AssemblyVersion("0.0.4.148")',
+            self.assertEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'], 20)
+        self.assertIn('AssemblyVersion("0.0.5.20")',
                       (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__':

@@ -46,8 +46,8 @@ class FlightPawResourceMax479(unittest.TestCase):
 
     def test_version_and_manual_plan(self):
         for path in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT / path).read_text())['VERSION']['BUILD'], 81)
-        self.assertIn('AssemblyVersion("0.0.4.81")',
+            self.assertEqual(json.loads((ROOT / path).read_text())['VERSION']['BUILD'], 20)
+        self.assertIn('AssemblyVersion("0.0.5.20")',
                       (ROOT / 'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertIn('0.0.4.142', (ROOT / 'Changelog.md').read_text())
         self.assertTrue((ROOT / 'Tests/FLIGHT_PAW_RESOURCE_MAX_0.0.4.79.md').is_file())

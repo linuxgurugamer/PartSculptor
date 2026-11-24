@@ -25,7 +25,7 @@ class ModuleManagerExclusions498(unittest.TestCase):
                 self.assertEqual(self.directives[0].count('!MODULE['+name+']'),1)
 
     def test_all_filters_same_has_condition(self):
-        self.assertEqual(self.directives[0], ','.join('!MODULE['+name+']' for name in EXCLUDED) + ',!MODEL:HAS[#model[ModularSegmentedSRBs/*]]')
+        self.assertEqual(self.directives[0], ','.join('!MODULE['+name+']' for name in EXCLUDED) + ',!MODEL:HAS[#model[ModularSegmentedSRBs/*]],!MODULE[KerbalEVA],!MODULE[FlagSite],!MODULE[FlagDecalBackground],~name[kerbalEVA*],~name[flag],~name[FlagSite],~name[flagPart*]')
 
     def test_only_parts_carrying_modules_excluded(self):
         self.assertNotIn('!ProceduralParts', self.code)
@@ -42,8 +42,8 @@ class ModuleManagerExclusions498(unittest.TestCase):
 
     def test_release_metadata(self):
         for p in [ROOT/'PartSculptor.version',ROOT/'GameData/PartSculptor/PartSculptor.version']:
-            self.assertEqual(json.loads(p.read_text())['VERSION']['BUILD'], 148)
-        self.assertIn('AssemblyVersion("0.0.4.148")',(ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads(p.read_text())['VERSION']['BUILD'], 20)
+        self.assertIn('AssemblyVersion("0.0.5.20")',(ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__=='__main__':
     unittest.main()

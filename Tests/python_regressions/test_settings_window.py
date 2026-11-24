@@ -36,7 +36,7 @@ class TestSettingsAndFixedPresets(unittest.TestCase):
         self.assertIn('settingsWindow.Close();', code)
         self.assertIn('ClickThruBlocker.GUIWindow', settings)
         self.assertIn('"Match node sizes by default"', settings)
-        self.assertIn('GUI.DragWindow(new Rect(0f, 0f, windowRect.width, 23f));', settings)
+        self.assertIn('GUI.DragWindow();', settings)
 
     def test_fixed_double_and_half_y_noncompounding(self):
         config = (GAME / 'PluginData/Presets.cfg').read_text()

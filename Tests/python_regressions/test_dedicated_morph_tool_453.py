@@ -8,8 +8,8 @@ MORPH = (ROOT / 'PartSculptor/FaceMorphGizmo.cs').read_text()
 
 class MorphTool453(unittest.TestCase):
     def test_two_distinct_editor_buttons(self):
-        self.assertIn('private void ToggleStretch() { ToggleMode(false); }', TOOL)
-        self.assertIn('private void ToggleMorph() { ToggleMode(true); }', TOOL)
+        self.assertIn('private void ToggleStretch() { ToggleMode(false, false); }', TOOL)
+        self.assertIn('private void ToggleMorph() { ToggleMode(true, false); }', TOOL)
         self.assertIn('toolButton.onClick.AddListener(ToggleStretch)', TOOL)
         self.assertIn('morphToolButton.onClick.AddListener(ToggleMorph)', TOOL)
         self.assertIn('new GameObject("PartSculptor Morph Editor Tool"', TOOL)
@@ -17,8 +17,8 @@ class MorphTool453(unittest.TestCase):
         self.assertTrue((ROOT/'GameData/PartSculptor/PluginData/Icons/morph_38.png').is_file())
 
     def test_selected_part_retained_on_switch(self):
-        section = TOOL.split('private void ToggleMode(bool morph)',1)[1].split('private void ExitStretchMode',1)[0]
-        self.assertIn('if (faceMode == morph) { ExitStretchMode(); return; }',section)
+        section = TOOL.split('private void ToggleMode(bool morph, bool procedural)',1)[1].split('private void ExitStretchMode',1)[0]
+        self.assertIn('if (faceMode == morph && proceduralMode == procedural)',section)
         self.assertIn('faceMode = morph;',section)
         self.assertIn('SelectGizmo();',section)
         # Not repicked or forgotten when changing from Stretch to Morph

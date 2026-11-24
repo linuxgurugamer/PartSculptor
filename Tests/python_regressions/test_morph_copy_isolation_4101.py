@@ -32,7 +32,7 @@ class MorphCopyIsolation4101(unittest.TestCase):
 
     def test_copy_of_identity_morph_becomes_independent_on_start(self):
         self.assertIn('bool inheritedMorphMeshes = FaceMorphSupport.ContainsMorphMeshes(part);', MODULE)
-        self.assertIn('if (HasFaceMorph || inheritedMorphMeshes)', MODULE)
+        self.assertIn('if (HasFaceMorph || HasProceduralGeometry || inheritedMorphMeshes)', MODULE)
         self.assertIn('faceMorph.Apply(GetMorphFace(0), GetMorphFace(1), false);', MODULE)
 
     def test_existing_morph_support_is_not_detached_from_its_mesh(self):
@@ -51,8 +51,8 @@ class MorphCopyIsolation4101(unittest.TestCase):
 
     def test_updated_version_and_readmes(self):
         for path in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT / path).read_text())['VERSION']['BUILD'], 148)
-        self.assertIn('AssemblyVersion("0.0.4.148")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads((ROOT / path).read_text())['VERSION']['BUILD'], 20)
+        self.assertIn('AssemblyVersion("0.0.5.20")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT/'README.md').read_bytes(), (ROOT/'GameData/PartSculptor/README.md').read_bytes())
         self.assertIn('subsequent Morph changes to the original do not alter an Alt-copied part',
                       (ROOT/'README.md').read_text())

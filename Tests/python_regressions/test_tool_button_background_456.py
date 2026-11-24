@@ -39,7 +39,7 @@ class ToolBackground456(unittest.TestCase):
 
     def test_version_and_selection_still_work(self):
         version = json.loads((ROOT / 'PartSculptor.version').read_text())['VERSION']
-        self.assertGreaterEqual(version['BUILD'], 56)
+        self.assertGreaterEqual(version['BUILD'], 5)
         self.assertEqual(version, json.loads((ROOT /
             'GameData/PartSculptor/PartSculptor.version').read_text())['VERSION'])
         expected = '{}.{}.{}.{}'.format(version['MAJOR'], version['MINOR'],

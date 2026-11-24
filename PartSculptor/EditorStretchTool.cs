@@ -1,4 +1,4 @@
-// Fifth and sixth VAB/SPH editor tools: Stretch (axis scaling) and Morph
+// Fifth through seventh VAB/SPH editor tools: Stretch, Morph and Procedural
 // (independent end-face deformation). Both use ModulePartSculptor's existing
 // commit/validation pipeline rather than manipulating craft parts directly.
 // Runtime UI discovery avoids relying on private KSP editor prefab fields.
@@ -48,9 +48,14 @@ namespace PartSculptor
         private Image morphBackground;
         private Button morphToolButton;
         private Texture2D ownedMorphTexture;
+        private RectTransform proceduralToolRect;
+        private GameObject proceduralToolObject;
+        private Image proceduralBackground;
+        private Button proceduralToolButton;
         private float nextFindTime;
         private bool modeActive;
         private bool faceMode;
+        private bool proceduralMode;
         private string faceStatus = "";
         private ModulePartSculptor selectedModule;
         private bool hasLock;
@@ -72,7 +77,8 @@ namespace PartSculptor
                 ExitStretchMode();
                 return;
             }
-            if (toolObject != null && (stockReference == null || morphToolObject == null))
+            if (toolObject != null && (stockReference == null || morphToolObject == null ||
+                proceduralToolObject == null))
             {
                 // The stock strip was rebuilt, or either custom button was
                 // destroyed. Recreate BOTH without leaving an input lock.
@@ -120,6 +126,9 @@ namespace PartSculptor
                 ExitStretchMode();
                 return;
             }
+            // PG handles must claim clicks before the ordinary part picker.
+            if (proceduralMode && ProceduralGeometryTool.UpdateHandles(selectedModule))
+                return;
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 // First Esc cancels either handle drag; later Esc exits.
@@ -129,13 +138,15 @@ namespace PartSculptor
             }
             if (!EditorLogic.fetch.AnyTextFieldHasFocus() &&
                 !ScaleGizmo.IsDragging && !FaceMorphGizmo.IsDragging &&
-                Input.GetKeyDown(KeyCode.M))
+                !proceduralMode && Input.GetKeyDown(KeyCode.M))
             {
                 ChangeFaceMode();
                 return;
             }
             if (!Input.GetMouseButtonDown(0) || ScaleGizmo.IsPointerOnHandleOrDragging() ||
                 FaceMorphGizmo.IsPointerOnHandleOrDragging())
+                return;
+            if (proceduralMode && ProceduralGeometryTool.IsPointerOverPanel(Input.mousePosition))
                 return;
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
                 return;
@@ -152,12 +163,12 @@ namespace PartSculptor
                 ScaleGizmo.Hide();
                 FaceMorphGizmo.Hide();
                 selectedModule = null;
-                if (faceMode)
+                if (faceMode || proceduralMode)
                 {
                     faceStatus = module == null ?
-                        "Morph unavailable on " + partTitle +
+                        "Geometry unavailable on " + partTitle +
                         ": no PartSculptor module" :
-                        "Morph unavailable on " + partTitle + ": " +
+                        "Geometry unavailable on " + partTitle + ": " +
                         module.MorphSelectionFailure;
                     Log.Warning(faceStatus);
                     PartSculptorScreenMessages.Post(clicked, faceStatus, Settings.screenMessageTime,
@@ -182,11 +193,14 @@ namespace PartSculptor
                     ExitStretchMode();
                     toolObject.SetActive(false);
                     if (morphToolObject != null) morphToolObject.SetActive(false);
+                    if (proceduralToolObject != null) proceduralToolObject.SetActive(false);
                     return;
                 }
                 if (!toolObject.activeSelf) toolObject.SetActive(true);
                 if (morphToolObject != null && !morphToolObject.activeSelf)
                     morphToolObject.SetActive(true);
+                if (proceduralToolObject != null && !proceduralToolObject.activeSelf)
+                    proceduralToolObject.SetActive(true);
                 AlignNextToStockTools();
             }
         }
@@ -222,18 +236,22 @@ namespace PartSculptor
             hasLock = false;
         }
 
-        private void ToggleStretch() { ToggleMode(false); }
-        private void ToggleMorph() { ToggleMode(true); }
+        private void ToggleStretch() { ToggleMode(false, false); }
+        private void ToggleMorph() { ToggleMode(true, false); }
+        private void ToggleProcedural() { ToggleMode(false, true); }
 
-        private void ToggleMode(bool morph)
+        private void ToggleMode(bool morph, bool procedural)
         {
             if (modeActive)
             {
-                if (faceMode == morph) { ExitStretchMode(); return; }
+                if (faceMode == morph && proceduralMode == procedural)
+                { ExitStretchMode(); return; }
                 // Switching between custom tools must not drop selection or
                 // unlock the editor: the chosen part immediately gets its
                 // corresponding gizmo. Both buttons stay mutually exclusive.
                 faceMode = morph;
+                proceduralMode = procedural;
+                ProceduralGeometryTool.Clear();
                 faceStatus = "";
                 ScaleGizmo.Hide();
                 FaceMorphGizmo.Hide();
@@ -272,6 +290,8 @@ namespace PartSculptor
             selectedModule = null;
             faceStatus = "";
             faceMode = morph;
+            proceduralMode = procedural;
+            ProceduralGeometryTool.Clear();
             modeActive = true;
             RefreshButtonColor();
         }
@@ -287,6 +307,8 @@ namespace PartSculptor
             selectedModule = null;
             faceStatus = "";
             faceMode = false;
+            proceduralMode = false;
+            ProceduralGeometryTool.Clear();
             RefreshButtonColor();
         }
 
@@ -295,12 +317,15 @@ namespace PartSculptor
             if (!HighLogic.LoadedSceneIsEditor) return;
             // IMGUI uses a top-left origin, while the editor's RectTransforms
             // are located in screen coordinates with a bottom-left origin.
-            // Anchor the entire morph help area under all SIX actual tools.
+            // Anchor help beneath all seven native and custom tool buttons.
             Rect helpRect = MorphHelpRect();
             FaceMorphGizmo.DrawActive(helpRect); // Sixth tool or direct PAW activation
             ScaleGizmo.DrawActive(helpRect); // Fifth tool: foreground axes + anchored help
+            if (modeActive && proceduralMode)
+                ProceduralGeometryTool.Draw(helpRect, selectedModule);
             // Unsupported meshes use the same anchored area as the normal help.
-            if (modeActive && faceMode && !string.IsNullOrEmpty(faceStatus))
+            if (modeActive && faceMode && !proceduralMode &&
+                !string.IsNullOrEmpty(faceStatus))
                 FaceMorphGizmo.DrawHelpBox(helpRect, faceStatus);
         }
 
@@ -323,7 +348,8 @@ namespace PartSculptor
         {
             // A PAW button may activate face morph before the custom toolbar
             // can be discovered. Fall back only when no tool layout exists.
-            if (stockToolRects.Count == 0 || toolRect == null || morphToolRect == null)
+            if (stockToolRects.Count == 0 || toolRect == null ||
+                morphToolRect == null || proceduralToolRect == null)
                 return new Rect(12f, 222f, 200f, 0f);
 
             Canvas canvas = toolRect.GetComponentInParent<Canvas>();
@@ -336,6 +362,7 @@ namespace PartSculptor
                 IncludeButtonBounds(nativeTool, uiCamera, ref left, ref right, ref bottom);
             IncludeButtonBounds(toolRect, uiCamera, ref left, ref right, ref bottom);
             IncludeButtonBounds(morphToolRect, uiCamera, ref left, ref right, ref bottom);
+            IncludeButtonBounds(proceduralToolRect, uiCamera, ref left, ref right, ref bottom);
             if (float.IsInfinity(left) || float.IsInfinity(right) || float.IsInfinity(bottom) ||
                 float.IsNaN(left) || float.IsNaN(right) || float.IsNaN(bottom))
                 return new Rect(12f, 222f, 200f, 0f);
@@ -352,12 +379,24 @@ namespace PartSculptor
         // now provide the visible way of choosing Stretch vs Morph.
         private void ChangeFaceMode()
         {
-            ToggleMode(!faceMode);
+            ToggleMode(!faceMode, false);
         }
 
         private void SelectGizmo()
         {
             if (selectedModule == null) return;
+            if (proceduralMode)
+            {
+                ScaleGizmo.Hide();
+                FaceMorphGizmo.Hide();
+                faceStatus = selectedModule.EnsureFaceMorph() ? "" :
+                    "Procedural geometry unavailable: " + selectedModule.FaceMorphFailure;
+                if (!string.IsNullOrEmpty(faceStatus))
+                    PartSculptorScreenMessages.Post(selectedModule.part, faceStatus,
+                        Settings.screenMessageTime, ScreenMessageStyle.UPPER_CENTER,
+                        "EditorStretchTool.SelectProcedural");
+                return;
+            }
             if (faceMode)
             {
                 ScaleGizmo.Hide();
@@ -586,6 +625,45 @@ namespace PartSculptor
             }
             else morphIcon.color = new Color(0.12f, 0.85f, 1f);
 
+            // Seventh tool opens the procedural cross-section editor. Its
+            // short 'PG' glyph is rendered by Unity UI; no external icon asset
+            // or extra toolbar dependency is required.
+            proceduralToolObject = new GameObject("PartSculptor Procedural Geometry Tool",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            proceduralToolObject.transform.SetParent(canvas.transform, false);
+            proceduralToolRect = proceduralToolObject.GetComponent<RectTransform>();
+            proceduralToolRect.anchorMin = proceduralToolRect.anchorMax = new Vector2(0.5f, 0.5f);
+            proceduralToolRect.pivot = new Vector2(0.5f, 0.5f);
+            proceduralToolRect.sizeDelta = new Vector2(ToolButtonSize, ToolButtonSize);
+            proceduralBackground = proceduralToolObject.GetComponent<Image>();
+            proceduralBackground.sprite = background.sprite;
+            proceduralBackground.type = background.type;
+            proceduralBackground.color = EditorToolGrey;
+            proceduralToolButton = proceduralToolObject.GetComponent<Button>();
+            proceduralToolButton.targetGraphic = proceduralBackground;
+            proceduralToolButton.onClick.AddListener(ToggleProcedural);
+            ColorBlock proceduralColors = proceduralToolButton.colors;
+            proceduralColors.normalColor = Color.white;
+            proceduralColors.highlightedColor = new Color(0.8f, 0.95f, 0.8f);
+            proceduralColors.pressedColor = new Color(0.5f, 0.8f, 0.5f);
+            proceduralToolButton.colors = proceduralColors;
+            GameObject proceduralIcon = new GameObject("Procedural PG icon",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            proceduralIcon.transform.SetParent(proceduralToolRect, false);
+            RectTransform proceduralIconRect = proceduralIcon.GetComponent<RectTransform>();
+            proceduralIconRect.anchorMin = Vector2.zero;
+            proceduralIconRect.anchorMax = Vector2.one;
+            proceduralIconRect.offsetMin = Vector2.zero;
+            proceduralIconRect.offsetMax = Vector2.zero;
+            Text glyph = proceduralIcon.GetComponent<Text>();
+            glyph.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            glyph.fontSize = 13;
+            glyph.fontStyle = FontStyle.Bold;
+            glyph.text = "PG";
+            glyph.color = Color.white;
+            glyph.alignment = TextAnchor.MiddleCenter;
+            glyph.raycastTarget = false;
+
             // Switching back to any native tool exits either custom mode.
             foreach (Selectable native in best)
             {
@@ -650,6 +728,12 @@ namespace PartSculptor
                     (buttonWorldWidth + gapWorld);
                 morphToolRect.rotation = stockReference.rotation;
             }
+            if (proceduralToolRect != null)
+            {
+                proceduralToolRect.position = toolRect.position + right.normalized *
+                    2f * (buttonWorldWidth + gapWorld);
+                proceduralToolRect.rotation = stockReference.rotation;
+            }
             // Match requested world dimensions despite different Canvas parents.
             float unitX = toolRect.parent.TransformVector(Vector3.right).magnitude;
             float unitY = toolRect.parent.TransformVector(Vector3.up).magnitude;
@@ -672,16 +756,31 @@ namespace PartSculptor
                         buttonWorldHeight / morphY);
                 }
             }
+            if (proceduralToolRect != null && proceduralToolRect.parent != null)
+            {
+                float px = proceduralToolRect.parent.TransformVector(Vector3.right).magnitude;
+                float py = proceduralToolRect.parent.TransformVector(Vector3.up).magnitude;
+                if (px > 0.00001f && py > 0.00001f)
+                {
+                    proceduralToolRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,
+                        buttonWorldWidth / px);
+                    proceduralToolRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,
+                        buttonWorldHeight / py);
+                }
+            }
         }
 
         private void RefreshButtonColor()
         {
             if (background != null)
-                background.color = modeActive && !faceMode ?
+                background.color = modeActive && !faceMode && !proceduralMode ?
                     new Color(0.35f, 0.82f, 0.45f) : EditorToolGrey;
             if (morphBackground != null)
-                morphBackground.color = modeActive && faceMode ?
+                morphBackground.color = modeActive && faceMode && !proceduralMode ?
                     new Color(0.12f, 0.78f, 0.95f) : EditorToolGrey;
+            if (proceduralBackground != null)
+                proceduralBackground.color = modeActive && proceduralMode ?
+                    new Color(0.55f, 0.72f, 0.3f) : EditorToolGrey;
         }
 
         private static Part PickPart(Vector3 mouse)
@@ -728,16 +827,21 @@ namespace PartSculptor
         {
             if (toolObject != null) Destroy(toolObject);
             if (morphToolObject != null) Destroy(morphToolObject);
+            if (proceduralToolObject != null) Destroy(proceduralToolObject);
             if (ownedTexture != null) Destroy(ownedTexture);
             if (ownedMorphTexture != null) Destroy(ownedMorphTexture);
             toolObject = null;
             morphToolObject = null;
+            proceduralToolObject = null;
             toolRect = null;
             morphToolRect = null;
+            proceduralToolRect = null;
             toolButton = null;
             morphToolButton = null;
+            proceduralToolButton = null;
             background = null;
             morphBackground = null;
+            proceduralBackground = null;
             stockReference = null;
             stockToolRects.Clear();
             ownedTexture = null;

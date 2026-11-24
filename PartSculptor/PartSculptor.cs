@@ -189,6 +189,22 @@ namespace PartSculptor
         [KSPField(isPersistant = true)] public float morphTopOffsetX = 0f;
         [KSPField(isPersistant = true)] public float morphTopOffsetZ = 0f;
 
+        // Interior Y cross-sections. The mesh topology is rebuilt from the
+        // immutable native mesh, so craft files store only editable parameters.
+        // Keeping these separate from face-morph KSPFields also prevents old
+        // saves from acquiring procedural rings by default.
+        private const string PROCEDURAL_RING_NODE = "PARTSCULPTOR_PROCEDURAL_RING";
+        private List<ProceduralRing> proceduralRings = new List<ProceduralRing>();
+        private const string PROCEDURAL_VERTEX_NODE = "PARTSCULPTOR_PROCEDURAL_VERTEX";
+        private List<ProceduralVertex> proceduralVertices = new List<ProceduralVertex>();
+        private double proceduralVertexVolumeFactor = 1d;
+        internal IList<ProceduralVertex> ProceduralVertices { get { return proceduralVertices.AsReadOnly(); } }
+        internal bool HasProceduralGeometry { get { return proceduralRings.Count != 0 || proceduralVertices.Count != 0; } }
+        internal IList<ProceduralRing> ProceduralRings
+        { get { return proceduralRings.AsReadOnly(); } }
+        internal int ProceduralAddedVertices
+        { get { return faceMorph != null ? faceMorph.ProceduralVertexCount : 0; } }
+
         // Optional GameData behavior presets. No TweakScale PartModule is
         // required: these names resolve against TWEAKSCALEBEHAVIOR configs.
         // Inherited presets apply first; behavior and local exponent rules win.
@@ -299,6 +315,67 @@ namespace PartSculptor
         readonly NodeGeometryHistory nodeHistory = new NodeGeometryHistory();
         int geometryInitializedFrame;
         bool initialized;
+        private bool ignoredKerbalOrFlag;
+
+        private static bool IsKerbalOrFlagName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+            // Runtime GameObjects can have the Unity clone suffix; the
+            // AvailablePart name normally has no suffix.
+            if (name.EndsWith("(Clone)", StringComparison.OrdinalIgnoreCase))
+                name = name.Substring(0, name.Length - "(Clone)".Length);
+            return name.StartsWith("kerbalEVA", StringComparison.OrdinalIgnoreCase) ||
+                name.Equals("flag", StringComparison.OrdinalIgnoreCase) ||
+                name.Equals("FlagSite", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith("flagPart", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsKerbalOrFlagPart(Part candidate)
+        {
+            if (candidate == null) return false;
+            if (IsKerbalOrFlagName(candidate.name) ||
+                (candidate.partInfo != null && IsKerbalOrFlagName(candidate.partInfo.name)))
+                return true;
+            // Class checks also catch renamed/modded EVA Kerbals and flags.
+            // FlagDecal alone is NOT an exclusion: pods and other ordinary
+            // spacecraft parts often display a mission flag.
+            if (candidate.Modules != null)
+                foreach (PartModule module in candidate.Modules)
+                    if (module is KerbalEVA || module is FlagSite ||
+                        module is FlagDecalBackground) return true;
+            return false;
+        }
+
+        private bool IgnoreKerbalOrFlag
+        {
+            get { return ignoredKerbalOrFlag || (!initialized && IsKerbalOrFlagPart(part)); }
+        }
+
+        private bool SkipKerbalOrFlagStartup()
+        {
+            if (!IgnoreKerbalOrFlag) return false;
+            ignoredKerbalOrFlag = true;
+            initialized = false;
+            if (Fields != null)
+                foreach (BaseField field in Fields)
+                {
+                    field.guiActive = false;
+                    field.guiActiveEditor = false;
+                }
+            if (Events != null)
+                foreach (BaseEvent action in Events)
+                {
+                    action.guiActive = false;
+                    action.guiActiveEditor = false;
+                    action.active = false;
+                }
+            // Disable Unity callbacks and KSP module processing. Explicit
+            // mass/cost guards below cover queries even if KSP ignores this flag.
+            isEnabled = false;
+            enabled = false;
+            return true;
+        }
+
 
         enum NodeApplyReason
         {
@@ -595,6 +672,12 @@ namespace PartSculptor
             ModulePartSculptor copy = copyPartModule as ModulePartSculptor;
             if (copy == null || copy == this || copy.part == null || copy.part == part)
                 return;
+            if (IgnoreKerbalOrFlag || IsKerbalOrFlagPart(copy.part)) return;
+            // Deep-copy the procedural parameters: symmetry and Alt-copies may
+            // otherwise accidentally edit the source part's list of rings.
+            copy.proceduralRings = new List<ProceduralRing>(proceduralRings);
+            copy.proceduralVertices = new List<ProceduralVertex>(proceduralVertices);
+            copy.proceduralVertexVolumeFactor = proceduralVertexVolumeFactor;
             // A copied PartModule must never retain its source's morph support.
             if (ReferenceEquals(copy.faceMorph, faceMorph)) copy.faceMorph = null;
             // A copy which has already constructed its own support is isolated;
@@ -673,11 +756,67 @@ namespace PartSculptor
         public override void OnLoad(ConfigNode node)
         {
             base.OnLoad(node);
+            if (IgnoreKerbalOrFlag) return;
             if (node != null && node.HasValue("lockAxes")) hasSavedLockAxes = true;
             if (node != null && node.HasValue("lockMorphXZ")) hasSavedLockMorphXZ = true;
             attachmentFix.Load(node);
             nodeHistory.Load(node);
+            proceduralRings.Clear();
+            proceduralVertices.Clear();
+            proceduralVertexVolumeFactor = 1d;
             if (node == null) return;
+            foreach (ConfigNode ringNode in node.GetNodes(PROCEDURAL_RING_NODE))
+            {
+                float height, width, depth, tiltX = 0f, tiltZ = 0f;
+                if (!float.TryParse(ringNode.GetValue("height"), NumberStyles.Float,
+                        CultureInfo.InvariantCulture, out height) ||
+                    !float.TryParse(ringNode.GetValue("width"), NumberStyles.Float,
+                        CultureInfo.InvariantCulture, out width) ||
+                    !float.TryParse(ringNode.GetValue("depth"), NumberStyles.Float,
+                        CultureInfo.InvariantCulture, out depth)) continue;
+                float.TryParse(ringNode.GetValue("tiltX"), NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out tiltX);
+                float.TryParse(ringNode.GetValue("tiltZ"), NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out tiltZ);
+                proceduralRings.Add(new ProceduralRing(height, width, depth, tiltX, tiltZ));
+            }
+            proceduralRings.Sort((a, b) => a.Height.CompareTo(b.Height));
+            if (!ProceduralMeshBuilder.Valid(proceduralRings))
+            {
+                Log.Warning("Invalid saved Procedural Geometry rings on " +
+                    (part != null ? part.name : "unknown part") + "; ignoring them");
+                proceduralRings.Clear();
+            }
+            foreach (ConfigNode vertexNode in node.GetNodes(PROCEDURAL_VERTEX_NODE))
+            {
+                int submesh; Vector3 anchor, offset;
+                string meshKey = vertexNode.GetValue("mesh");
+                if (string.IsNullOrEmpty(meshKey) ||
+                    !int.TryParse(vertexNode.GetValue("submesh"), NumberStyles.Integer,
+                        CultureInfo.InvariantCulture, out submesh) || submesh < 0 ||
+                    !ReadB9Vector(vertexNode, "anchor", out anchor) ||
+                    !ReadB9Vector(vertexNode, "offset", out offset) ||
+                    !ProceduralMeshBuilder.Finite(anchor) || !ProceduralMeshBuilder.Finite(offset) ||
+                    proceduralVertices.Count >= ProceduralMeshBuilder.MaxIndividualVertices)
+                {
+                    Log.Warning("Invalid saved individual vertex data; ignoring vertex edits");
+                    proceduralVertices.Clear(); break;
+                }
+                float radius = 0f;
+                if (vertexNode.HasValue("influenceRadius") &&
+                    (!float.TryParse(vertexNode.GetValue("influenceRadius"), NumberStyles.Float,
+                        CultureInfo.InvariantCulture, out radius) ||
+                     !ProceduralMeshBuilder.ValidInfluenceRadius(radius)))
+                {
+                    Log.Warning("Invalid saved vertex influence radius; ignoring vertex edits");
+                    proceduralVertices.Clear(); break;
+                }
+                proceduralVertices.Add(new ProceduralVertex(meshKey, submesh, anchor, offset, radius));
+            }
+            double savedVertexVolume;
+            if (proceduralVertices.Count != 0 && double.TryParse(node.GetValue("proceduralVertexVolumeFactor"),
+                NumberStyles.Float, CultureInfo.InvariantCulture, out savedVertexVolume) && Valid(savedVertexVolume))
+                proceduralVertexVolumeFactor = savedVertexVolume;
             double volume;
             if (double.TryParse(node.GetValue("lastAppliedResourceVolume"),
                 NumberStyles.Float, CultureInfo.InvariantCulture, out volume) && Valid(volume))
@@ -780,8 +919,31 @@ namespace PartSculptor
         public override void OnSave(ConfigNode node)
         {
             base.OnSave(node);
+            if (IgnoreKerbalOrFlag) return;
             if (node == null) return;
             attachmentFix.Save(node, part, initialized);
+            node.RemoveNodes(PROCEDURAL_RING_NODE);
+            foreach (ProceduralRing ring in proceduralRings)
+            {
+                ConfigNode ringNode = node.AddNode(PROCEDURAL_RING_NODE);
+                ringNode.AddValue("height", ring.Height.ToString("R", CultureInfo.InvariantCulture));
+                ringNode.AddValue("width", ring.Width.ToString("R", CultureInfo.InvariantCulture));
+                ringNode.AddValue("depth", ring.Depth.ToString("R", CultureInfo.InvariantCulture));
+                ringNode.AddValue("tiltX", ring.TiltX.ToString("R", CultureInfo.InvariantCulture));
+                ringNode.AddValue("tiltZ", ring.TiltZ.ToString("R", CultureInfo.InvariantCulture));
+            }
+            node.SetValue("proceduralVertexVolumeFactor",
+                proceduralVertexVolumeFactor.ToString("R", CultureInfo.InvariantCulture), true);
+            node.RemoveNodes(PROCEDURAL_VERTEX_NODE);
+            foreach (ProceduralVertex vertex in proceduralVertices)
+            {
+                ConfigNode vertexNode = node.AddNode(PROCEDURAL_VERTEX_NODE);
+                vertexNode.AddValue("mesh", vertex.MeshKey);
+                vertexNode.AddValue("submesh", vertex.Submesh.ToString(CultureInfo.InvariantCulture));
+                SaveB9Vector(vertexNode, "anchor", vertex.Anchor);
+                SaveB9Vector(vertexNode, "offset", vertex.Offset);
+                vertexNode.AddValue("influenceRadius", vertex.InfluenceRadius.ToString("R", CultureInfo.InvariantCulture));
+            }
             // Preserve the last FINAL morphed node pose, not merely the
             // conventional stretched node that FaceMorphSupport later offsets.
             // Do not bless a foreign write as ours merely because KSP saves
@@ -964,6 +1126,7 @@ namespace PartSculptor
         public override void OnStart(StartState state)
         {
             base.OnStart(state);
+            if (SkipKerbalOrFlagStartup()) return;
 
             model = part.transform.Find("model");
             Part prefab = part.partInfo != null ? part.partInfo.partPrefab : null;
@@ -1115,6 +1278,7 @@ namespace PartSculptor
         public override void OnStartFinished(StartState state)
         {
             base.OnStartFinished(state);
+            if (SkipKerbalOrFlagStartup()) return;
             if (model == null || prefabNodePos == null) return;
             lastBase = BaseFactor;
             // Bind AFTER all stock/third-party modules have completed OnStart.
@@ -1147,24 +1311,42 @@ namespace PartSculptor
             // clone already holds the correct part positions.
             // Loaded crafts retain their saved dimensions, even if new limits
             // or restrictions have been enabled since they were saved.
-            Apply(false, false, false, NodeApplyReason.Load);
-            // Restore saved face shape after ordinary PartSculptor has rebuilt
-            // its native geometry and attachment nodes. In flight as well as
-            // the editor, the launched part must retain the same collision mesh.
+            // Prepare saved face/vertex topology before the ordinary Apply.
+            // Apply then restores scaled geometry and native attachment nodes,
+            // computes the final collision volume and updates resources once.
             // Even a copied part whose saved morph is at identity can inherit
             // the SOURCE part's mutable private meshes (the source may merely
             // have opened Morph without changing its dimensions). Give that
             // copied part its own FaceMorphSupport so future source edits cannot
             // leak into its geometry or collision mesh.
             bool inheritedMorphMeshes = FaceMorphSupport.ContainsMorphMeshes(part);
-            if (HasFaceMorph || inheritedMorphMeshes)
+            if (HasFaceMorph || HasProceduralGeometry || inheritedMorphMeshes)
             {
                 if (EnsureFaceMorph())
-                    faceMorph.Apply(GetMorphFace(0), GetMorphFace(1), false);
+                {
+                    string proceduralError;
+                    double initialVertexVolume;
+                    if (!faceMorph.TryEvaluateVertexVolume(proceduralRings, proceduralVertices,
+                            GetMorphFace(0), GetMorphFace(1), out initialVertexVolume, out proceduralError) ||
+                        !faceMorph.SetProceduralGeometry(proceduralRings, proceduralVertices, out proceduralError))
+                    {
+                        Log.Warning("Cannot restore procedural geometry on " + part.name + ": " + proceduralError);
+                        // Retain the saved edit parameters for diagnosis, but
+                        // do not apply their volume if the collider cannot be restored.
+                        proceduralVertexVolumeFactor = 1d;
+                        if (!faceMorph.SetProceduralGeometry(proceduralRings,
+                            new List<ProceduralVertex>(), out proceduralError))
+                            Log.Warning("Cannot restore procedural rings: " + proceduralError);
+                    }
+                }
                 else
-                    Log.Warning("Cannot restore copied face morph on " +
+                {
+                    proceduralVertexVolumeFactor = 1d;
+                    Log.Warning("Cannot restore face/procedural geometry on " +
                         part.name + ": " + morphFailure);
+                }
             }
+            Apply(false, false, false, NodeApplyReason.Load);
             nodeHistory.RecordFinal(part);
             geometryInitializedFrame = Time.frameCount;
             FaceMorphSupport.ReleaseDetachedMorphMeshes(part, copiedMorphMeshInstances);
@@ -1453,6 +1635,7 @@ namespace PartSculptor
         // that send, preventing a refresh cascade across a large craft.
         public void LateUpdate()
         {
+            if (ignoredKerbalOrFlag) return;
             if (!shipNotificationPending || dispatchingShipNotification ||
                 !HighLogic.LoadedSceneIsEditor ||
                 Time.frameCount < shipNotificationQueuedFrame) return;
@@ -1534,6 +1717,103 @@ namespace PartSculptor
         {
             get { return !FaceMorphMath.IsIdentity(GetMorphFace(0)) ||
                 !FaceMorphMath.IsIdentity(GetMorphFace(1)); }
+        }
+
+        // Commit a cross-section operation through the same initialization,
+        // resource and symmetry paths as ordinary PartSculptor morph editing.
+        // There is exactly one native editor undo checkpoint per operation.
+        internal bool TrySetProceduralRings(IList<ProceduralRing> requested, out string error)
+        { return TrySetProceduralGeometry(requested, proceduralVertices, out error); }
+
+        internal bool TrySetProceduralVertices(IList<ProceduralVertex> requested, out string error)
+        { return TrySetProceduralGeometry(proceduralRings, requested, out error); }
+
+        private bool TrySetProceduralGeometry(IList<ProceduralRing> requested,
+            IList<ProceduralVertex> vertices, out string error)
+        {
+            error = "";
+            if (!CanUseScaleGizmo || !HighLogic.LoadedSceneIsEditor)
+            { error = "Procedural Geometry is only available in the editor"; return false; }
+            var ordered = requested != null ? new List<ProceduralRing>(requested) :
+                new List<ProceduralRing>();
+            ordered.Sort((a, b) => a.Height.CompareTo(b.Height));
+            var individual = new List<ProceduralVertex>(vertices);
+            if (individual.Count > ProceduralMeshBuilder.MaxIndividualVertices)
+            { error = "Maximum of 64 individual vertices"; return false; }
+            if (!ProceduralMeshBuilder.Valid(ordered))
+            { error = "Invalid ring positions or sizes (1%-99%, X/Z 0.1-4.0)"; return false; }
+            var targets = new List<ModulePartSculptor> { this };
+            if (part != null && part.symmetryCounterparts != null)
+                foreach (Part counterpart in part.symmetryCounterparts)
+                {
+                    ModulePartSculptor other = counterpart != null ?
+                        counterpart.FindModuleImplementing<ModulePartSculptor>() : null;
+                    if (other == null || !other.EnsureFaceMorph())
+                    { error = "Symmetry counterpart does not support procedural geometry"; return false; }
+                    targets.Add(other);
+                }
+            foreach (ModulePartSculptor module in targets)
+            {
+                if (!module.EnsureFaceMorph())
+                { error = module.FaceMorphFailure; return false; }
+                if (!module.faceMorph.CanSetProceduralGeometry(ordered, individual, out error))
+                { error = module.part.name + ": topology: " + error; return false; }
+                double vertexVolume;
+                if (!module.faceMorph.TryEvaluateVertexVolume(ordered, individual,
+                    module.GetMorphFace(0), module.GetMorphFace(1), out vertexVolume, out error))
+                { error = module.part.name + ": collision/volume: " + error; return false; }
+                double volume = (double)module.scaleX * module.scaleY * module.scaleZ *
+                    FaceMorphMath.VolumeFactor(module.GetMorphFace(0), module.GetMorphFace(1)) *
+                    ProceduralMeshBuilder.VolumeFactor(ordered) * vertexVolume;
+                double ceiling = Settings.MaxVolumeMultiplier /
+                    Math.Max(1e-8d, Math.Pow(module.BaseFactor, 3d));
+                CareerScaleLimit career;
+                if (ModulePartSculptor.TryGetCareerLimits(out career))
+                    ceiling = Math.Min(ceiling, career.maxVolume);
+                double massExponent = module.exponentScaler != null ? module.exponentScaler.MassExponent : 3d;
+                if (massExponent > 0d)
+                    ceiling = Math.Min(ceiling, Math.Pow(Settings.MaxMassMultiplier, 3d / massExponent));
+                if (volume > ceiling * (1d + 1e-6d) &&
+                    volume > module.StretchVolumeFactor * (1d + 1e-6d))
+                { error = module.part.name + ": procedural profile exceeds the configured volume or mass limit"; return false; }
+            }
+            EditorUndoSupport.RecordBeforeChange();
+            foreach (ModulePartSculptor module in targets)
+            {
+                if (!module.faceMorph.SetProceduralGeometry(ordered, individual, out error))
+                    return false; // prevalidated for every target above
+                module.proceduralRings = new List<ProceduralRing>(ordered);
+                module.proceduralVertices = new List<ProceduralVertex>(individual);
+                module.faceMorph.Apply(module.GetMorphFace(0), module.GetMorphFace(1), true);
+                module.proceduralVertexVolumeFactor = module.faceMorph.VertexVolumeFactor;
+                module.nodeHistory.RecordFinal(module.part);
+                module.RefreshProceduralResources();
+                module.SetPresetDisplay("Custom");
+                module.UpdateCalculatedValues();
+            }
+            FireEditorShipModified();
+            return true;
+        }
+
+        // Direct geometry edits already updated the mesh and attached node
+        // pose. Refresh all volume consumers without resetting geometry again.
+        private void RefreshProceduralResources()
+        {
+            if (b9Support != null)
+                b9Support.ApplyBaseVolumes(part, StretchVolumeFactor, HighLogic.LoadedSceneIsEditor);
+            if (mftVolumeSupport != null && mftVolumeSupport.Apply(part, StretchVolumeFactor,
+                Math.Pow(BaseFactor, 3d), HighLogic.LoadedSceneIsEditor))
+                resourceDisplayDirty = true;
+            ApplyResourceScaling(false);
+            if (b9Support != null && b9Support.ReconcileManagedCapacities(part))
+            {
+                resourceDisplayDirty = true;
+                if (HighLogic.LoadedSceneIsEditor && part.PartActionWindow != null)
+                    part.PartActionWindow.displayDirty = true;
+            }
+            if (exponentScaler != null) exponentScaler.Apply(scaleX, scaleY, scaleZ);
+            if (crewCapacityScaling != null) crewCapacityScaling.Apply(scaleX, scaleY, scaleZ);
+            UpdateCalculatedValues();
         }
 
         internal MorphFace GetMorphFace(int face)
@@ -1754,8 +2034,14 @@ namespace PartSculptor
             // Enforce the same building/volume restrictions as ordinary axes.
             CareerScaleLimit limits;
             bool career = TryGetCareerLimits(out limits);
+            double desiredVertexVolume = proceduralVertexVolumeFactor;
+            string vertexError;
+            if (proceduralVertices.Count != 0 && (!EnsureFaceMorph() ||
+                !faceMorph.TryEvaluateVertexVolume(proceduralRings, proceduralVertices,
+                    bottom, top, out desiredVertexVolume, out vertexError))) return;
             double desiredVolume = (double)scaleX * scaleY * scaleZ *
-                FaceMorphMath.VolumeFactor(bottom, top);
+                FaceMorphMath.VolumeFactor(bottom, top) *
+                ProceduralMeshBuilder.VolumeFactor(proceduralRings) * desiredVertexVolume;
             double ceiling = Settings.MaxVolumeMultiplier /
                 Math.Max(1e-8d, Math.Pow(BaseFactor, 3d));
             if (career) ceiling = Math.Min(ceiling, limits.maxVolume);
@@ -1784,6 +2070,20 @@ namespace PartSculptor
                     if (m == null || !m.EnsureFaceMorph()) return; // all-or-nothing
                     targets.Add(m);
                 }
+            foreach (ModulePartSculptor m in targets)
+            {
+                if (m.proceduralVertices.Count == 0) continue;
+                double correction;
+                if (!m.faceMorph.TryEvaluateVertexVolume(m.proceduralRings, m.proceduralVertices,
+                    bottom, top, out correction, out vertexError)) return;
+                double targetVolume = (double)m.scaleX * m.scaleY * m.scaleZ *
+                    FaceMorphMath.VolumeFactor(bottom, top) *
+                    ProceduralMeshBuilder.VolumeFactor(m.proceduralRings) * correction;
+                double targetCeiling = Settings.MaxVolumeMultiplier / Math.Max(1e-8d, Math.Pow(m.BaseFactor, 3d));
+                if (career) targetCeiling = Math.Min(targetCeiling, limits.maxVolume);
+                if (targetVolume > targetCeiling * (1d + 1e-6d) &&
+                    targetVolume > m.StretchVolumeFactor * (1d + 1e-6d)) return;
+            }
             // Snapshot the morph parameters and relative axes BEFORE any part
             // moves. In Copy mode mirror each incremental edit across the
             // stack joint: the same visible X/Z side receives the step, but
@@ -1816,16 +2116,12 @@ namespace PartSculptor
                 m.morphTopOffsetZ = top.OffsetZ;
                 m.faceMorph.Apply(bottom, top, true,
                     m == this ? stationaryConnectedChild : null);
+                m.proceduralVertexVolumeFactor = m.faceMorph.VertexVolumeFactor;
                 // Prevent a later poll from mistaking our own morphed node for
                 // a B9/variant overwrite. Keep the pre-morph baseline intact.
                 m.nodeHistory.RecordFinal(m.part);
                 m.SetPresetDisplay("Custom");
-                if (m.b9Support != null)
-                    m.b9Support.ApplyBaseVolumes(m.part, m.StretchVolumeFactor, true);
-                m.ApplyResourceScaling(false);
-                if (m.exponentScaler != null)
-                    m.exponentScaler.Apply(m.scaleX, m.scaleY, m.scaleZ);
-                m.UpdateCalculatedValues();
+                m.RefreshProceduralResources();
             }
             // Run only after the source mesh and its attachment nodes (and
             // the attached subtrees) have reached their final positions. The
@@ -2396,6 +2692,7 @@ namespace PartSculptor
             groupName = GROUP, groupDisplayName = GROUP_TITLE)]
         public void RepeatPreset()
         {
+            if (IgnoreKerbalOrFlag) return;
             // The last applied preset may be relative and must not appear in
             // the PAW's absolute-only choices.
             ApplyPreset(ScalePresetRegistry.Find(lastAppliedPreset, lastAppliedRelative));
@@ -2451,6 +2748,7 @@ namespace PartSculptor
         [KSPEvent(guiActiveEditor = true, guiName = "Reset scale", groupName = GROUP, groupDisplayName = GROUP_TITLE)]
         public void ResetScale()
         {
+            if (IgnoreKerbalOrFlag) return;
             ScaleDebug.Info(part, "ui", "reset scale requested");
             Vector3 before = Target;
             scaleX = scaleY = scaleZ = 1f;
@@ -2480,6 +2778,7 @@ namespace PartSculptor
         [KSPEvent(guiActiveEditor = true, guiName = "Swap X / Z", groupName = GROUP, groupDisplayName = GROUP_TITLE)]
         public void SwapXZ()
         {
+            if (IgnoreKerbalOrFlag) return;
             ScaleDebug.Info(part, "ui", "swap X/Z requested");
             Vector3 before = Target;
             float t = scaleX; scaleX = scaleZ; scaleZ = t;
@@ -2943,6 +3242,7 @@ namespace PartSculptor
             groupName = GROUP, groupDisplayName = GROUP_TITLE)]
         public void MatchFaceToParentNow()
         {
+            if (IgnoreKerbalOrFlag) return;
             if (!HighLogic.LoadedSceneIsEditor || part == null) return;
             AttachNode source, destination;
             string reason;
@@ -2951,7 +3251,7 @@ namespace PartSculptor
             else
                 MatchNewStackFace(source, destination, out reason);
             PartSculptorScreenMessages.Post(part, "PartSculptor: " + reason,
-                4f, ScreenMessageStyle.UPPER_CENTER, "MatchFaceToParentNow");
+                Settings.screenMessageTime, ScreenMessageStyle.UPPER_CENTER, "MatchFaceToParentNow");
         }
 
         void MatchNewStackFace(AttachNode source, AttachNode destination)
@@ -3142,7 +3442,8 @@ namespace PartSculptor
         double StretchVolumeFactor
         {
             get { return (double)scaleX * scaleY * scaleZ *
-                FaceMorphMath.VolumeFactor(GetMorphFace(0), GetMorphFace(1)); }
+                FaceMorphMath.VolumeFactor(GetMorphFace(0), GetMorphFace(1)) *
+                ProceduralMeshBuilder.VolumeFactor(proceduralRings) * proceduralVertexVolumeFactor; }
         }
 
         double ExponentFactor(double exponent)
@@ -3346,6 +3647,7 @@ namespace PartSculptor
 
         public float GetModuleMass(float defaultMass, ModifierStagingSituation sit)
         {
+            if (IgnoreKerbalOrFlag) return 0f;
             // KSP adds each IPartMassModifier delta to the base mass supplied
             // to THAT query (including VesselDeltaV staging snapshots). Reach
             // the prefab-anchored target without sampling the live part.mass.
@@ -3375,6 +3677,7 @@ namespace PartSculptor
 
         public float GetModuleCost(float defaultCost, ModifierStagingSituation sit)
         {
+            if (IgnoreKerbalOrFlag) return 0f;
             // Anchor dry cost to the prefab, not to a possibly already-scaled
             // value returned by KSP or a dynamic part-cost modifier. Leave
             // other modules' cost deltas additive, just as for dry mass.
@@ -4323,7 +4626,8 @@ namespace PartSculptor
             // A 1x part with no face morph does not own the node geometry.
             // Stock variants, B9 and TweakScale must retain control of it.
             bool preserveNativeForeignNodes = reason == NodeApplyReason.Foreign &&
-                (newScale - Vector3.one).sqrMagnitude < 1e-10f && !HasFaceMorph;
+                (newScale - Vector3.one).sqrMagnitude < 1e-10f &&
+                !HasFaceMorph && !HasProceduralGeometry;
             Vector3 ratio = new Vector3(Div(newScale.x, oldScale.x), Div(newScale.y, oldScale.y), Div(newScale.z, oldScale.z));
 
             bool editor = HighLogic.LoadedSceneIsEditor && moveNeighbours;
@@ -4462,6 +4766,39 @@ namespace PartSculptor
             lastAcceptedScale = Target;
             if (visualEffects != null) visualEffects.Apply(newScale);
 
+            if (faceMorph != null && faceMorph.Valid)
+            {
+                // PartSculptor.Apply first resets every node to its
+                // conventional non-morphed position. Include the *extra*
+                // morph displacement in the same existing neighbour-move
+                // calculation, otherwise normal scale edits can embed pods.
+                var unMorphed = new Dictionary<AttachNode, Vector3>();
+                if (editor)
+                {
+                    foreach (AttachNode n in part.attachNodes)
+                        if (n != null) unMorphed[n] = n.position;
+                    if (part.srfAttachNode != null)
+                        unMorphed[part.srfAttachNode] = part.srfAttachNode.position;
+                }
+                faceMorph.RebaseNodes();
+                faceMorph.Apply(GetMorphFace(0), GetMorphFace(1), false);
+                proceduralVertexVolumeFactor = faceMorph.VertexVolumeFactor;
+                if (editor)
+                {
+                    foreach (KeyValuePair<AttachNode, Vector3> node in unMorphed)
+                    {
+                        if (node.Key == null || node.Key.attachedPart == null) continue;
+                        Vector3 delta = node.Key.position - node.Value;
+                        if (delta.sqrMagnitude < 1e-12f) continue;
+                        if (node.Key.attachedPart == part.parent)
+                            selfMove -= delta;
+                        else if (moveChildren && node.Key.attachedPart.parent == part)
+                            childMoves.Add(new KeyValuePair<Part, Vector3>(
+                                node.Key.attachedPart, delta));
+                    }
+                }
+            }
+
             // Update B9 baseVolume from its immutable native value, before
             // considering other resources. B9 owns its own managed capacities.
             // Only refresh B9 resources in the editor: its flight refresh
@@ -4509,38 +4846,6 @@ namespace PartSculptor
             }
             if (dockingPorts != null) dockingPorts.Apply(Target * BaseFactor,
                 b9Support != null);
-            if (faceMorph != null && faceMorph.Valid)
-            {
-                // PartSculptor.Apply first resets every node to its
-                // conventional non-morphed position. Include the *extra*
-                // morph displacement in the same existing neighbour-move
-                // calculation, otherwise normal scale edits can embed pods.
-                var unMorphed = new Dictionary<AttachNode, Vector3>();
-                if (editor)
-                {
-                    foreach (AttachNode n in part.attachNodes)
-                        if (n != null) unMorphed[n] = n.position;
-                    if (part.srfAttachNode != null)
-                        unMorphed[part.srfAttachNode] = part.srfAttachNode.position;
-                }
-                faceMorph.RebaseNodes();
-                faceMorph.Apply(GetMorphFace(0), GetMorphFace(1), false);
-                if (editor)
-                {
-                    foreach (KeyValuePair<AttachNode, Vector3> node in unMorphed)
-                    {
-                        if (node.Key == null || node.Key.attachedPart == null) continue;
-                        Vector3 delta = node.Key.position - node.Value;
-                        if (delta.sqrMagnitude < 1e-12f) continue;
-                        if (node.Key.attachedPart == part.parent)
-                            selfMove -= delta;
-                        else if (moveChildren && node.Key.attachedPart.parent == part)
-                            childMoves.Add(new KeyValuePair<Part, Vector3>(
-                                node.Key.attachedPart, delta));
-                    }
-                }
-            }
-
             // The final face morph can change POSITION, ORIGINALPOSITION,
             // NORMAL and SIZE again. Save all of those as our own last write.
             nodeHistory.RecordFinal(part);

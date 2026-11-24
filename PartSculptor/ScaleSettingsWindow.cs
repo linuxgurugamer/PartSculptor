@@ -19,6 +19,7 @@ namespace PartSculptor
         static bool? matchAttachedFacesDefault;
         static bool? copyAttachedMorphStepsDefault;
         static bool? hidePartSculptorPAWControls;
+        static bool? generateVertexCollisionFallback;
         static bool? scaleChildrenDefault;
         static bool? lockProportionsDefault;
         static bool? lockMorphXZDefault;
@@ -84,6 +85,8 @@ namespace PartSculptor
                                     copyAttachedMorphStepsDefault = parsed;
                                 if (bool.TryParse(n.GetValue("hidePartSculptorPAWControls"), out parsed))
                                     hidePartSculptorPAWControls = parsed;
+                                if (bool.TryParse(n.GetValue("generateVertexCollisionFallback"), out parsed))
+                                    generateVertexCollisionFallback = parsed;
                                 if (bool.TryParse(n.GetValue("scaleChildrenDefault"), out parsed))
                                     scaleChildrenDefault = parsed;
                                 if (bool.TryParse(n.GetValue("lockProportionsDefault"), out parsed))
@@ -117,6 +120,8 @@ namespace PartSculptor
                 Settings.CopyAttachedMorphStepsDefault = copyAttachedMorphStepsDefault.Value;
             if (hidePartSculptorPAWControls.HasValue)
                 Settings.HidePartSculptorPAWControls = hidePartSculptorPAWControls.Value;
+            if (generateVertexCollisionFallback.HasValue)
+                Settings.GenerateVertexCollisionFallback = generateVertexCollisionFallback.Value;
             if (scaleChildrenDefault.HasValue)
                 childrenDefault = scaleChildrenDefault.Value;
             if (lockProportionsDefault.HasValue)
@@ -135,6 +140,7 @@ namespace PartSculptor
             internal bool? MatchAttachedFacesDefault;
             internal bool? CopyAttachedMorphStepsDefault;
             internal bool? HidePartSculptorPAWControls;
+            internal bool? GenerateVertexCollisionFallback;
             internal bool? LockProportionsDefault, LockMorphXZDefault;
             internal float MorphSnapIncrement, MorphTipOpacity;
             internal bool UseAlternateSkin;
@@ -157,6 +163,7 @@ namespace PartSculptor
                     MatchAttachedFacesDefault = matchAttachedFacesDefault,
                     CopyAttachedMorphStepsDefault = copyAttachedMorphStepsDefault,
                     HidePartSculptorPAWControls = hidePartSculptorPAWControls,
+                    GenerateVertexCollisionFallback = generateVertexCollisionFallback,
                     ScaleChildrenDefault = scaleChildrenDefault,
                     LockProportionsDefault = lockProportionsDefault,
                     LockMorphXZDefault = lockMorphXZDefault,
@@ -214,6 +221,7 @@ namespace PartSculptor
                 matchAttachedFacesDefault = snapshot.MatchAttachedFacesDefault;
                 copyAttachedMorphStepsDefault = snapshot.CopyAttachedMorphStepsDefault;
                 hidePartSculptorPAWControls = snapshot.HidePartSculptorPAWControls;
+                generateVertexCollisionFallback = snapshot.GenerateVertexCollisionFallback;
                 scaleChildrenDefault = snapshot.ScaleChildrenDefault;
                 lockProportionsDefault = snapshot.LockProportionsDefault;
                 lockMorphXZDefault = snapshot.LockMorphXZDefault;
@@ -287,6 +295,20 @@ namespace PartSculptor
             bool alternateSkinValue, bool faceMatchValue, bool copyStepsValue,
             bool hidePawControls, out string error)
         {
+            return SaveDefaults(matchValue, childrenValue, lockValue, morphLockValue,
+                snapValue, opacityValue, alternateSkinValue, faceMatchValue, copyStepsValue,
+                hidePawControls, Settings.GenerateVertexCollisionFallback, out error);
+        }
+
+        internal static bool SaveDefaults(bool matchValue, bool childrenValue,
+            bool lockValue, bool morphLockValue, float snapValue, float opacityValue,
+            bool alternateSkinValue, bool faceMatchValue, bool copyStepsValue,
+            bool hidePawControls, bool generateCollisionFallback, out string error)
+        {
+            // Preserve the shipped cfg default unless the user changes the option.
+            bool? fallbackPreference = generateVertexCollisionFallback;
+            if (generateCollisionFallback != Settings.GenerateVertexCollisionFallback)
+                fallbackPreference = generateCollisionFallback;
             error = null;
             if (!IsValidMorphTipOpacity(opacityValue))
             {
@@ -309,6 +331,8 @@ namespace PartSculptor
                 node.AddValue("matchAttachedFacesDefault", faceMatchValue);
                 node.AddValue("copyAttachedMorphStepsDefault", copyStepsValue);
                 node.AddValue("hidePartSculptorPAWControls", hidePawControls);
+                if (fallbackPreference.HasValue)
+                    node.AddValue("generateVertexCollisionFallback", fallbackPreference.Value);
                 node.AddValue("scaleChildrenDefault", childrenValue);
                 node.AddValue("lockProportionsDefault", lockValue);
                 node.AddValue("lockMorphXZDefault", morphLockValue);
@@ -325,6 +349,8 @@ namespace PartSculptor
                 matchAttachedFacesDefault = faceMatchValue;
                 copyAttachedMorphStepsDefault = copyStepsValue;
                 hidePartSculptorPAWControls = hidePawControls;
+                generateVertexCollisionFallback = fallbackPreference;
+                Settings.GenerateVertexCollisionFallback = generateCollisionFallback;
                 scaleChildrenDefault = childrenValue;
                 lockProportionsDefault = lockValue;
                 lockMorphXZDefault = morphLockValue;
@@ -350,6 +376,44 @@ namespace PartSculptor
             {
                 error = "Could not save PartSculptor settings: " + e.Message;
                 Log.Error("" + error);
+                return false;
+            }
+            finally
+            {
+                if (temporary != null && File.Exists(temporary))
+                    try { File.Delete(temporary); } catch { }
+            }
+        }
+
+        // Save only this preference: do not reset live editor toggles or
+        // overwrite unrelated settings with the Settings window's draft.
+        internal static bool SaveCollisionFallbackOnly(bool enabled, out string error)
+        {
+            error = null;
+            string temporary = null;
+            try
+            {
+                string path = UserSettingsPath;
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                ConfigNode root = File.Exists(path) ? ConfigNode.Load(path) : new ConfigNode();
+                if (root == null)
+                    throw new IOException("Unable to read existing user settings");
+                ConfigNode node = root.name == NodeName ? root : root.GetNode(NodeName);
+                if (node == null) node = root.AddNode(NodeName);
+                node.SetValue("generateVertexCollisionFallback", enabled.ToString(), true);
+                temporary = path + ".collision.tmp";
+                root.Save(temporary);
+                if (File.Exists(path)) File.Replace(temporary, path, null);
+                else File.Move(temporary, path);
+                loaded = true;
+                generateVertexCollisionFallback = enabled;
+                Settings.GenerateVertexCollisionFallback = enabled;
+                return true;
+            }
+            catch (Exception e)
+            {
+                error = "Cannot save vertex collision fallback: " + e.Message;
+                Log.Warning(error);
                 return false;
             }
             finally
@@ -403,6 +467,22 @@ namespace PartSculptor
     internal sealed class ScaleSettingsWindow
     {
         const int WindowId = 0x515338;
+        private static ScaleSettingsWindow activeWindow;
+
+        // A PG change is an immediate preference write, like Apply. If the
+        // dialog is open, synchronize its draft and include the write in its
+        // existing Cancel transaction (opening snapshot and disk rollback).
+        internal static bool SetCollisionFallbackFromPG(bool enabled, out string error)
+        {
+            if (!ScaleUserSettings.SaveCollisionFallbackOnly(enabled, out error)) return false;
+            if (activeWindow != null && activeWindow.visible)
+            {
+                activeWindow.generateCollisionFallback = enabled;
+                activeWindow.appliedSinceOpening = true;
+            }
+            return true;
+        }
+
         Rect windowRect = new Rect(180f, 130f, 510f, 560f);
         Vector2 optionsScroll;
         bool visible;
@@ -410,6 +490,7 @@ namespace PartSculptor
         bool matchFacesDefault;
         bool copyStepsDefault;
         bool hidePawControls;
+        bool generateCollisionFallback;
         bool childrenDefault;
         bool lockDefault;
         bool morphLockDefault;
@@ -427,6 +508,7 @@ namespace PartSculptor
         {
             internal bool MatchNodes, MatchFaces, CopySteps, StretchChildren, LockProportions, LockMorphXZ;
             internal bool HidePAWControls;
+            internal bool GenerateCollisionFallback;
             internal int SnapSelection;
             internal float TipOpacity;
             internal bool AlternateSkin;
@@ -443,6 +525,7 @@ namespace PartSculptor
             opened.MatchFaces = matchFacesDefault;
             opened.CopySteps = copyStepsDefault;
             opened.HidePAWControls = hidePawControls;
+            opened.GenerateCollisionFallback = generateCollisionFallback;
             opened.StretchChildren = childrenDefault;
             opened.LockProportions = lockDefault;
             opened.LockMorphXZ = morphLockDefault;
@@ -461,6 +544,7 @@ namespace PartSculptor
             matchFacesDefault = opened.MatchFaces;
             copyStepsDefault = opened.CopySteps;
             hidePawControls = opened.HidePAWControls;
+            generateCollisionFallback = opened.GenerateCollisionFallback;
             childrenDefault = opened.StretchChildren;
             lockDefault = opened.LockProportions;
             morphLockDefault = opened.LockMorphXZ;
@@ -474,6 +558,7 @@ namespace PartSculptor
             Settings.MatchAttachedFacesDefault = opened.MatchFaces;
             Settings.CopyAttachedMorphStepsDefault = opened.CopySteps;
             ModulePartSculptor.SetPAWControlsHidden(opened.HidePAWControls);
+            Settings.GenerateVertexCollisionFallback = opened.GenerateCollisionFallback;
             Settings.ScaleChildrenDefault = opened.StretchChildren;
             Settings.LockProportionsDefault = opened.LockProportions;
             Settings.LockMorphXZDefault = opened.LockMorphXZ;
@@ -496,6 +581,7 @@ namespace PartSculptor
             matchFacesDefault = Settings.MatchAttachedFacesDefault;
             copyStepsDefault = Settings.CopyAttachedMorphStepsDefault;
             hidePawControls = Settings.HidePartSculptorPAWControls;
+            generateCollisionFallback = Settings.GenerateVertexCollisionFallback;
             childrenDefault = Settings.ScaleChildrenDefault;
             lockDefault = Settings.LockProportionsDefault;
             morphLockDefault = Settings.LockMorphXZDefault;
@@ -518,12 +604,14 @@ namespace PartSculptor
             cancelPending = false;
             optionsScroll = Vector2.zero;
             visible = true;
+            activeWindow = this;
             ClampWindowToScreen();
         }
 
         internal void Close()
         {
             visible = false;
+            if (activeWindow == this) activeWindow = null;
             savePending = false;
             applyPending = false;
             cancelPending = false;
@@ -557,7 +645,7 @@ namespace PartSculptor
             if (ScaleUserSettings.SaveDefaults(matchNodeDefault, childrenDefault, lockDefault,
                 morphLockDefault, ScaleUserSettings.MorphSnapChoices[snapSelection],
                 tipOpacity, alternateSkin, matchFacesDefault, copyStepsDefault,
-                hidePawControls, out error))
+                hidePawControls, generateCollisionFallback, out error))
             {
                 appliedSinceOpening = true;
                 if (closeAfterSaving) Close();
@@ -640,6 +728,13 @@ namespace PartSculptor
             alternateSkin = GUILayout.Toggle(alternateSkin,
                 new GUIContent("Use alternate skin",
                     "Use the host Unity IMGUI skin instead of the KSP skin in PartSculptor windows."));
+            GUILayout.Space(8f);
+            generateCollisionFallback = GUILayout.Toggle(generateCollisionFallback,
+                new GUIContent("Generate vertex collision fallback (experimental)",
+                    "Generate a convex collider from the visual mesh only when no compatible native collider exists. " +
+                    "Applies to subsequent geometry operations without restarting. " +
+                    "Generated colliders can fill holes or overlap existing geometry."));
+            GUILayout.Label("Keep this enabled for craft that rely on generated colliders.");
             GUILayout.Label("Match node sizes, Match attached faces, Copy morph steps, and Stretch children update now; " +
                 "Lock proportions and Lock X/Z apply to new parts only.");
             GUILayout.EndScrollView();
@@ -650,9 +745,9 @@ namespace PartSculptor
                 if (GUILayout.Button("Apply", GUILayout.Height(28f))) applyPending = true;
                 if (GUILayout.Button("Cancel", GUILayout.Height(28f))) cancelPending = true;
             }
-            // Only the title bar drags the window; scroll and button clicks
-            // remain independent of window movement.
-            GUI.DragWindow(new Rect(0f, 0f, windowRect.width, 23f));
+            // Unclaimed mouse events anywhere in the window can move it.
+            // Draw interactive controls first so they retain mouse priority.
+            GUI.DragWindow();
         }
     }
 }

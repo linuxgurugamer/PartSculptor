@@ -81,6 +81,9 @@
     <Compile Include="FaceMorphStepCore.cs" />
     <Compile Include="FaceMorphMath.cs" />
     <Compile Include="FaceMorphSupport.cs" />
+    <Compile Include="ProceduralMeshBuilder.cs" />
+    <Compile Include="ProceduralSurfacePhysics.cs" />
+    <Compile Include="ProceduralGeometryTool.cs" />
     <Compile Include="FaceMorphGizmo.cs" />
     <Compile Include="B9PartSwitchSupport.cs" />
     <Compile Include="B9FaceMorphCompatibility.cs" />

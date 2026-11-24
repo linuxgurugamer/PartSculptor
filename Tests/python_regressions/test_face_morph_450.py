@@ -15,14 +15,14 @@ class FaceMorph450(unittest.TestCase):
         for name in ('morphBottomX','morphBottomZ','morphBottomTiltX','morphBottomTiltZ',
                      'morphTopX','morphTopZ','morphTopTiltX','morphTopTiltZ'):
             self.assertIn('public float '+name+' =', MAIN)
-        self.assertIn('if (HasFaceMorph)', MAIN)
+        self.assertIn('if (HasFaceMorph || HasProceduralGeometry || inheritedMorphMeshes)', MAIN)
         self.assertIn('faceMorph.Apply(GetMorphFace(0), GetMorphFace(1), false)', MAIN)
     def test_mesh_and_collider_baselines_are_not_mutated(self):
         self.assertIn('r.vertices = native.vertices', SUPPORT)
         self.assertIn('Object.Instantiate(native)', SUPPORT)
-        self.assertIn('r.instance.vertices = transformed', SUPPORT)
+        self.assertIn('r.instance.vertices = shape.LocalVertices', SUPPORT)
         self.assertIn('r.collider.sharedMesh = null;', SUPPORT)
-        self.assertIn('r.collider.sharedMesh = r.instance;', SUPPORT)
+        self.assertIn('r.collider.sharedMesh = r.vertexCollider != null ? r.vertexCollider : r.instance;', SUPPORT)
         self.assertIn('r.filter.sharedMesh = r.native;', SUPPORT)
     def test_not_visual_only_on_unsupported_geometry(self):
         self.assertIn('BoxCollider ||', SUPPORT)
@@ -41,7 +41,7 @@ class FaceMorph450(unittest.TestCase):
         self.assertIn('module.SetMorphFaces(b, top)', GIZMO)
         self.assertIn('FaceMorphMath.Transform', SUPPORT)
     def test_ui_and_editor_lock_lifecycle(self):
-        self.assertIn('private void ToggleMorph() { ToggleMode(true); }', TOOL)
+        self.assertIn('private void ToggleMorph() { ToggleMode(true, false); }', TOOL)
         self.assertIn('morphToolButton.onClick.AddListener(ToggleMorph)', TOOL)
         self.assertIn('Input.GetKeyDown(KeyCode.M)', TOOL)
         self.assertIn('FaceMorphGizmo.Hide();', TOOL)

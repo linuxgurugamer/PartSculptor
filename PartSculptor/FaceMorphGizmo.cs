@@ -129,6 +129,26 @@ namespace PartSculptor
             if (bounds.width > 0f && bounds.height > 0f)
                 DrawMorphTip(bounds, message, style);
         }
+        // Hover help uses the same background renderer as the morph and stretch tips.
+        internal static void DrawHoverTooltip(string message, Vector2 pointer)
+        {
+            if (Event.current.type != EventType.Repaint || string.IsNullOrEmpty(message)) return;
+            GUIStyle style = new GUIStyle(ScaleUserSettings.WindowSkin(GUI.skin).box)
+            {
+                wordWrap = true,
+                alignment = TextAnchor.UpperLeft,
+                padding = new RectOffset(8, 8, 5, 5)
+            };
+            GUIContent content = new GUIContent(message);
+            float width = Mathf.Min(Screen.width, Mathf.Clamp(style.CalcSize(content).x, 120f, 320f));
+            float height = Mathf.Min(Screen.height, Mathf.Max(25f, style.CalcHeight(content, width)));
+            float x = Mathf.Clamp(pointer.x + 18f, 0f, Mathf.Max(0f, Screen.width - width));
+            float y = pointer.y + 18f;
+            if (y + height > Screen.height) y = pointer.y - height - 12f;
+            y = Mathf.Clamp(y, 0f, Mathf.Max(0f, Screen.height - height));
+            DrawMorphTip(new Rect(x, y, width, height), message, style);
+        }
+
         // IMGUI skins may use transparent box textures even when GUI.color.a is
         // 1. Draw a solid-color background ourselves, with opacity independent
         // of any inherited alpha or texture transparency. Text uses its own

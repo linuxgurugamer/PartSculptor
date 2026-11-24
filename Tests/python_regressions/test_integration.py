@@ -94,9 +94,9 @@ class TestIntegration(unittest.TestCase):
         a = json.loads((ROOT / 'PartSculptor.version').read_text())['VERSION']
         b = json.loads((ROOT / 'GameData/PartSculptor/PartSculptor.version').read_text())['VERSION']
         self.assertEqual(a, b)
-        self.assertEqual((a['MAJOR'], a['MINOR'], a['PATCH']), (0,0,4))
-        self.assertGreaterEqual(a['BUILD'], 59)
-        self.assertIn('AssemblyVersion("0.0.4.%d")' % a['BUILD'],
+        self.assertEqual((a['MAJOR'], a['MINOR'], a['PATCH']), (0,0,5))
+        self.assertGreaterEqual(a['BUILD'], 5)
+        self.assertIn('AssemblyVersion("0.0.5.%d")' % a['BUILD'],
                       (ROOT / 'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__':

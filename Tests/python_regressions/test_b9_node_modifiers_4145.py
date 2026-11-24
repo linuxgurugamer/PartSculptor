@@ -14,8 +14,8 @@ COMP=(ROOT/'PartSculptor/B9FaceMorphCompatibility.cs').read_text()
 class B9NodeModifiers4145(unittest.TestCase):
     def test_version(self):
         for p in ('PartSculptor.version','GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT/p).read_text())['VERSION']['BUILD'],148)
-        self.assertIn('AssemblyVersion("0.0.4.148")',(ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads((ROOT/p).read_text())['VERSION']['BUILD'],20)
+        self.assertIn('AssemblyVersion("0.0.5.20")',(ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
     def test_valid_node_is_not_blanket_blocked(self):
         self.assertIn('private static bool AllowsNodeModifier(',COMP)

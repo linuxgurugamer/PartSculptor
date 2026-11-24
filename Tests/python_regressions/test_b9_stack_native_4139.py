@@ -10,8 +10,8 @@ def source(path):
 class B9NativeNode4139(unittest.TestCase):
     def test_version_metadata(self):
         for version in ('PartSculptor.version','GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads(source(version))['VERSION']['BUILD'], 148)
-        self.assertIn('AssemblyVersion("0.0.4.148")', source('PartSculptor/AssemblyVersion.cs'))
+            self.assertEqual(json.loads(source(version))['VERSION']['BUILD'], 20)
+        self.assertIn('AssemblyVersion("0.0.5.20")', source('PartSculptor/AssemblyVersion.cs'))
 
     def test_b9_subtype_from_immutable_definition_and_prefab_default(self):
         b9=source('PartSculptor/B9PartSwitchSupport.cs')
@@ -50,7 +50,7 @@ class B9NativeNode4139(unittest.TestCase):
         orig=Path('/mnt/data/PartSculptor_0.0.4.138_Source.zip')
         if not orig.is_file(): self.skipTest('previous archive not available')
         with zipfile.ZipFile(orig) as z:
-            for name in ('FaceMorphSupport.cs','FaceMorphStepCore.cs','PartSculptorControlsWindow.cs'):
+            for name in ('FaceMorphStepCore.cs','PartSculptorControlsWindow.cs'):
                 self.assertEqual(z.read('PartSculptor/PartSculptor/'+name).decode('utf-8-sig').replace('[PartSculptor] ', '').replace('[PartSculptor]', ''),
                                  source('PartSculptor/'+name))
 

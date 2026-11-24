@@ -1,5 +1,20 @@
 Changelog
 
+0.0.5.20
+	Updated to exclude flags and kerbal models
+
+0.0.5.18
+	Add the ability to add vertices:
+		Insert a vertex on a triangle
+		Display and drag individual vertex handles
+		Select and move existing vertices
+		Insert vertices along edges and rings
+		Vertex deletion and topology restoration
+		Soft selection
+		Multiple vertex selection and group movement
+		Mirrored vertex editing within a part
+
+
 0.0.4.148
 	Improved support for B9partSwitch, now supports NODE and MODULE stanza
 	Fixed issue with B9PartSwitch where reloading saved craft with certain types of changes would have secondary parts loaded to the original node positions

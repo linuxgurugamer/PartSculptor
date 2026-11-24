@@ -99,7 +99,7 @@ class B9ParentVolume105(unittest.TestCase):
     def test_scale_factor_includes_morph_and_stretch_not_tweakscale_twice(self):
         self.assertIn('FaceMorphMath.VolumeFactor(GetMorphFace(0), GetMorphFace(1))', MAIN)
         self.assertIn('b9Support.ApplyBaseVolumes(part, StretchVolumeFactor,', MAIN)
-        self.assertIn('m.b9Support.ApplyBaseVolumes(m.part, m.StretchVolumeFactor, true)', MAIN)
+        self.assertIn('m.RefreshProceduralResources()', MAIN)
         self.assertIn('ScaleMath.B9BaseVolume(binding.Native, stretchVolume)', SOURCE)
         self.assertIn('ScaleParentVolume(child.Native, stretchVolume)', SOURCE)
 
@@ -122,8 +122,8 @@ class B9ParentVolume105(unittest.TestCase):
         self.assertEqual((ROOT/'README.md').read_bytes(),
                          (ROOT/'GameData/PartSculptor/README.md').read_bytes())
         for path in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT/path).read_text())['VERSION']['BUILD'], 148)
-        self.assertIn('AssemblyVersion("0.0.4.148")',
+            self.assertEqual(json.loads((ROOT/path).read_text())['VERSION']['BUILD'], 20)
+        self.assertIn('AssemblyVersion("0.0.5.20")',
                       (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__':

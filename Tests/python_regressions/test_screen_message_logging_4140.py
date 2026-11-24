@@ -19,7 +19,7 @@ class ScreenMessageLogging4140(unittest.TestCase):
         self.assertEqual([(name, count) for name, count in direct if count],
                          [('PartSculptorScreenMessages.cs', 1)])
         self.assertEqual(MAIN.count('PartSculptorScreenMessages.Post('), 3)
-        self.assertEqual(TOOL.count('PartSculptorScreenMessages.Post('), 2)
+        self.assertEqual(TOOL.count('PartSculptorScreenMessages.Post('), 3)
         self.assertIn('clicked, faceStatus', TOOL)
         self.assertIn('selectedModule.part, faceStatus', TOOL)
 
@@ -38,6 +38,16 @@ class ScreenMessageLogging4140(unittest.TestCase):
         self.assertIn('"GameData/" + url', HELPER)
         self.assertIn('"<unavailable>"', HELPER)
 
+    def test_all_message_durations_use_settings(self):
+        # All wrapper calls currently use simple arguments. Check the duration
+        # immediately before the style, rejecting constants and minimum floors.
+        for path in SRC.rglob('*.cs'):
+            calls = re.findall(r'PartSculptorScreenMessages\.Post\s*\((.*?)\);',
+                               path.read_text(), re.S)
+            for call in calls:
+                self.assertRegex(call, r',\s*Settings\.screenMessageTime\s*,\s*ScreenMessageStyle\.',
+                                 msg=f'{path.name}: {call}')
+
     def test_all_sources_and_project_entry(self):
         for label in ('"NumericTiltError"', '"ToggleFaceMorphGizmo"',
                       '"MatchFaceToParentNow"'):
@@ -49,8 +59,8 @@ class ScreenMessageLogging4140(unittest.TestCase):
 
     def test_version_and_docs(self):
         for relative in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(148, json.loads((ROOT / relative).read_text())['VERSION']['BUILD'])
-        self.assertIn('AssemblyVersion("0.0.4.148")',
+            self.assertEqual(20, json.loads((ROOT / relative).read_text())['VERSION']['BUILD'])
+        self.assertIn('AssemblyVersion("0.0.5.20")',
                       (SRC / 'AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT / 'README.md').read_bytes(),
                          (ROOT / 'GameData/PartSculptor/README.md').read_bytes())

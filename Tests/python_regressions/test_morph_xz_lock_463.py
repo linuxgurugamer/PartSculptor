@@ -62,10 +62,10 @@ class MorphXZLock463(unittest.TestCase):
         for path in (ROOT/'PartSculptor.version', ROOT/'GameData/PartSculptor/PartSculptor.version'):
             match = re.search(r'"BUILD": (\d+)', path.read_text())
             self.assertIsNotNone(match)
-            self.assertGreaterEqual(int(match.group(1)), 63)
+            self.assertGreaterEqual(int(match.group(1)), 1)
         assembly = (ROOT/'PartSculptor/AssemblyVersion.cs').read_text()
-        match = re.search(r'AssemblyVersion\("0\.0\.4\.(\d+)"\)', assembly)
+        match = re.search(r'AssemblyVersion\("0\.0\.5\.(\d+)"\)', assembly)
         self.assertIsNotNone(match)
-        self.assertGreaterEqual(int(match.group(1)), 63)
+        self.assertGreaterEqual(int(match.group(1)), 1)
 
 if __name__ == '__main__': unittest.main()

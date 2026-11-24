@@ -21,6 +21,7 @@ namespace PartSculptor
         // Default +/-2.5; maximum allowed configured magnitude remains 4.0.
         public const float DefaultMaxFaceTilt = 2.5f;
         public static float MaxFaceTilt = DefaultMaxFaceTilt;
+        public static bool GenerateVertexCollisionFallback = false;
         public static bool ScaleChildrenDefault = false;
         public static bool LockProportionsDefault = false;
         // A new face-morph part defaults to X/Z-coupled resizing.
@@ -113,6 +114,7 @@ namespace PartSculptor
                             n.TryGetValue("incrementSmall", ref IncrementSmall);
                             n.TryGetValue("incrementSlide", ref IncrementSlide);
                             n.TryGetValue("maxFaceTilt", ref MaxFaceTilt);
+                            n.TryGetValue("generateVertexCollisionFallback", ref GenerateVertexCollisionFallback);
                             n.TryGetValue("scaleChildrenDefault", ref ScaleChildrenDefault);
                             n.TryGetValue("lockProportionsDefault", ref LockProportionsDefault);
                             n.TryGetValue("lockMorphXZDefault", ref LockMorphXZDefault);
