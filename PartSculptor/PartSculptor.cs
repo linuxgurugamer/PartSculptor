@@ -592,8 +592,9 @@ namespace PartSculptor
         public override void OnWasCopied(PartModule copyPartModule, bool asSymCounterpart)
         {
             base.OnWasCopied(copyPartModule, asSymCounterpart);
+            if (IsIgnoredPart) return;
             ModulePartSculptor copy = copyPartModule as ModulePartSculptor;
-            if (copy == null || copy == this || copy.part == null || copy.part == part)
+            if (copy == null || copy == this || copy.part == null || copy.part == part || copy.IsIgnoredPart)
                 return;
             // A copied PartModule must never retain its source's morph support.
             if (ReferenceEquals(copy.faceMorph, faceMorph)) copy.faceMorph = null;
@@ -668,11 +669,46 @@ namespace PartSculptor
             Apply(true, false, false, NodeApplyReason.TweakScale);
         }
 
+        // Also protect manually patched parts and modules restored from older saves.
+        // Do not use CrewCapacity or FlagDecal: ordinary pods may have either.
+        private bool ignoredPart;
+
+        private static bool IsExcludedPartName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+            return name.StartsWith("kerbalEVA", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(name, "flag", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith("flag (", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith("flag(", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith("flagSite", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith("flagPart", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsExcludedPart(Part candidate)
+        {
+            if (candidate == null) return false;
+            if (IsExcludedPartName(candidate.name) ||
+                (candidate.partInfo != null && IsExcludedPartName(candidate.partInfo.name)))
+                return true;
+            if (candidate.Modules != null)
+                foreach (PartModule module in candidate.Modules)
+                    if (module is KerbalEVA || module is FlagSite) return true;
+            return false;
+        }
+
+        // KSP can query mass/cost before OnStart; disabling Unity callbacks alone
+        // does not prevent calls through the mass/cost modifier interfaces.
+        private bool IsIgnoredPart
+        {
+            get { return ignoredPart || (!initialized && IsExcludedPart(part)); }
+        }
+
         // ------------------------------------------------------------------ setup
 
         public override void OnLoad(ConfigNode node)
         {
             base.OnLoad(node);
+            if (IsIgnoredPart) return;
             if (node != null && node.HasValue("lockAxes")) hasSavedLockAxes = true;
             if (node != null && node.HasValue("lockMorphXZ")) hasSavedLockMorphXZ = true;
             attachmentFix.Load(node);
@@ -780,6 +816,7 @@ namespace PartSculptor
         public override void OnSave(ConfigNode node)
         {
             base.OnSave(node);
+            if (IsIgnoredPart) return;
             if (node == null) return;
             attachmentFix.Save(node, part, initialized);
             // Preserve the last FINAL morphed node pose, not merely the
@@ -900,7 +937,7 @@ namespace PartSculptor
         {
             if (!HighLogic.LoadedSceneIsEditor || placed == null) return;
             ModulePartSculptor module = placed.FindModuleImplementing<ModulePartSculptor>();
-            if (module != null)
+            if (module != null && !module.IsIgnoredPart)
             {
                 // A newly placed/re-attached part may have a different roll
                 // than the previous joint.  Never reuse its old side map.
@@ -964,6 +1001,20 @@ namespace PartSculptor
         public override void OnStart(StartState state)
         {
             base.OnStart(state);
+            if (IsIgnoredPart)
+            {
+                ignoredPart = true;
+                HideFields();
+                foreach (BaseField field in Fields) field.guiActive = false;
+                foreach (BaseEvent action in Events)
+                {
+                    action.guiActive = false;
+                    action.active = false;
+                }
+                isEnabled = false;
+                enabled = false;
+                return;
+            }
 
             model = part.transform.Find("model");
             Part prefab = part.partInfo != null ? part.partInfo.partPrefab : null;
@@ -1115,6 +1166,7 @@ namespace PartSculptor
         public override void OnStartFinished(StartState state)
         {
             base.OnStartFinished(state);
+            if (IsIgnoredPart) return;
             if (model == null || prefabNodePos == null) return;
             lastBase = BaseFactor;
             // Bind AFTER all stock/third-party modules have completed OnStart.
@@ -1339,6 +1391,7 @@ namespace PartSculptor
         // if "Scale children" is on, stretch every descendant by the same ratio.
         void CommitChange(Vector3 before, string skipLocal)
         {
+            if (IsIgnoredPart) return;
             ScaleDebug.Change(part, "axes", "requested", before, Target,
                 "proportions locked=" + lockAxes + "; children=" + scaleChildren);
             if (!ValidateScaleChange(before, skipLocal))
@@ -1431,7 +1484,7 @@ namespace PartSculptor
             {
                 if (p == null) continue;
                 ModulePartSculptor m = p.FindModuleImplementing<ModulePartSculptor>();
-                if (m == null) continue;
+                if (m == null || m.IsIgnoredPart) continue;
                 m.scaleX = scaleX; m.scaleY = scaleY; m.scaleZ = scaleZ;
                 m.lastX = scaleX; m.lastY = scaleY; m.lastZ = scaleZ;
                 m.RefreshDisplays();
@@ -1453,6 +1506,7 @@ namespace PartSculptor
         // that send, preventing a refresh cascade across a large craft.
         public void LateUpdate()
         {
+            if (IsIgnoredPart) return;
             if (!shipNotificationPending || dispatchingShipNotification ||
                 !HighLogic.LoadedSceneIsEditor ||
                 Time.frameCount < shipNotificationQueuedFrame) return;
@@ -1532,8 +1586,8 @@ namespace PartSculptor
         internal FaceMorphSupport FaceMorph { get { return faceMorph; } }
         internal bool HasFaceMorph
         {
-            get { return !FaceMorphMath.IsIdentity(GetMorphFace(0)) ||
-                !FaceMorphMath.IsIdentity(GetMorphFace(1)); }
+            get { return !IsIgnoredPart && (!FaceMorphMath.IsIdentity(GetMorphFace(0)) ||
+                !FaceMorphMath.IsIdentity(GetMorphFace(1))); }
         }
 
         internal MorphFace GetMorphFace(int face)
@@ -1627,6 +1681,7 @@ namespace PartSculptor
             groupName = GROUP, groupDisplayName = GROUP_TITLE)]
         public void ApplyNumericFaceTilt()
         {
+            if (IsIgnoredPart) return;
             if (!CanUseScaleGizmo || !EnsureFaceMorph())
             {
                 NumericTiltError("Face morph unavailable: " +
@@ -1690,6 +1745,7 @@ namespace PartSculptor
 
         internal bool EnsureFaceMorph()
         {
+            if (IsIgnoredPart) return false;
             if (faceMorph != null) return faceMorph.Valid;
             if (part == null || model == null)
             {
@@ -2353,6 +2409,7 @@ namespace PartSculptor
             groupName = GROUP, groupDisplayName = GROUP_TITLE)]
         public void ToggleScalingGizmo()
         {
+            if (IsIgnoredPart) return;
             FaceMorphGizmo.Hide();
             ScaleGizmo.Toggle(this);
         }
@@ -2370,6 +2427,7 @@ namespace PartSculptor
         // Unity IMGUI: each PartModule draws only its own window when opened.
         void OnGUI()
         {
+            if (IsIgnoredPart) return;
             if (!HighLogic.LoadedSceneIsEditor)
             {
                 scaledValuesWindow.Close();
@@ -2426,6 +2484,7 @@ namespace PartSculptor
 
         void ApplyPreset(ScalePresetDefinition definition)
         {
+            if (IsIgnoredPart) return;
             if (definition == null || !ScalePresetMath.Valid(definition)) return;
             lastAppliedPreset = definition.Name;
             lastAppliedRelative = definition.Relative;
@@ -2451,6 +2510,7 @@ namespace PartSculptor
         [KSPEvent(guiActiveEditor = true, guiName = "Reset scale", groupName = GROUP, groupDisplayName = GROUP_TITLE)]
         public void ResetScale()
         {
+            if (IsIgnoredPart) return;
             ScaleDebug.Info(part, "ui", "reset scale requested");
             Vector3 before = Target;
             scaleX = scaleY = scaleZ = 1f;
@@ -2468,7 +2528,7 @@ namespace PartSculptor
                 {
                     ModulePartSculptor module = counterpart != null ?
                         counterpart.FindModuleImplementing<ModulePartSculptor>() : null;
-                    if (module == null) continue;
+                    if (module == null || module.IsIgnoredPart) continue;
                     module.scalePreset = "1x uniform";
                     module.lastAppliedPreset = "1x uniform";
                     module.lastAppliedRelative = false;
@@ -2480,6 +2540,7 @@ namespace PartSculptor
         [KSPEvent(guiActiveEditor = true, guiName = "Swap X / Z", groupName = GROUP, groupDisplayName = GROUP_TITLE)]
         public void SwapXZ()
         {
+            if (IsIgnoredPart) return;
             ScaleDebug.Info(part, "ui", "swap X/Z requested");
             Vector3 before = Target;
             float t = scaleX; scaleX = scaleZ; scaleZ = t;
@@ -2673,6 +2734,7 @@ namespace PartSculptor
         // other mods, undo) and applies the geometry once.
         public void Update()
         {
+            if (IsIgnoredPart) return;
             if (!initialized || model == null) return;
             ScalePresetsWindow.ProcessPendingFor(this);
             ScaleGizmo.UpdateFor(this);
@@ -2943,6 +3005,7 @@ namespace PartSculptor
             groupName = GROUP, groupDisplayName = GROUP_TITLE)]
         public void MatchFaceToParentNow()
         {
+            if (IsIgnoredPart) return;
             if (!HighLogic.LoadedSceneIsEditor || part == null) return;
             AttachNode source, destination;
             string reason;
@@ -3346,6 +3409,7 @@ namespace PartSculptor
 
         public float GetModuleMass(float defaultMass, ModifierStagingSituation sit)
         {
+            if (IsIgnoredPart) return 0f;
             // KSP adds each IPartMassModifier delta to the base mass supplied
             // to THAT query (including VesselDeltaV staging snapshots). Reach
             // the prefab-anchored target without sampling the live part.mass.
@@ -3375,6 +3439,7 @@ namespace PartSculptor
 
         public float GetModuleCost(float defaultCost, ModifierStagingSituation sit)
         {
+            if (IsIgnoredPart) return 0f;
             // Anchor dry cost to the prefab, not to a possibly already-scaled
             // value returned by KSP or a dynamic part-cost modifier. Leave
             // other modules' cost deltas additive, just as for dry mass.
@@ -3717,6 +3782,7 @@ namespace PartSculptor
         // re-opening the window or adjusting an axis recomputes the list.
         internal void CollectScaledValues(List<ScaledValue> values)
         {
+            if (IsIgnoredPart) return;
             if (part == null || values == null) return;
 
             values.Add(new ScaledValue("Scale", "X axis", 1d, scaleX, "×"));
@@ -4301,7 +4367,7 @@ namespace PartSculptor
         void Apply(bool moveNeighbours, bool moveChildren, bool fireModified = true,
             NodeApplyReason reason = NodeApplyReason.User)
         {
-            if (model == null) return;
+            if (IsIgnoredPart || model == null) return;
 
             // Detect changes from symmetry, external mods, and undo. Direct
             // UI actions were validated in CommitChange(), but this path can

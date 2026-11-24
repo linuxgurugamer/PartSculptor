@@ -31,7 +31,7 @@ class DebugLogger4142(unittest.TestCase):
         self.assertIn('n.TryGetValue("debugLogChanges", ref DebugLogChanges);', settings)
 
     def test_version(self):
-        self.assertIn('AssemblyVersion("0.0.4.148")', (SOURCE/'AssemblyVersion.cs').read_text())
+        self.assertIn('AssemblyVersion("0.0.4.149")', (SOURCE/'AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__':
     unittest.main()

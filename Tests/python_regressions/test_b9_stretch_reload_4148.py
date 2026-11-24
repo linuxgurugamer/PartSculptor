@@ -14,8 +14,8 @@ MAIN = (ROOT/'PartSculptor/PartSculptor.cs').read_text()
 class B9StretchReload4148(unittest.TestCase):
     def test_version_and_manual_plan(self):
         for name in ('PartSculptor.version','GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'], 148)
-        self.assertIn('AssemblyVersion("0.0.4.148")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'], 149)
+        self.assertIn('AssemblyVersion("0.0.4.149")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertTrue((ROOT/'Tests/B9_STRETCH_RELOAD_0.0.4.148.md').is_file())
 
     def test_reload_waits_for_final_b9_node_pose(self):

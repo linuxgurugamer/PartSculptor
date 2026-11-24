@@ -1,5 +1,8 @@
 Changelog
 
+0.0.4.149
+	Excluded EVA Kerbals and flags from the ModuleManager patch and added a runtime guard
+
 0.0.4.148
 	Fixed post-load attachment alignment for stretched B9PartSwitch parts, including late node updates and one-sided stack links
 

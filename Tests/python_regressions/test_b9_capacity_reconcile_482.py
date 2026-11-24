@@ -44,6 +44,6 @@ class B9Capacity482(unittest.TestCase):
         self.assertNotIn('resourceMax.text',PART)
         self.assertIn('0.0.4.147', (ROOT/'Changelog.md').read_text())
         for filename in ('PartSculptor.version','GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT/filename).read_text())['VERSION']['BUILD'], 148)
+            self.assertEqual(json.loads((ROOT/filename).read_text())['VERSION']['BUILD'], 149)
 
 if __name__=='__main__': unittest.main()

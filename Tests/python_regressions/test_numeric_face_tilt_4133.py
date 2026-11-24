@@ -44,8 +44,8 @@ class NumericTilt133(unittest.TestCase):
 
     def test_version_and_manual_test(self):
         for p in [ROOT/'PartSculptor.version', ROOT/'GameData/PartSculptor/PartSculptor.version']:
-            self.assertEqual(json.loads(p.read_text())['VERSION']['BUILD'], 148)
-        self.assertIn('AssemblyVersion("0.0.4.148")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads(p.read_text())['VERSION']['BUILD'], 149)
+        self.assertIn('AssemblyVersion("0.0.4.149")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertTrue((ROOT/'Tests/NUMERIC_FACE_TILT_0.0.4.133.md').exists())
 
 if __name__ == '__main__': unittest.main()
