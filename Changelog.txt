@@ -15,6 +15,9 @@ Changelog
 		Mirrored vertex editing within a part
 
 
+0.0.4.149
+		Updated to exclude flags and kerbal models
+
 0.0.4.148
 	Improved support for B9partSwitch, now supports NODE and MODULE stanza
 	Fixed issue with B9PartSwitch where reloading saved craft with certain types of changes would have secondary parts loaded to the original node positions
