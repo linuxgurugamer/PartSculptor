@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using PartSculptor;
 
 internal static class Program
@@ -444,6 +445,25 @@ internal static class Program
             ScalePresetMath.Valid(new ScalePresetDefinition("bad", false, 0, 1, 1, false)))
             throw new Exception("Preset input validation failed");
         checks += 5;
+        var presets = new List<ScalePresetDefinition> {
+            new ScalePresetDefinition("1x uniform", false, 1, 1, 1, true),
+            new ScalePresetDefinition("2x uniform", false, 2, 2, 2, true),
+            new ScalePresetDefinition("Double Y", false, 1, 2, 1, true),
+            new ScalePresetDefinition("My tank", false, 2, 2, 2, false),
+            customRelative
+        };
+        if (ScalePresetMath.ResolveDisplay(presets, "2x uniform", 2, 2, 2) != "2x uniform" ||
+            ScalePresetMath.ResolveDisplay(presets, null, 2, 2, 2) != "2x uniform" ||
+            ScalePresetMath.ResolveDisplay(presets, "My tank", 2, 2, 2) != "My tank" ||
+            ScalePresetMath.ResolveDisplay(presets, "Custom", 2, 2, 2) != "Custom" ||
+            ScalePresetMath.ResolveDisplay(presets, "2x uniform", 2, 3, 2) != "Custom" ||
+            ScalePresetMath.ResolveDisplay(presets, "Deleted preset", 2, 2, 2) != "Custom" ||
+            ScalePresetMath.ResolveDisplay(presets, null, 1, 2, 1) != "Double Y" ||
+            ScalePresetMath.ResolveDisplay(presets, "Multiply Y", 1, 2, 1) != "Custom" ||
+            ScalePresetMath.ResolveDisplay(presets, null, 1.3f, 2, 1) != "Custom" ||
+            ScalePresetMath.ResolveDisplay(new List<ScalePresetDefinition>(), null, 1, 1, 1) != "1x uniform")
+            throw new Exception("Saved preset display restoration failed");
+        checks += 10;
     }
 
     private static void Nodes()
@@ -1166,10 +1186,91 @@ internal static class Program
         Equal(bottom.Total, top.Total, "opposing tilt directions have same magnitude");
     }
 
+    private static void VolumeQuad(List<int> triangles, int a, int b, int c, int d)
+    {
+        triangles.AddRange(new[] { a, b, c, a, c, d });
+    }
+
+    private static int VolumeRing(List<MorphPoint> points, double x, double y, double z,
+        double halfX, double halfZ)
+    {
+        int offset = points.Count;
+        points.AddRange(new[] {
+            new MorphPoint(x-halfX,y,z-halfZ), new MorphPoint(x+halfX,y,z-halfZ),
+            new MorphPoint(x+halfX,y,z+halfZ), new MorphPoint(x-halfX,y,z+halfZ) });
+        return offset;
+    }
+
+    private static void VolumeBox(List<MorphPoint> points, List<int> triangles,
+        double x, double y, double z, double hx, double hy, double hz)
+    {
+        int a=VolumeRing(points,x,y-hy,z,hx,hz), b=VolumeRing(points,x,y+hy,z,hx,hz);
+        VolumeQuad(triangles,a,a+1,a+2,a+3);
+        VolumeQuad(triangles,b+3,b+2,b+1,b);
+        for (int i=0;i<4;i++)
+        {
+            int j=(i+1)%4;
+            VolumeQuad(triangles,a+i,b+i,b+j,a+j);
+        }
+    }
+
+    private static void GeometricPartVolume()
+    {
+        var points=new List<MorphPoint>(); var triangles=new List<int>();
+        VolumeBox(points,triangles,0,0,0,1,1,1);
+        PartVolumeResult solid=PartVolumeCore.Measure(points,triangles);
+        Equal(solid.Volume,8d,"solid 2 m cube");
+        Equal(solid.ClosedShells,1,"solid shell count");
+        // All vertex attributes may be split at UV/normal seams.
+        var seamPoints=new List<MorphPoint>(); var seamTriangles=new List<int>();
+        foreach (int index in triangles) { seamTriangles.Add(seamPoints.Count); seamPoints.Add(points[index]); }
+        Equal(PartVolumeCore.Measure(seamPoints,seamTriangles).Volume,8d,"welded UV seams");
+        int swap=triangles[0]; triangles[0]=triangles[1]; triangles[1]=swap;
+        Equal(PartVolumeCore.Measure(points,triangles).Volume,8d,"inconsistent winding repaired");
+        // Nested shells are voids, even when their source winding agrees.
+        VolumeBox(points,triangles,0,0,0,.5,.5,.5);
+        Equal(PartVolumeCore.Measure(points,triangles).Volume,7d,"sealed hollow cube excludes inner cavity");
+        VolumeBox(points,triangles,0,0,0,.25,.25,.25);
+        Equal(PartVolumeCore.Measure(points,triangles).Volume,7.125d,"solid island inside cavity");
+        VolumeBox(points,triangles,4,0,0,.5,.5,.5);
+        Equal(PartVolumeCore.Measure(points,triangles).Volume,8.125d,"disjoint solid adds volume");
+        points.Clear(); triangles.Clear();
+        // Square hollow tube, open at both ends but with complete wall rims.
+        int ob=VolumeRing(points,0,-1,0,1,1), ot=VolumeRing(points,0,1,0,1,1);
+        int ib=VolumeRing(points,0,-1,0,.5,.5), it=VolumeRing(points,0,1,0,.5,.5);
+        for (int i=0;i<4;i++)
+        {
+            int j=(i+1)%4;
+            VolumeQuad(triangles,ob+i,ob+j,ot+j,ot+i);
+            VolumeQuad(triangles,ib+i,it+i,it+j,ib+j);
+            VolumeQuad(triangles,ob+i,ib+i,ib+j,ob+j);
+            VolumeQuad(triangles,ot+i,ot+j,it+j,it+i);
+        }
+        Equal(PartVolumeCore.Measure(points,triangles).Volume,6d,"open-ended hollow tube wall volume");
+        for (int i=0;i<points.Count;i++)
+        {
+            MorphPoint v=points[i]; points[i]=new MorphPoint(2*v.X+100,3*v.Y-50,.5*v.Z+10);
+        }
+        Equal(PartVolumeCore.Measure(points,triangles).Volume,18d,"stretched and translated tube");
+        triangles.RemoveRange(0,3);
+        PartVolumeResult open=PartVolumeCore.Measure(points,triangles);
+        Equal(open.ClosedShells,0,"open boundary is not filled");
+        Equal(open.Partial?1:0,1,"incomplete boundary identified");
+        points.Clear(); triangles.Clear();
+        VolumeBox(points,triangles,0,0,0,.5,.5,.5);
+        int offset=points.Count;
+        points.AddRange(new[] { new MorphPoint(3,0,0),new MorphPoint(3,1,0),new MorphPoint(3,0,1) });
+        triangles.AddRange(new[] { offset,offset+1,offset+2 });
+        PartVolumeResult partial=PartVolumeCore.Measure(points,triangles);
+        Equal(partial.Volume,1d,"open decorative mesh not counted");
+        Equal(partial.Partial?1:0,1,"partial results flagged");
+    }
+
     private static int Main()
     {
         try
         {
+            GeometricPartVolume();
             MFTVolume();
             RealFuelsTotalVolume();
             Scaling();

@@ -1,4 +1,4 @@
-"""v0.0.5.20 source contract and independent geometric reference checks.
+"""v0.0.5.23 source contract and independent geometric reference checks.
 
 C# Unity mesh code must still be compiled and tested in KSP: these tests
 cannot execute Mesh.SetTriangles or PhysX collision cooking.
@@ -27,8 +27,8 @@ def volume(rings):
 class ProceduralGeometry4149(unittest.TestCase):
     def test_version_and_compilation_units(self):
         for name in ('PartSculptor.version','GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(20, json.loads((ROOT/name).read_text())['VERSION']['BUILD'])
-        self.assertIn('AssemblyVersion("0.0.5.20")',
+            self.assertEqual(23, json.loads((ROOT/name).read_text())['VERSION']['BUILD'])
+        self.assertIn('AssemblyVersion("0.0.5.23")',
             (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertIn('<Compile Include="ProceduralMeshBuilder.cs" />', PROJECT)
         self.assertIn('<Compile Include="ProceduralGeometryTool.cs" />', PROJECT)

@@ -87,8 +87,8 @@ class B9SubtypeTransform4104(unittest.TestCase):
         self.assertEqual((ROOT/'README.md').read_bytes(),
                          (ROOT/'GameData/PartSculptor/README.md').read_bytes())
         for name in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'], 20)
-        self.assertIn('AssemblyVersion("0.0.5.20")',
+            self.assertEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'], 23)
+        self.assertIn('AssemblyVersion("0.0.5.23")',
                       (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__ == '__main__':

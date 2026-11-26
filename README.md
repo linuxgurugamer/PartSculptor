@@ -193,7 +193,7 @@ Click **Browse presets** in a part's PAW to see the full catalog:
 - **Absolute** presets set X/Y/Z to fixed values.
 - **Relative** presets multiply the current X/Y/Z.
 
-The PAW's **Scale preset** selector lists only absolute presets. It shows **Custom** when a part's scale has been edited by hand.
+The PAW's **Scale preset** selector lists only absolute presets. It shows **Custom** when a part's scale has been edited by hand. The selected preset and last repeat command are saved with the craft. Older craft recover a matching absolute preset from saved X/Y/Z values; unmatched scales display **Custom**. Loading a preset label never reapplies the preset.
 
 To create your own presets:
 
@@ -243,6 +243,7 @@ Science and Sandbox modes ignore these limits. Saved craft are never resized whe
 ## Compatibility and cautions
 
 - Dry mass and cost are recalculated from the part's original values. Resource capacities are updated, keeping fill levels where possible. PartSculptor does **not** automatically change engine thrust or other unrelated module stats.
+- **Part volume** in the editor and flight PAW reports the volume in cubic metres of the currently rendered, deformed model. It integrates closed mesh surfaces (welding exact coincident seam vertices), subtracts enclosed inner shells, and accounts for hollow tubes with modeled inner walls. Open, non-manifold, unreadable or skinned surfaces are not assigned a solid volume; partial readings are marked, and no closed shell means Unavailable. Multiple shells are marked approximate: overlapping solids are not Boolean-unioned, and nested shells are interpreted as alternating material and void. An interior absent from the model cannot be inferred (for example, an exterior-only fuel tank model); the value is a mesh-based estimate, not guaranteed physical material volume. This readout is independent of the existing resource, mass and cost scaling multipliers. It refreshes while the PAW is open, including after deformation and subtype changes.
 - Where scaling rules or module integrations exist, other values are adjusted too. Test B9 Part Switch, ModularFuelTanks/RealFuels, Firespitter, InterstellarFuelSwitch, docking ports, and engine effects with your particular craft and mod combination.
 - Crew capacity only increases if the part's IVA has enough seats. Stock pods do **not** gain usable seats just by growing.
 - Scaling and morphing can affect attachment placement, collisions, docking alignment, and animations. Back up important craft before major edits.

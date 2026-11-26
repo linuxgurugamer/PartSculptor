@@ -17,8 +17,8 @@ def read(name):
 class NodeHistory4138(unittest.TestCase):
     def test_version_and_project_inclusion(self):
         for name in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(20, json.loads(read(name))['VERSION']['BUILD'])
-        self.assertIn('AssemblyVersion("0.0.5.20")', read('PartSculptor/AssemblyVersion.cs'))
+            self.assertEqual(23, json.loads(read(name))['VERSION']['BUILD'])
+        self.assertIn('AssemblyVersion("0.0.5.23")', read('PartSculptor/AssemblyVersion.cs'))
         self.assertIn('<Compile Include="NodeGeometryHistory.cs" />',read('PartSculptor/PartSculptor.csproj'))
 
     def test_preserves_three_distinct_node_states_and_craft_persistence(self):

@@ -44,9 +44,9 @@ class MirroredLiveMorph111(unittest.TestCase):
         self.assertIn('other.MatchFaceFromNeighbor(this, neighborNode, joint,', MAIN)
         self.assertIn('if (CopyAttachedMorphStepsGlobal)', MAIN)
         self.assertIn('MirroredAttachedMorphSteps();', RUNNER)
-        self.assertEqual(json.loads((ROOT/'PartSculptor.version').read_text())['VERSION']['BUILD'], 20)
-        self.assertEqual(json.loads((ROOT/'GameData/PartSculptor/PartSculptor.version').read_text())['VERSION']['BUILD'], 20)
-        self.assertIn('AssemblyVersion("0.0.5.20")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+        self.assertEqual(json.loads((ROOT/'PartSculptor.version').read_text())['VERSION']['BUILD'], 23)
+        self.assertEqual(json.loads((ROOT/'GameData/PartSculptor/PartSculptor.version').read_text())['VERSION']['BUILD'], 23)
+        self.assertIn('AssemblyVersion("0.0.5.23")', (ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT/'README.md').read_bytes(), (ROOT/'GameData/PartSculptor/README.md').read_bytes())
         self.assertTrue((ROOT/'Tests/MIRRORED_ATTACHED_FACE_STEPS_0.0.4.111.md').exists())
 

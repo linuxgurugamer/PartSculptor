@@ -1,5 +1,15 @@
 Changelog
 
+0.0.5.23
+	Persist and restore selected scale preset and repeat command; recover matching absolute presets from older craft without rescaling
+
+0.0.5.22
+	Move PartVolumeCore and PartVolumeResult into existing FaceMorphCore.cs to avoid missing new source-file references
+
+0.0.5.21
+	Add read-only Part volume PAW field in editor and flight, measured from live visual mesh shells rather than collider hulls or resource multipliers
+	Subtract modeled hollow interiors, identify open/non-manifold geometry and refresh visible PAWs after geometry changes
+
 0.0.5.20
 	Exclude EVA Kerbals, planted flags and standalone flag panels from the ModuleManager patch and ModulePartSculptor runtime initialization
 	Return zero mass and cost adjustments for excluded parts

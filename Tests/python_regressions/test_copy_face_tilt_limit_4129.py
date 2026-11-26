@@ -43,8 +43,8 @@ class CopyFaceTiltLimit129(unittest.TestCase):
 
     def test_version_and_docs(self):
         for path in ['PartSculptor.version','GameData/PartSculptor/PartSculptor.version']:
-            self.assertEqual(json.loads(self.read(path))['VERSION']['BUILD'], 20)
-        self.assertIn('AssemblyVersion("0.0.5.20")', self.read('PartSculptor/AssemblyVersion.cs'))
+            self.assertEqual(json.loads(self.read(path))['VERSION']['BUILD'], 23)
+        self.assertIn('AssemblyVersion("0.0.5.23")', self.read('PartSculptor/AssemblyVersion.cs'))
         self.assertEqual(self.read('README.md'),self.read('GameData/PartSculptor/README.md'))
         self.assertIn('Copy attached',self.read('README.md'))
 

@@ -26,9 +26,9 @@ class PartSculptorRename471(unittest.TestCase):
         for p in [ROOT/'PartSculptor.version', GAME/'PartSculptor.version']:
             data = json.loads(p.read_text())
             self.assertEqual(data['NAME'], 'PartSculptor')
-            self.assertEqual(data['VERSION']['BUILD'], 20)
+            self.assertEqual(data['VERSION']['BUILD'], 23)
             self.assertEqual(data['GITHUB']['REPOSITORY'], 'PartSculptor')
-        self.assertIn('AssemblyVersion("0.0.5.20")', (SOURCE/'AssemblyVersion.cs').read_text())
+        self.assertIn('AssemblyVersion("0.0.5.23")', (SOURCE/'AssemblyVersion.cs').read_text())
 
     def test_module_identity_and_saved_data_nodes(self):
         code = (SOURCE/'PartSculptor.cs').read_text()

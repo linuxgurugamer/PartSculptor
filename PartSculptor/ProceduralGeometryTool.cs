@@ -185,10 +185,16 @@ namespace PartSculptor
 
         private static void FieldRow(string label, ref string value)
         {
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(label, GUILayout.Width(106f));
-            value = GUILayout.TextField(value, GUILayout.Width(125f));
-            GUILayout.EndHorizontal();
+            using (new GUILayout.HorizontalScope())
+            {
+                GUILayout.Label(label, GUILayout.Width(106f));
+                value = GUILayout.TextField(value, GUILayout.Width(125f));
+            }
+            using (new GUILayout.HorizontalScope())
+            {
+                GUILayout.Label(label, GUILayout.Width(106f));
+                value = GUILayout.TextField(value, GUILayout.Width(125f));
+            }
         }
 
         // The preview uses the same local geometry mapping as the existing
@@ -777,36 +783,39 @@ namespace PartSculptor
             }
             else
             {
-                GUILayout.BeginHorizontal();
-                if (GUILayout.Button("Add vertex"))
-                { addingVertex = true; addingEdgeVertex = false; status = "Click a visible surface triangle"; }
-                if (GUILayout.Button("Add edge/ring vertex"))
-                { addingVertex = true; addingEdgeVertex = true; status = "Click near a visible triangle or ring edge"; }
-                GUILayout.EndHorizontal();
-            }
-            GUI.enabled = enabled && count > 0 && !addingVertex;
-            GUILayout.BeginHorizontal();
-            GUI.enabled = enabled && selectedVertex >= 0 && selectedVertex < count && !addingVertex;
-            if (GUILayout.Button("Delete selected")) DeleteSelectedVertex(module);
-            GUI.enabled = enabled && count > 0 && !addingVertex;
-            if (GUILayout.Button("Clear vertices") && CommitVertices(new List<ProceduralVertex>()))
-            { ChooseVertex(module.ProceduralVertices, -1, false); status = "Original ring-only topology restored"; }
-            GUILayout.EndHorizontal();
-            GUI.enabled = enabled && !addingVertex && count > 0;
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Select all visible"))
-            {
-                selectedVertices.Clear();
-                for (int i = 0; i < count; ++i)
+                using (new GUILayout.HorizontalScope())
                 {
-                    Vector3 world; Transform mesh;
-                    if (module.FaceMorph.TryGetProceduralVertexWorld(i, out world, out mesh)) selectedVertices.Add(i);
+                    if (GUILayout.Button("Add vertex"))
+                    { addingVertex = true; addingEdgeVertex = false; status = "Click a visible surface triangle"; }
+                    if (GUILayout.Button("Add edge/ring vertex"))
+                    { addingVertex = true; addingEdgeVertex = true; status = "Click near a visible triangle or ring edge"; }
                 }
-                selectionIdentity = new List<ProceduralVertex>(module.ProceduralVertices);
-                SelectVertex(module.ProceduralVertices, selectedVertices.Count == 0 ? -1 : selectedVertices[selectedVertices.Count - 1]);
             }
-            if (GUILayout.Button("Deselect all")) ChooseVertex(module.ProceduralVertices, -1, false);
-            GUILayout.EndHorizontal();
+            GUI.enabled = enabled && count > 0 && !addingVertex;
+            using (new GUILayout.HorizontalScope())
+            {
+                GUI.enabled = enabled && selectedVertex >= 0 && selectedVertex < count && !addingVertex;
+                if (GUILayout.Button("Delete selected")) DeleteSelectedVertex(module);
+                GUI.enabled = enabled && count > 0 && !addingVertex;
+                if (GUILayout.Button("Clear vertices") && CommitVertices(new List<ProceduralVertex>()))
+                { ChooseVertex(module.ProceduralVertices, -1, false); status = "Original ring-only topology restored"; }
+            }
+            GUI.enabled = enabled && !addingVertex && count > 0;
+            using (new GUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Select all visible"))
+                {
+                    selectedVertices.Clear();
+                    for (int i = 0; i < count; ++i)
+                    {
+                        Vector3 world; Transform mesh;
+                        if (module.FaceMorph.TryGetProceduralVertexWorld(i, out world, out mesh)) selectedVertices.Add(i);
+                    }
+                    selectionIdentity = new List<ProceduralVertex>(module.ProceduralVertices);
+                    SelectVertex(module.ProceduralVertices, selectedVertices.Count == 0 ? -1 : selectedVertices[selectedVertices.Count - 1]);
+                }
+                if (GUILayout.Button("Deselect all")) ChooseVertex(module.ProceduralVertices, -1, false);
+            }
             GUI.enabled = enabled;
             if (selectedVertex >= 0 && selectedVertex < count)
             {
@@ -818,30 +827,31 @@ namespace PartSculptor
                 if (module.FaceMorph != null)
                     radiusSliderLimit = Mathf.Max(radiusSliderLimit,
                         (module.FaceMorph.Max - module.FaceMorph.Min).magnitude);
-                GUILayout.BeginHorizontal();
-                GUILayout.Label(HelpContent("Radius (m)", "Influence distance in part-local metres. Zero affects only the selected vertex."),
+                using (new GUILayout.HorizontalScope())
+                {
+                    GUILayout.Label(HelpContent("Radius (m)", "Influence distance in part-local metres. Zero affects only the selected vertex."),
                     GUILayout.ExpandWidth(false));
-                float slid = GUILayout.HorizontalSlider(radiusSlider, 0f, radiusSliderLimit, GUILayout.ExpandWidth(true));
-                if (slid != radiusSlider)
-                {
-                    radiusSlider = RoundRadius(slid);
-                    radiusText = FormatRadius(radiusSlider);
-                    radiusSliderLimit = Mathf.Max(radiusSliderLimit, radiusSlider);
+                    float slid = GUILayout.HorizontalSlider(radiusSlider, 0f, radiusSliderLimit, GUILayout.ExpandWidth(true));
+                    if (slid != radiusSlider)
+                    {
+                        radiusSlider = RoundRadius(slid);
+                        radiusText = FormatRadius(radiusSlider);
+                        radiusSliderLimit = Mathf.Max(radiusSliderLimit, radiusSlider);
+                    }
+                    // Size to one leading digit, decimal point and three decimals in the active skin.
+                    // Larger values remain valid and can scroll within the text field.
+                    float radiusFieldWidth = GUI.skin.textField.CalcSize(new GUIContent("0.000")).x + 4f;
+                    string oldText = radiusText;
+                    radiusText = GUILayout.TextField(radiusText, GUILayout.Width(radiusFieldWidth), GUILayout.ExpandWidth(false));
+                    radiusText = LimitRadiusText(radiusText, oldText);
+                    float typed;
+                    if (radiusText != oldText && float.TryParse(radiusText, NumberStyles.Float,
+                        CultureInfo.InvariantCulture, out typed) && ProceduralMeshBuilder.ValidInfluenceRadius(typed))
+                    {
+                        radiusSlider = typed;
+                        radiusSliderLimit = Mathf.Max(radiusSliderLimit, typed);
+                    }
                 }
-                // Size to one leading digit, decimal point and three decimals in the active skin.
-                // Larger values remain valid and can scroll within the text field.
-                float radiusFieldWidth = GUI.skin.textField.CalcSize(new GUIContent("0.000")).x + 4f;
-                string oldText = radiusText;
-                radiusText = GUILayout.TextField(radiusText, GUILayout.Width(radiusFieldWidth), GUILayout.ExpandWidth(false));
-                radiusText = LimitRadiusText(radiusText, oldText);
-                float typed;
-                if (radiusText != oldText && float.TryParse(radiusText, NumberStyles.Float,
-                    CultureInfo.InvariantCulture, out typed) && ProceduralMeshBuilder.ValidInfluenceRadius(typed))
-                {
-                    radiusSlider = typed;
-                    radiusSliderLimit = Mathf.Max(radiusSliderLimit, typed);
-                }
-                GUILayout.EndHorizontal();
                 GUILayout.Label("Slider range: 0 – " + radiusSliderLimit.ToString("0.###", CultureInfo.InvariantCulture) + " m");
                 GUI.enabled = enabled && !addingVertex;
                 float radius = 0f;
@@ -1077,12 +1087,13 @@ namespace PartSculptor
             }
             bool panelEnabled = GUI.enabled;
             GUI.enabled = panelEnabled && !IsDragging && module.FaceMorph != null && module.FaceMorph.Valid;
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Toggle(!vertexMode, HelpContent("Rings", "Edit cross-section rings with resize, height and Alt-tilt handles."), GUI.skin.button) && vertexMode)
-            { vertexMode = false; addingVertex = false; status = ""; }
-            if (GUILayout.Toggle(vertexMode, HelpContent("Vertices", "Insert, select, move or delete individual vertices; use soft selection and mirroring."), GUI.skin.button) && !vertexMode)
-            { vertexMode = true; status = ""; }
-            GUILayout.EndHorizontal();
+            using (new GUILayout.HorizontalScope())
+            {
+                if (GUILayout.Toggle(!vertexMode, HelpContent("Rings", "Edit cross-section rings with resize, height and Alt-tilt handles."), GUI.skin.button) && vertexMode)
+                { vertexMode = false; addingVertex = false; status = ""; }
+                if (GUILayout.Toggle(vertexMode, HelpContent("Vertices", "Insert, select, move or delete individual vertices; use soft selection and mirroring."), GUI.skin.button) && !vertexMode)
+                { vertexMode = true; status = ""; }
+            }
             string tooltip = HoveredHelpTooltip();
             if (vertexMode)
             {
@@ -1101,33 +1112,36 @@ namespace PartSculptor
             int count = module.ProceduralRings.Count;
             GUILayout.Label("Rings: " + count + " / " + ProceduralMeshBuilder.MaxRings +
                 "     Added visual vertices: " + module.ProceduralAddedVertices);
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Add ring")) AddRing();
-            bool oldEnabled = GUI.enabled;
-            GUI.enabled = oldEnabled && count > 0;
-            if (GUILayout.Button("Remove ring"))
+            bool oldEnabled;
+            using (new GUILayout.HorizontalScope())
             {
-                var rings = new List<ProceduralRing>(module.ProceduralRings);
-                rings.RemoveAt(selectedRing);
-                Commit(rings);
+                if (GUILayout.Button("Add ring")) AddRing();
+                 oldEnabled = GUI.enabled;
+                GUI.enabled = oldEnabled && count > 0;
+                if (GUILayout.Button("Remove ring"))
+                {
+                    var rings = new List<ProceduralRing>(module.ProceduralRings);
+                    rings.RemoveAt(selectedRing);
+                    Commit(rings);
+                }
+                if (GUILayout.Button("Clear all")) Commit(new List<ProceduralRing>());
+                GUI.enabled = oldEnabled;
             }
-            if (GUILayout.Button("Clear all")) Commit(new List<ProceduralRing>());
-            GUI.enabled = oldEnabled;
-            GUILayout.EndHorizontal();
             count = module.ProceduralRings.Count;
             if (count > 0)
             {
-                GUILayout.BeginHorizontal();
-                GUI.enabled = oldEnabled && selectedRing > 0;
-                if (GUILayout.Button("<", GUILayout.Width(32f)))
-                { --selectedRing; SyncFields(); }
-                GUI.enabled = oldEnabled;
-                GUILayout.Label("Ring " + (selectedRing + 1) + " of " + count);
-                GUI.enabled = oldEnabled && selectedRing < count - 1;
-                if (GUILayout.Button(">", GUILayout.Width(32f)))
-                { ++selectedRing; SyncFields(); }
-                GUI.enabled = oldEnabled;
-                GUILayout.EndHorizontal();
+                using (new GUILayout.HorizontalScope())
+                {
+                    GUI.enabled = oldEnabled && selectedRing > 0;
+                    if (GUILayout.Button("<", GUILayout.Width(32f)))
+                    { --selectedRing; SyncFields(); }
+                    GUI.enabled = oldEnabled;
+                    GUILayout.Label("Ring " + (selectedRing + 1) + " of " + count);
+                    GUI.enabled = oldEnabled && selectedRing < count - 1;
+                    if (GUILayout.Button(">", GUILayout.Width(32f)))
+                    { ++selectedRing; SyncFields(); }
+                    GUI.enabled = oldEnabled;
+                }
                 FieldRow("Height (%)", ref heightText);
                 FieldRow("X multiplier", ref widthText);
                 FieldRow("Z multiplier", ref depthText);

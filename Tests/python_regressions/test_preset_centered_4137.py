@@ -27,8 +27,8 @@ class PresetCentered137(unittest.TestCase):
     def test_version_and_docs(self):
         import json
         for rel in ('PartSculptor.version','GameData/PartSculptor/PartSculptor.version'):
-            self.assertEqual(20,json.loads((ROOT/rel).read_text())['VERSION']['BUILD'])
-        self.assertIn('AssemblyVersion("0.0.5.20")',(ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(23,json.loads((ROOT/rel).read_text())['VERSION']['BUILD'])
+        self.assertIn('AssemblyVersion("0.0.5.23")',(ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
         self.assertEqual((ROOT/'README.md').read_text(),(ROOT/'GameData/PartSculptor/README.md').read_text())
         self.assertIn('0.0.4.137', (ROOT/'Changelog.md').read_text())
 

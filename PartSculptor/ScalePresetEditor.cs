@@ -189,55 +189,58 @@ namespace PartSculptor
         static void DrawWindow(int id)
         {
             GUILayout.Space(24f);
-            GUILayout.BeginHorizontal();
-            GUILayout.BeginVertical(GUILayout.Width(LeftWidth));
-            GUILayout.Label("Available presets");
-            listScroll = GUILayout.BeginScrollView(listScroll, GUILayout.ExpandHeight(true));
-            foreach (ScalePresetDefinition p in snapshot)
+            using (new GUILayout.HorizontalScope())
             {
-                string key = ScalePresetRegistry.Key(p);
-                string caption = p.Name + (p.Relative ? " [relative]" : " [absolute]") +
-                    (p.BuiltIn ? "  [default]" : "");
-                if (GUILayout.Button(caption) && selectedKey != key)
-                    pendingSelection = key;
-            }
-            GUILayout.EndScrollView();
-            if (GUILayout.Button("New from current scale")) pendingAction = "New";
-            if (GUILayout.Button("Duplicate selected")) pendingAction = "Duplicate";
-            if (GUILayout.Button("Reload files")) pendingAction = "Reload";
-            GUILayout.EndVertical();
-            GUILayout.Space(10f);
-            GUILayout.BeginVertical(GUILayout.ExpandWidth(true));
-            ScalePresetDefinition selected = ScalePresetRegistry.FindByKey(selectedKey);
-            bool builtIn = selected != null && selected.BuiltIn && !creating;
-            GUILayout.Label(builtIn ? "Built-in preset (read only)" : "Custom preset");
-            if (builtIn) GUILayout.Label("Use Duplicate selected to make an editable copy.");
-            bool oldEnabled = GUI.enabled;
-            GUI.enabled = !builtIn;
-            GUILayout.Label("Name");
-            nameText = GUILayout.TextField(nameText, 64);
-            relative = GUILayout.Toggle(relative, "Multiply current axes (relative preset)");
-            GUILayout.Label(relative ? "Multipliers X / Y / Z" : "Absolute scales X / Y / Z");
-            GUILayout.BeginHorizontal();
-            GUILayout.Label("X", GUILayout.Width(18));
-            xText = GUILayout.TextField(xText, GUILayout.MinWidth(60));
-            GUILayout.Label("Y", GUILayout.Width(18));
-            yText = GUILayout.TextField(yText, GUILayout.MinWidth(60));
-            GUILayout.Label("Z", GUILayout.Width(18));
-            zText = GUILayout.TextField(zText, GUILayout.MinWidth(60));
-            GUILayout.EndHorizontal();
-            GUILayout.Space(12f);
-            if (GUILayout.Button("Save custom preset")) pendingAction = "Save";
-            GUI.enabled = oldEnabled && selected != null && !builtIn && !creating;
-            if (GUILayout.Button("Delete custom preset")) pendingAction = "Delete";
-            GUI.enabled = oldEnabled && selected != null;
-            if (GUILayout.Button("Apply selected to part")) pendingAction = "Apply";
-            GUI.enabled = oldEnabled;
-            GUILayout.FlexibleSpace();
-            GUILayout.Label(status, GUILayout.MinHeight(36));
-            if (GUILayout.Button("Close")) CloseFor(owner);
-            GUILayout.EndVertical();
-            GUILayout.EndHorizontal();
+                using (new GUILayout.VerticalScope(GUILayout.Width(LeftWidth)))
+                {
+                    GUILayout.Label("Available presets");
+                    listScroll = GUILayout.BeginScrollView(listScroll, GUILayout.ExpandHeight(true));
+                    foreach (ScalePresetDefinition p in snapshot)
+                    {
+                        string key = ScalePresetRegistry.Key(p);
+                        string caption = p.Name + (p.Relative ? " [relative]" : " [absolute]") +
+                            (p.BuiltIn ? "  [default]" : "");
+                        if (GUILayout.Button(caption) && selectedKey != key)
+                            pendingSelection = key;
+                    }
+                    GUILayout.EndScrollView();
+                    if (GUILayout.Button("New from current scale")) pendingAction = "New";
+                    if (GUILayout.Button("Duplicate selected")) pendingAction = "Duplicate";
+                    if (GUILayout.Button("Reload files")) pendingAction = "Reload";
+                }
+                GUILayout.Space(10f);
+                using (new GUILayout.VerticalScope(GUILayout.ExpandWidth(true)))
+                {
+                    ScalePresetDefinition selected = ScalePresetRegistry.FindByKey(selectedKey);
+                    bool builtIn = selected != null && selected.BuiltIn && !creating;
+                    GUILayout.Label(builtIn ? "Built-in preset (read only)" : "Custom preset");
+                    if (builtIn) GUILayout.Label("Use Duplicate selected to make an editable copy.");
+                    bool oldEnabled = GUI.enabled;
+                    GUI.enabled = !builtIn;
+                    GUILayout.Label("Name");
+                    nameText = GUILayout.TextField(nameText, 64);
+                    relative = GUILayout.Toggle(relative, "Multiply current axes (relative preset)");
+                    GUILayout.Label(relative ? "Multipliers X / Y / Z" : "Absolute scales X / Y / Z");
+                    using (new GUILayout.HorizontalScope())
+                    {
+                        GUILayout.Label("X", GUILayout.Width(18));
+                        xText = GUILayout.TextField(xText, GUILayout.MinWidth(60));
+                        GUILayout.Label("Y", GUILayout.Width(18));
+                        yText = GUILayout.TextField(yText, GUILayout.MinWidth(60));
+                        GUILayout.Label("Z", GUILayout.Width(18));
+                        zText = GUILayout.TextField(zText, GUILayout.MinWidth(60));
+                    }
+                    GUILayout.Space(12f);
+                    if (GUILayout.Button("Save custom preset")) pendingAction = "Save";
+                    GUI.enabled = oldEnabled && selected != null && !builtIn && !creating;
+                    if (GUILayout.Button("Delete custom preset")) pendingAction = "Delete";
+                    GUI.enabled = oldEnabled && selected != null;
+                    if (GUILayout.Button("Apply selected to part")) pendingAction = "Apply";
+                    GUI.enabled = oldEnabled;
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label(status, GUILayout.MinHeight(36));
+                    if (GUILayout.Button("Close")) CloseFor(owner);
+                }            }
             GUI.DragWindow();
         }
     }

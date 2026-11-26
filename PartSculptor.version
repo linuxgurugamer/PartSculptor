@@ -1,6 +1,6 @@
 {
     "NAME": "PartSculptor",
-    "URL": "https://raw.githubusercontent.com/linuxgurugamer/PartSculptor/refs/heads/main/PartSculptor.version",
+    "URL": "https://raw.githubusercontent.com/linuxgurugamer/PartSculptor/refs/heads/master/PartSculptor.version",
     "DOWNLOAD": "https://github.com/linuxgurugamer/PartSculptor/releases",
     "GITHUB": {
         "USERNAME": "linuxgurugamer",
@@ -11,7 +11,7 @@
         "MAJOR": 0,
         "MINOR": 0,
         "PATCH": 5,
-        "BUILD": 20
+        "BUILD": 23
     },
     "KSP_VERSION": {
         "MAJOR": 1,

@@ -45,7 +45,7 @@ class EditorWidgetSize458(unittest.TestCase):
 
     def test_version_at_least_458(self):
         for name in ('PartSculptor.version', 'GameData/PartSculptor/PartSculptor.version'):
-            self.assertGreaterEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'], 20)
+            self.assertGreaterEqual(json.loads((ROOT/name).read_text())['VERSION']['BUILD'], 23)
         assembly = (ROOT/'PartSculptor/AssemblyVersion.cs').read_text()
         version = json.loads((ROOT/'PartSculptor.version').read_text())['VERSION']
         expected = '0.0.%s.%s' % (version['PATCH'], version['BUILD'])

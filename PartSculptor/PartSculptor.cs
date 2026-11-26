@@ -257,6 +257,13 @@ namespace PartSculptor
             groupName = GROUP, groupDisplayName = GROUP_TITLE)]
         public string displayVolume = "1x";
 
+        [KSPField(guiActiveEditor = true, guiActive = true, guiName = "Part volume",
+            groupName = GROUP, groupDisplayName = GROUP_TITLE)]
+        public string displayPartVolume = "Calculating...";
+        private float nextPartVolumeRead;
+        private bool partVolumeWindowVisible;
+
+
         [KSPField(guiActiveEditor = true, guiName = "Dry mass",
             groupName = GROUP, groupDisplayName = GROUP_TITLE)]
         public string displayDryMass = "";
@@ -281,7 +288,7 @@ namespace PartSculptor
         // Custom entry for manual edits and relative preset applications.
         // Keep the last applied command separately so Repeat preset works for relative presets
         // selected from the full Presets window without adding them to the PAW.
-        [KSPField(guiActiveEditor = true, guiName = "Scale preset",
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Scale preset",
             groupName = GROUP, groupDisplayName = GROUP_TITLE)]
         [UI_ChooseOption(scene = UI_Scene.Editor,
             options = new string[] { "1x uniform" })]
@@ -289,6 +296,11 @@ namespace PartSculptor
 
         string lastAppliedPreset = "1x uniform";
         bool lastAppliedRelative;
+        // The PAW choice starts with only 1x in its attribute. Keep the saved
+        // identity separate until the full catalog and saved axes are ready.
+        string loadedPresetDisplay;
+        bool presetRestorePending;
+        bool refreshingPresetOptions;
         internal string LastAppliedPreset { get { return lastAppliedPreset; } }
         internal bool LastAppliedRelative { get { return lastAppliedRelative; } }
 
@@ -675,6 +687,11 @@ namespace PartSculptor
             if (IgnoreKerbalOrFlag || IsKerbalOrFlagPart(copy.part)) return;
             // Deep-copy the procedural parameters: symmetry and Alt-copies may
             // otherwise accidentally edit the source part's list of rings.
+            copy.scalePreset = scalePreset;
+            copy.loadedPresetDisplay = presetRestorePending ? loadedPresetDisplay : scalePreset;
+            copy.presetRestorePending = !copy.initialized || presetRestorePending;
+            copy.lastAppliedPreset = lastAppliedPreset;
+            copy.lastAppliedRelative = lastAppliedRelative;
             copy.proceduralRings = new List<ProceduralRing>(proceduralRings);
             copy.proceduralVertices = new List<ProceduralVertex>(proceduralVertices);
             copy.proceduralVertexVolumeFactor = proceduralVertexVolumeFactor;
@@ -765,6 +782,10 @@ namespace PartSculptor
             proceduralVertices.Clear();
             proceduralVertexVolumeFactor = 1d;
             if (node == null) return;
+            loadedPresetDisplay = node.GetValue("scalePreset");
+            presetRestorePending = true;
+            lastAppliedPreset = node.GetValue("lastAppliedPreset");
+            bool.TryParse(node.GetValue("lastAppliedRelative"), out lastAppliedRelative);
             foreach (ConfigNode ringNode in node.GetNodes(PROCEDURAL_RING_NODE))
             {
                 float height, width, depth, tiltX = 0f, tiltZ = 0f;
@@ -921,6 +942,16 @@ namespace PartSculptor
             base.OnSave(node);
             if (IgnoreKerbalOrFlag) return;
             if (node == null) return;
+            // Persist the display identity independently of the axes. Saving
+            // before initialization must not lose a pending loaded preset.
+            string savedDisplay = ScalePresetMath.ResolveDisplay(
+                ScalePresetRegistry.AbsolutePresets(),
+                presetRestorePending ? loadedPresetDisplay : scalePreset,
+                scaleX, scaleY, scaleZ);
+            node.SetValue("scalePreset", savedDisplay, true);
+            node.SetValue("lastAppliedPreset", lastAppliedPreset ??
+                (savedDisplay == "Custom" ? "1x uniform" : savedDisplay), true);
+            node.SetValue("lastAppliedRelative", lastAppliedRelative.ToString(), true);
             attachmentFix.Save(node, part, initialized);
             node.RemoveNodes(PROCEDURAL_RING_NODE);
             foreach (ProceduralRing ring in proceduralRings)
@@ -1198,6 +1229,7 @@ namespace PartSculptor
                 c.incrementSlide = Settings.IncrementSlide;
             }
             scaleX = Clamp(scaleX); scaleY = Clamp(scaleY); scaleZ = Clamp(scaleZ);
+            RestorePresetDisplay();
             lastX = scaleX; lastY = scaleY; lastZ = scaleZ;
             lastLoggedLockAxes = lockAxes;
 
@@ -1263,12 +1295,14 @@ namespace PartSculptor
                 Fields["matchNodeSizes"].OnValueModified += OnMatchNodeSizesModified;
                 Fields["matchAttachedFaces"].OnValueModified += OnMatchAttachedFacesModified;
                 Fields["copyAttachedMorphSteps"].OnValueModified += OnCopyAttachedMorphStepsModified;
+                // Install choices before the user-change callback, so loading
+                // a preset label cannot execute a scaling command.
+                RefreshPresetOptions();
                 Fields["scalePreset"].uiControlEditor.onFieldChanged = OnPresetChanged;
                 Fields["numericTiltFace"].uiControlEditor.onFieldChanged = OnNumericTiltFaceChanged;
                 Fields["numericTiltXDegrees"].uiControlEditor.onFieldChanged = OnNumericTiltInputChanged;
                 Fields["numericTiltZDegrees"].uiControlEditor.onFieldChanged = OnNumericTiltInputChanged;
                 RegisterEditorListener();
-                RefreshPresetOptions();
                 if (!string.IsNullOrEmpty(restrictedReason)) HideRestrictedControls();
             }
 
@@ -1379,6 +1413,7 @@ namespace PartSculptor
         void HideFields()
         {
             foreach (BaseField f in Fields) f.guiActiveEditor = false;
+            if (Fields["displayPartVolume"] != null) Fields["displayPartVolume"].guiActive = false;
             foreach (BaseEvent e in Events) e.guiActiveEditor = false;
         }
 
@@ -1636,6 +1671,7 @@ namespace PartSculptor
         public void LateUpdate()
         {
             if (ignoredKerbalOrFlag) return;
+            RefreshPartVolumeDisplay(); // after Update and the live geometry edits
             if (!shipNotificationPending || dispatchingShipNotification ||
                 !HighLogic.LoadedSceneIsEditor ||
                 Time.frameCount < shipNotificationQueuedFrame) return;
@@ -1677,6 +1713,22 @@ namespace PartSculptor
             }
         }
 
+        void RestorePresetDisplay()
+        {
+            scalePreset = ScalePresetMath.ResolveDisplay(ScalePresetRegistry.AbsolutePresets(),
+                presetRestorePending ? loadedPresetDisplay : scalePreset,
+                scaleX, scaleY, scaleZ);
+            // Legacy craft did not store the repeat command either. Recover
+            // the matched absolute preset, but never infer a relative command.
+            if (string.IsNullOrEmpty(lastAppliedPreset))
+            {
+                lastAppliedPreset = scalePreset == "Custom" ? "1x uniform" : scalePreset;
+                lastAppliedRelative = false;
+            }
+            presetRestorePending = false;
+            loadedPresetDisplay = null;
+        }
+
         void RefreshPresetOptions()
         {
             if (!HighLogic.LoadedSceneIsEditor || Fields == null) return;
@@ -1684,16 +1736,24 @@ namespace PartSculptor
             UI_ChooseOption choice = f != null ? f.uiControlEditor as UI_ChooseOption : null;
             if (choice == null) return;
             string[] options = ScalePresetRegistry.AbsoluteOptionNames();
-            choice.options = options;
-            if (Array.IndexOf(options, scalePreset) < 0)
-                scalePreset = Array.IndexOf(options, "1x uniform") >= 0
-                    ? "1x uniform" : options[0];
+            refreshingPresetOptions = true;
+            try
+            {
+                RestorePresetDisplay();
+                string display = scalePreset;
+                choice.options = options;
+                scalePreset = display;
+                if (Array.IndexOf(options, scalePreset) < 0)
+                    scalePreset = "Custom";
+            }
+            finally { refreshingPresetOptions = false; }
             if (part != null && part.PartActionWindow != null)
                 part.PartActionWindow.displayDirty = true;
         }
 
         void OnPresetChanged(BaseField field, object oldValue)
         {
+            if (refreshingPresetOptions || presetRestorePending || !initialized) return;
             ScalePresetDefinition selected = ScalePresetRegistry.Find(scalePreset);
             if (selected != null && !selected.Relative)
                 ApplyPreset(scalePreset);
@@ -2743,6 +2803,15 @@ namespace PartSculptor
                 Mathf.Approximately(scaleY, (float)next.Y) &&
                 Mathf.Approximately(scaleZ, (float)next.Z);
             SetPresetDisplay(matches ? definition.Name : "Custom");
+            if (part != null)
+                foreach (Part counterpart in part.symmetryCounterparts)
+                {
+                    ModulePartSculptor other = counterpart != null ?
+                        counterpart.FindModuleImplementing<ModulePartSculptor>() : null;
+                    if (other == null) continue;
+                    other.lastAppliedPreset = lastAppliedPreset;
+                    other.lastAppliedRelative = lastAppliedRelative;
+                }
         }
 
         [KSPEvent(guiActiveEditor = true, guiName = "Reset scale", groupName = GROUP, groupDisplayName = GROUP_TITLE)]
@@ -2973,6 +3042,13 @@ namespace PartSculptor
         public void Update()
         {
             if (!initialized || model == null) return;
+            // In-place reload/undo can restore only the label, with no axis
+            // change to trigger the ordinary geometry application path.
+            if (presetRestorePending && (Target - lastAcceptedScale).sqrMagnitude <= 1e-10f)
+            {
+                RestorePresetDisplay();
+                RefreshPresetOptions();
+            }
             ScalePresetsWindow.ProcessPendingFor(this);
             ScaleGizmo.UpdateFor(this);
             FaceMorphGizmo.UpdateFor(this);
@@ -4184,6 +4260,83 @@ namespace PartSculptor
                 visualEffects.AppendReport(values);
         }
 
+        // Measure only when a PAW is visible, not on every frame for every
+        // vessel part. Poll the live meshes so late stock/B9 variant switches,
+        // stretch, face morph and procedural vertex edits all appear here.
+        private void RefreshPartVolumeDisplay()
+        {
+            if (!initialized || model == null || part == null ||
+                (!HighLogic.LoadedSceneIsEditor && !HighLogic.LoadedSceneIsFlight) ||
+                (HighLogic.LoadedSceneIsEditor && Settings.HidePartSculptorPAWControls) ||
+                part.PartActionWindow == null || !part.PartActionWindow.gameObject.activeInHierarchy)
+            {
+                partVolumeWindowVisible = false;
+                return;
+            }
+            if (partVolumeWindowVisible && Time.realtimeSinceStartup < nextPartVolumeRead) return;
+            partVolumeWindowVisible = true;
+            nextPartVolumeRead = Time.realtimeSinceStartup + 0.75f;
+            string value = "Unavailable";
+            try
+            {
+                var points = new List<MorphPoint>();
+                var triangles = new List<int>();
+                bool partial = false;
+                foreach (MeshFilter filter in model.GetComponentsInChildren<MeshFilter>(false))
+                {
+                    if (filter == null) continue;
+                    MeshRenderer renderer = filter.GetComponent<MeshRenderer>();
+                    if (renderer == null || !renderer.enabled || !filter.gameObject.activeInHierarchy) continue;
+                    Mesh mesh = filter.sharedMesh;
+                    if (mesh == null || !mesh.isReadable) { partial = true; continue; }
+                    int offset = points.Count;
+                    // Compose local transforms directly: avoid world-coordinate
+                    // round-off when welding seams and rotating the whole part.
+                    Matrix4x4 toPart = Matrix4x4.identity;
+                    Transform cursor = filter.transform;
+                    while (cursor != null && cursor != part.transform)
+                    {
+                        toPart = Matrix4x4.TRS(cursor.localPosition, cursor.localRotation,
+                            cursor.localScale) * toPart;
+                        cursor = cursor.parent;
+                    }
+                    if (cursor == null) { partial = true; continue; }
+                    foreach (Vector3 vertex in mesh.vertices)
+                    {
+                        Vector3 v = toPart.MultiplyPoint3x4(vertex);
+                        points.Add(new MorphPoint(v.x, v.y, v.z));
+                    }
+                    for (int sub = 0; sub < mesh.subMeshCount; sub++)
+                    {
+                        if (mesh.GetTopology(sub) != MeshTopology.Triangles) { partial = true; continue; }
+                        foreach (int index in mesh.GetTriangles(sub)) triangles.Add(offset + index);
+                    }
+                }
+                // Skinning cannot be measured from its undeformed shared mesh.
+                foreach (SkinnedMeshRenderer renderer in model.GetComponentsInChildren<SkinnedMeshRenderer>(false))
+                    if (renderer != null && renderer.enabled && renderer.gameObject.activeInHierarchy) partial = true;
+                PartVolumeResult measurement = PartVolumeCore.Measure(points, triangles, partial);
+                double cubicMetres = measurement.Volume * Math.Abs((double)part.transform.localToWorldMatrix.determinant);
+                if (measurement.ClosedShells > 0 && Valid(cubicMetres))
+                {
+                    // General format retains useful precision for very small parts.
+                    value = cubicMetres.ToString("G5", CultureInfo.InvariantCulture) + " m³";
+                    if (measurement.Partial) value += " (partial)";
+                    else if (measurement.ClosedShells > 1) value += " (approx.)";
+                }
+            }
+            catch (Exception e)
+            {
+                if (displayPartVolume != "Unavailable")
+                    Log.Warning("Cannot measure part volume on " + part.name + ": " + e.Message);
+            }
+            if (value != displayPartVolume)
+            {
+                displayPartVolume = value;
+                part.PartActionWindow.displayDirty = true;
+            }
+        }
+
         void UpdateCalculatedValues()
         {
             string previous = displayVolume + "|" + displayDryMass + "|" +
@@ -4619,8 +4772,13 @@ namespace PartSculptor
             Vector3 newScale = Target;
             // Also track edits coming from external modules, symmetry/undo,
             // rather than solely PAW callbacks and gizmo interactions.
-            if (HighLogic.LoadedSceneIsEditor && initialized &&
-                (newScale - oldScale).sqrMagnitude > 1e-10f)
+            if (presetRestorePending)
+            {
+                RestorePresetDisplay();
+                RefreshPresetOptions();
+            }
+            else if (HighLogic.LoadedSceneIsEditor && initialized &&
+                (newScale - lastAcceptedScale).sqrMagnitude > 1e-10f)
                 SetPresetDisplay("Custom");
             Vector3 total = newScale * f;   // stretch on top of TweakScale
             // A 1x part with no face morph does not own the node geometry.

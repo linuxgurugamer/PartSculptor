@@ -42,8 +42,8 @@ class ModuleManagerExclusions498(unittest.TestCase):
 
     def test_release_metadata(self):
         for p in [ROOT/'PartSculptor.version',ROOT/'GameData/PartSculptor/PartSculptor.version']:
-            self.assertEqual(json.loads(p.read_text())['VERSION']['BUILD'], 20)
-        self.assertIn('AssemblyVersion("0.0.5.20")',(ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
+            self.assertEqual(json.loads(p.read_text())['VERSION']['BUILD'], 23)
+        self.assertIn('AssemblyVersion("0.0.5.23")',(ROOT/'PartSculptor/AssemblyVersion.cs').read_text())
 
 if __name__=='__main__':
     unittest.main()
